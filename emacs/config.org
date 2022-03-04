@@ -1,0 +1,826 @@
+:PROPERTIES:
+:ID:       D40B1E19-E77C-4926-9BEB-0298AA177E3B
+:END:
+#+TITLE: Emacs Configuration
+#+startup: folded
+
+* Package Management
+Load built-in package management system. Set up melpa, elpa and org package sources.
+#+BEGIN_SRC emacs-lisp
+(require 'package)
+
+;; Initialize package sources
+(setq package-archives '(("melpa" . "https://melpa.org/packages/")
+                         ("elpa" . "https://elpa.gnu.org/packages/")
+                         ("org" . "https://orgmode.org/elpa/")
+                         ))
+#+END_SRC
+
+Set up =use-package= to manage package configuration. Install them automatically if not present.
+#+BEGIN_SRC  emacs-lisp
+(package-initialize)
+(unless package-archive-contents (package-refresh-contents))
+
+(unless (package-installed-p 'use-package)
+  (package-install 'use-package))
+
+(require 'use-package)
+(setq use-package-always-ensure t)
+#+END_SRC
+
+* Systems basics
+#+BEGIN_SRC emacs-lisp
+(set-default-coding-systems 'utf-8)
+(setq inhibit-startup-screen t)
+(scroll-bar-mode nil)
+(tool-bar-mode -1)
+(tooltip-mode nil)
+(set-fringe-mode 8)
+(menu-bar-mode nil)
+(column-number-mode)
+(global-display-line-numbers-mode t)
+(setq help-window-select t)
+
+;; Keep buffers up to date
+(global-auto-revert-mode 1)
+
+;; Revert Dired and other buffers
+(setq global-auto-revert-non-file-buffers t)
+
+;; Remember and restore the last cursor location of opened files
+(save-place-mode 1)
+
+;; Save minibuffer's history inputs
+(setq history-length 25)
+(savehist-mode t)
+(recentf-mode t)
+
+;; Delete files into trashbin
+(setq delete-by-moving-to-trash t)
+(setq trash-directory "~/.Trash")
+
+;; Change all prompts to y or n
+(fset 'yes-or-no-p 'y-or-n-p)
+
+;; Don't create backup file automatically
+(setq make-backup-files nil)
+
+;; Define a read-only directory class
+(dir-locals-set-class-variables 'read-only '((nil . ((buffer-read-only . t)))))
+
+;; Emacs source for help system
+(setq source-directory "~/Dev/emacs-27.2")
+
+;; Associate directories with the read-only class
+(dolist (dir (list
+              "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1"
+              source-directory))
+  (dir-locals-set-directory-class (file-truename dir) 'read-only))
+
+;; Rebind bc by default `list-buffers' list buffers in another window
+(global-set-key "\C-x\C-b" 'buffer-menu)
+
+;; scroll one line at a time (less "jumpy" than defaults)
+(setq mouse-wheel-scroll-amount '(1 ((shift) . 1)))
+;; don't accelerate scrolling
+(setq mouse-wheel-progressive-speed nil)
+;; keyboard scroll one line at a time
+(setq scroll-step 1)
+
+;; Disable the visible bell
+(setq visible-bell nil)
+
+;; "C-u" is bind to `evil-scroll-up'
+(global-set-key (kbd "C-M-u") 'universal-argument)
+
+;; Auto soft-break line
+(auto-fill-mode nil)
+(global-visual-line-mode t)
+
+;; Make ESC quit prompts
+(global-set-key (kbd "<escape>") 'keyboard-escape-quit)
+
+;; Word abbreviation
+;; Dynamic abbreviation
+(setq-default abbrev-mode t)
+(read-abbrev-file "~/.emacs.d/.abbrev_defs")
+
+#+END_SRC
+
+Tabs.
+#+BEGIN_SRC emacs-lisp
+(setq-default tab-width 2)
+(setq-default evil-shift-width tab-width)
+(setq-default indent-tabs-mode nil)
+#+END_SRC
+
+Use dired to manage files
+#+BEGIN_SRC emacs-lisp
+(use-package dired
+  :ensure nil
+  :commands
+  (dired dired-jump)
+  :bind
+  (("C-x C-j" . dired-jump)))
+#+END_SRC
+
+* LaTex
+#+BEGIN_SRC emacs-lisp
+(setenv "PATH" (concat "/Library/TeX/texbin" (getenv "PATH")))
+(setq exec-path (append '("/Library/TeX/texbin") exec-path))
+#+END_SRC
+
+* Convenient Commands
+#+BEGIN_SRC emacs-lisp
+(defun copy-full-path-to-kill-ring ()
+  "Copy buffer's full path to kill ring."
+  (interactive)
+  (when buffer-file-name (kill-new (file-truename buffer-file-name))
+        (message buffer-file-name)))
+#+END_SRC
+
+* Display
+#+BEGIN_SRC emacs-lisp
+;; Full screen
+(add-to-list 'default-frame-alist '(fullscreen . maximized))
+
+;; Set up fonts for different charsets and make sure one Chinese char is as twice wide as one English char
+(defun felix/set-font (font-name cn-font-name &optional initial-size cn-font-rescale-ratio)
+  "Set different font-family for Latin and Chinese charactors."
+  (let* ((size (or initial-size 14))
+	       (ratio (or cn-font-rescale-ratio 0.0))
+	       (main (font-spec :name font-name :size size))
+	       (cn (font-spec :name cn-font-name)))
+    (set-face-attribute 'default nil :font main)
+    (dolist (charset '(kana han symbol cjk-misc bopomofo))
+      (set-fontset-font t charset cn))
+    (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
+
+(felix/set-font "Fira Code" "PingFang SC" 25 1.2)
+
+;; Test char space
+;; aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+;; 一一一一一一一一一一一一一一一一一一一一
+
+;; Automatically trim white spaces at the end of line
+(use-package ws-butler
+  :hook ((text-mode . ws-butler-mode)
+         (prog-mode . ws-butler-mode)))
+
+;; Disable line numbers for some modes
+(dolist (mode '(term-mode-hook shell-mode-hook eshell-mode-hook))
+  (add-hook mode (lambda ()
+                   (display-line-numbers-mode 0))))
+
+;; Format code while editing lisp code
+(use-package aggressive-indent
+  :hook
+  (emacs-lisp-mode . aggressive-indent-mode))
+
+;; Indicate indent level
+(require 'highlight-indent-guides)
+(add-hook 'prog-mode-hook 'highlight-indent-guides-mode)
+(setq highlight-indent-guides-method 'character)
+
+(use-package rainbow-delimiters
+  :hook
+  (prog-mode . rainbow-delimiters-mode))
+
+;; Display keybindings in minibuffer or extra buffer
+(use-package command-log-mode
+  :config
+  (global-command-log-mode t))
+
+(use-package keycast)
+(with-eval-after-load 'keycast
+  (define-minor-mode keycast-mode
+    "Show current command and its key binding in the mode line."
+    :global t
+    (if keycast-mode (add-hook 'pre-command-hook 'keycast--update t)
+      (remove-hook 'pre-command-hook 'keycast--update)))
+  (add-to-list 'global-mode-string '("" mode-line-keycast)))
+(keycast-mode)
+
+(use-package paren
+  :config
+  (set-face-attribute 'show-paren-match-expression nil
+                      :background "#363e4a")
+  (show-paren-mode 1)
+  (setq show-paren-delay 0))
+
+(use-package all-the-icons
+  :if
+  (display-graphic-p))
+
+(use-package all-the-icons-dired
+  :if
+  (display-graphic-p)
+  :hook
+  (dired-mode . all-the-icons-dired-mode)
+  (dired-mode . auto-revert-mode)
+  :custom
+  (auto-revert-verbose nil))
+
+(use-package doom-modeline
+  :init (doom-modeline-mode 1)
+  :custom ((doom-modeline-height 15)))
+
+(use-package doom-themes
+  :init
+  (load-theme 'doom-one t)
+  :config
+  (setq doom-themes-enable-bold t ; if nil, bold is universally disabled
+        doom-themes-enable-italic t) ; if nil, italics is universally disabled
+  ;; Enable flashing mode-line on errors
+  (doom-themes-visual-bell-config)
+  ;; Enable custom neotree theme (all-the-icons must be installed!)
+  (doom-themes-neotree-config)
+  ;; or for treemacs users
+  ;; (setq doom-themes-treemacs-theme "doom-atom")
+  ;; use "doom-colors" for less minimal icon theme
+  ;; (doom-themes-treemacs-config)
+  ;; Corrects (and improves) org-mode's native fontification.
+  (doom-themes-org-config))
+
+;; Whether display the modal state icon.
+;; Including `evil', `overwrite', `god', `ryo' and `xah-fly-keys', etc.
+(setq doom-modeline-modal-icon nil)
+
+(use-package emojify
+  :hook
+  (erc-mode . emojify-mode)
+  :commands
+  emojify-mode)
+
+(use-package all-the-icons-dired)
+#+END_SRC
+
+* Autosave
+#+BEGIN_SRC emacs-lisp
+(defun suppress-message-advice (old-func &rest args)
+  "Stop logging and displaying saving related messages in echo area.
+Explicitly call OLD-FUNC with ARGS"
+  (let (message-log-max)
+    (with-temp-message (or (current-message) "")
+      (apply old-func args))))
+
+(use-package super-save
+  :defer 1
+  :diminish
+  super-save-mode
+  :config
+  (super-save-mode t)
+  (advice-add 'super-save-command :around 'suppress-message-advice)
+  (setq super-save-auto-save-when-idle t))
+#+END_SRC
+
+* Edit text
+#+BEGIN_SRC emacs-lisp
+(use-package undo-tree
+  :init
+  (global-undo-tree-mode t))
+
+(require 'smartparens)
+;; Handle apostrophe and single quote in Lisp mode
+(require 'smartparens-config)
+(add-hook 'prog-mode-hook 'smartparens-mode)
+
+(defmacro def-pairs (pairs)
+  "Define functions for pairing. PAIRS is an alist of (NAME . STRING)
+conses, where NAME is the function name that will be created and
+STRING is a single-character string that marks the opening character.
+
+  (def-pairs ((paren . \"(\")
+              (bracket . \"[\"))
+
+defines the functions WRAP-WITH-PAREN and WRAP-WITH-BRACKET,
+respectively."
+  `(progn
+     ,@(cl-loop for (key . val) in pairs
+                collect
+                `(defun ,(read (concat
+                                "wrap-with-"
+                                (prin1-to-string key)
+                                "s"))
+                     (&optional arg)
+                   (interactive "p")
+                   (sp-wrap-with-pair ,val)))))
+
+(def-pairs ((paren . "(")
+            (bracket . "[")
+            (brace . "{")
+            (single-quote . "'")
+            (double-quote . "\"")
+            (back-quote . "`")
+            (star . "*")
+            (underscore . "_")))
+#+END_SRC
+
+Vim like editing. Let's become evil!
+#+BEGIN_SRC  emacs-lisp
+(use-package evil
+  :init
+  (setq evil-want-integration t)
+  (setq evil-want-keybinding nil)
+  (setq evil-want-C-u-scroll t)
+  (setq evil-want-C-i-jump t)
+  (setq evil-respect-visual-line-mode nil)
+  (setq evil-cross-lines t)
+  (setq evil-undo-system 'undo-tree)
+  (setq evil-move-cursor-back nil)
+  :config
+  (evil-mode 1)
+  (define-key evil-insert-state-map (kbd "C-g") 'evil-normal-state)
+
+  ;; Use visual line motions even outside of visual-line-mode buffers
+  (evil-global-set-key 'motion "j" 'evil-next-visual-line)
+  (evil-global-set-key 'motion "k" 'evil-previous-visual-line)
+  (evil-set-initial-state 'messages-buffer-mode 'normal)
+  (evil-set-initial-state 'dashboard-mode 'normal))
+
+(use-package evil-collection
+  :after evil
+  :config
+  (evil-collection-init)
+  (evil-collection-define-key 'normal 'dired-mode-map
+    "h" 'dired-up-directory
+    "l" 'dired-find-file))
+
+(use-package evil-surround
+  :ensure t
+  :config
+  (global-evil-surround-mode 1))
+
+;; Vim-like window navigation
+(eval-after-load "evil"
+  '(progn
+     ;; (define-key evil-normal-state-map (kbd "C-h") 'evil-window-left)
+     (define-key evil-normal-state-map (kbd "C-j") 'evil-window-down)
+     (define-key evil-normal-state-map (kbd "C-k") 'evil-window-up)
+     (define-key evil-normal-state-map (kbd "C-l") 'evil-window-right)))
+
+;; evil-leader
+;; (global-evil-leader-mode)
+;; (evil-leader/set-leader ",")
+;; (evil-leader/set-key
+;;   "e" 'find-file
+;;   "b" 'switch-to-buffer
+;;   "k" 'kill-buffer)
+
+(setq evil-insert-state-cursor '(box "light blue")
+      evil-normal-state-cursor '(box "#2196f3")
+      evil-visual-state-cursor '(box "white"))
+(set-face-attribute 'region nil
+                    :background "#666")
+
+(use-package hydra)
+
+(defhydra hydra-text-scale
+  (:timeout 4)
+  "scale text" ("j" text-scale-increase "in")
+  ("k" text-scale-decrease "out")
+  ("f" nil "finished"
+   :exit t))
+#+END_SRC
+
+* Autocompletion
+#+BEGIN_SRC emacs-lisp
+(use-package ivy
+  :init (setq ivy-re-builders-alist '((swiper . ivy--regex-plus)
+                                      (t . ivy--regex-fuzzy)))
+  :diminish
+  :bind
+  (("C-s" . swiper)
+   ("C-c f" . 'counsel-fzf)
+   :map
+   ivy-minibuffer-map ("TAB" . ivy-alt-done)
+   ("C-l" . ivy-alt-done)
+   ("C-j" . ivy-next-line)
+   ("C-k" . ivy-previous-line)
+   :map
+   ivy-switch-buffer-map ("C-j" . ivy-next-line)
+   ("C-k" . ivy-previous-line)
+   ("C-l" . ivy-done)
+   ("C-d" . ivy-switch-buffer-kill)
+   :map
+   ivy-reverse-i-search-map ("C-k" . ivy-previous-line)
+   ("C-d" . ivy-reverse-i-search-kill))
+  :config (ivy-mode 1))
+
+(setq ivy-use-selectable-prompt t)
+
+(use-package which-key
+  :init
+  (which-key-mode)
+  :diminish
+  which-key-mode
+  :config
+  (setq which-key-idle-delay 0.3))
+
+(use-package ivy-rich
+  :init
+  (ivy-rich-mode 1))
+
+(use-package ivy-prescient
+  :after
+  counsel
+  :custom
+  (ivy-prescient-enable-filtering nil)
+  :config
+  (ivy-prescient-mode 1)
+  (prescient-persist-mode 1))
+
+(use-package counsel
+  :bind
+  (("M-x" . counsel-M-x)
+   ("C-x b" . counsel-switch-buffer)
+   ("C-x C-f" . counsel-find-file)
+   :map
+   minibuffer-local-map ("C-r" . 'counsel-minibuffer-history))
+  :config
+  (counsel-mode 1))
+
+(use-package ivy-prescient
+  :after counsel
+  :config
+  (ivy-prescient-mode 1)
+  (setq ivy-prescient-retain-classic-highlighting t)
+  ;; Not explicitly set this will not use ivy's fuzzy matching by default
+  ;; Also this will not affect swiper's regex-plus method
+  (setq prescient-filter-method '(fuzzy)))
+
+;; Remember candidate frequencies across sessions
+(prescient-persist-mode 1)
+
+(use-package helpful
+  :custom
+  (counsel-describe-function-function #'helpful-callable)
+  (counsel-describe-variable-function #'helpful-variable)
+  :bind
+  ([remap describe-function] . counsel-describe-function)
+  ([remap describe-command] . helpful-command)
+  ([remap describe-variable] . counsel-describe-variable)
+  ([remap describe-key] . helpful-key))
+
+#+END_SRC
+
+* Keybindings
+#+BEGIN_SRC emacs-lisp
+(use-package general
+  :config
+  (general-create-definer rune/leader-keys
+    :keymaps '(normal insert visual emacs)
+    :prefix "SPC"
+    :global-prefix "C-SPC")
+  (general-define-key
+   :prefix
+   "C-c n"
+   "c" 'org-roam-capture
+   "f" 'org-roam-node-find
+   "i" 'org-roam-node-insert
+   "g" 'org-roam-graph)
+  (rune/leader-keys "t"
+    '(:ignore t
+              :which-key "toggles")
+    "tt" '(counsel-load-theme :which-key "choose theme")))
+#+END_SRC
+
+* Projects Management
+#+BEGIN_SRC emacs-lisp
+(use-package projectile
+  :diminish projectile-mode
+  :config
+  (projectile-mode)
+  :custom
+  ((projectile-completion-system 'ivy))
+  :bind-keymap
+  ("C-c p" . projectile-command-map)
+  :init
+  ;; NOTE: Set this to the folder where you keep your Git repos!
+  (when (file-directory-p "~/Dev")
+    (setq projectile-project-search-path '("~/Dev")))
+  (setq projectile-switch-project-action #'projectile-dired))
+
+(use-package counsel-projectile
+  :config (counsel-projectile-mode))
+#+END_SRC
+
+* Version Control
+#+BEGIN_SRC emacs-lisp
+(use-package magit
+  :custom
+  ;; variables which can be set rather than just one
+  (when (>= emacs-major-version 27)
+    (setq xref-show-definitions-function #'ivy-xref-show-defs))
+  ;; Necessary in Emacs <27. In Emacs 27 it will affect all xref-based
+  ;; commands other than xref-find-definitions (e.g. project-find-regexp)
+  ;; as well
+  (setq xref-show-xrefs-function #'ivy-xref-show-xrefs)
+  (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
+
+;; git-gutter
+(global-git-gutter-mode t)
+
+;; If you enable git-gutter-mode for some modes
+;; (add-hook 'ruby-mode-hook 'git-gutter-mode)
+
+(global-set-key (kbd "C-x C-g") 'git-gutter)
+(global-set-key (kbd "C-x v =") 'git-gutter:popup-hunk)
+
+;; Jump to next/previous hunk
+(global-set-key (kbd "C-x p") 'git-gutter:previous-hunk)
+(global-set-key (kbd "C-x n") 'git-gutter:next-hunk)
+#+END_SRC
+
+* Org Mode
+#+BEGIN_SRC emacs-lisp
+(defun org-mode-setup ()
+  "Run after `org-mode' is initiated."
+  (org-indent-mode)
+  (setq evil-auto-indent nil))
+
+(use-package org
+  :hook
+  (org-mode . org-mode-setup)
+  (org-insert-heading . evil-insert-state)
+  :config
+  (setq org-ellipsis " ▾"
+        org-hide-emphasis-markers t
+        org-M-RET-may-split-line nil
+        org-list-allow-alphabetical t
+        org-return-follows-link t
+        org-log-into-drawer t
+        org-todo-keywords '((sequence "TODO(t@)" "DOING(i!)" "|" "DONE(d@)"))
+        org-startup-folded t
+        org-cycle-include-plain-lists 'integrate
+        org-blank-before-new-entry (quote ((heading . nil)
+                                           (plain-list-item . nil)))
+        org-edit-src-content-indentation 0))
+
+(use-package org-bullets
+  :after org
+  :hook
+  (org-mode . org-bullets-mode)
+  :custom
+  (org-bullets-bullet-list '("⊛" "⊚" "◉" "☉" "◎" "○" "●")))
+
+;; Make sure org-indent face is available
+(require 'org-indent)
+
+(use-package org-download
+  :after org
+  :defer nil
+  :custom
+  (org-download-method 'directory)
+  (org-download-image-dir "images")
+  (org-download-heading-lvl nil)
+  (org-image-actual-width 300)
+  :bind
+  ("C-M-y" . org-download-clipboard)
+  :config
+  (require 'org-download))
+
+;; Drag-and-drop to `dired`
+(add-hook 'dired-mode-hook 'org-download-enable)
+
+(defun org-roam-book-template ()
+  "Create a Cornell-style book notes template for org-roam node.
+Return TEMPLATE as a string."
+  (let* ((chapters (read-number "Number of chapters: "))
+         (ch 1)
+         (template ""))
+    (while (<= ch chapters)
+      (if (<= ch 9)
+          (setq template (concat template (format "* Ch0%d.\n" ch)))
+        (setq template (concat template (format "* Ch%d.\n" ch))))
+      (setq template (concat template "** Questions [/]\n** Notes\n** Summary\n"))
+      (setq ch (1+ ch)))
+    (setq template (concat template "* General\n** Questions [/]\n** Notes\n** Summary"))
+    template))
+
+(use-package org-roam
+  :custom
+  (org-roam-directory "~/Notes/Roam")
+  (org-roam-dailies-directory "Journal/")
+  (org-roam-completion-everywhere t)
+  (org-roam-completion-system 'default)
+  (org-roam-capture-templates
+   '(("c" "Default" entry "* %?"
+      :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: folded")
+      :empty-lines-before 1
+      :unnarrowed nil)
+     ("b" "Book notes" plain (function org-roam-book-template)
+      :target (file+head "Books/%^{genre}/%<%Y%m%d%H%M%S>-${slug}.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: folded")
+      :empty-lines-before 1
+      :unnarrowed t)
+     ("o" "Outline" entry "* %?"
+      ;; ID is created at heading level, olp is placed after heading
+      :target (file+head+olp "%<%Y%m>.org" "* %t" ("%<%Y>" "%<%W>")))
+     ("d" "Day Tree" entry "* %?"
+      :target (file+datetree "%<%Y%m%d>.org" day)
+      :unnarrowed t)
+     ("w" "Week Tree" entry "* %?"
+      :target (file+datetree "%<%Y%m%d>.org" week)
+      :unnarrowed nil)
+     ("m" "Month Tree" entry "* %?"
+      :target (file+datetree "%<%Y%m%d>.org" month)
+      :unnarrowed nil)
+     ("t" "Temporary notes" entry "* %?"
+      :target (file "Fleeting/%<%Y%m%d%H%M%S>-${slug}.org")
+      :empty-lines-before 1
+      :unnarrowed t)))
+  (org-roam-dailies-capture-templates
+   '(("c" "default" entry
+      #'org-roam-capture--get-point
+      "* %?"
+      :target "Journal/%<%Y-%m-%d>"
+      :head "#+title: %<%Y-%m-%d %a>\n\[[roam:%<%Y-%B>]]\n\n")
+     ("m" "meeting" entry
+      #'org-roam-capture--get-point
+      "* %<%I:%M %p> - %^{Meeting Title}  :meetings:\n\n%?\n\n"
+      :file-name "Journal/%<%Y-%m-%d>"
+      :olp ("Log")
+      :head "#+title: %<%Y-%m-%d %a>\n\n[[roam:%<%Y-%B>]]\n\n")))
+  :config
+  (org-roam-db-autosync-mode)
+  :hook
+  (org-capture-mode . evil-insert-state))
+
+(defun org-journal-file-header-func (time)
+  "Custom function to create journal header."
+  (concat
+   (pcase org-journal-file-type
+     (`daily "#+TITLE: Daily Journal\n#+STARTUP: showeverything")
+     (`weekly "#+TITLE: Weekly Journal\n#+STARTUP: folded")
+     (`monthly "#+TITLE: Monthly Journal\n#+STARTUP: folded")
+     (`yearly "#+TITLE: Yearly Journal\n#+STARTUP: folded"))))
+
+(defun org-journal-save-entry-and-exit()
+  "Simple convenience function.
+Saves the buffer of the current day's entry and kills the window.
+Similar to `org-capturel' like behavior"
+  (interactive)
+  (save-buffer)
+  (kill-buffer-and-window))
+
+(use-package org-journal
+  :init
+  ;; Change default prefix key, needs to be set before loading
+  (setq org-journal-prefix-key "C-c j")
+  :config
+  (setq org-journal-dir "~/Notes/Journal/")
+  (setq org-journal-file-type 'weekly)
+  :custom
+  ;; Start on Monday
+  (org-journal-start-on-weekday 1)
+  (org-journal-file-header 'org-journal-file-header-func)
+  ;; YYYY-MM-DD-W{index}
+  (org-journal-file-format "%F-W%V")
+  :bind
+  (("C-c j o" . org-journal-open-current-journal-file)
+   ("C-c j n" . org-journal-new-entry)
+   ("C-c j s" . org-journal-search)
+   :map org-journal-mode-map
+   ("C-x C-s" . org-journal-save-entry-and-exit))
+  :hook
+  (org-journal-after-entry-create . org-narrow-to-element)
+  (org-journal-after-entry-create . evil-insert-state)
+  )
+#+END_SRC
+
+* Programming, LSP
+#+BEGIN_SRC emacs-lisp
+(use-package lsp-mode
+  :commands
+  (lsp lsp-deferred)
+  :init
+  (setq lsp-keymap-prefix "C-c l")
+  :hook
+  ((python-mode . lsp)
+   (c-mode . lsp)
+   (c++-mode . lsp))
+  :config
+  (lsp-enable-which-key-integration t))
+
+(defun clang-format-save-hook-for-this-buffer ()
+  "Create a buffer local save hook."
+  (add-hook 'before-save-hook
+            (lambda ()
+              (when (locate-dominating-file "." ".clang-format")
+                (clang-format-buffer))
+              ;; Continue to save.
+              nil)
+            nil
+            ;; Buffer local hook.
+            t))
+
+;; Run this for each mode you want to use the hook.
+(add-hook 'c-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
+(add-hook 'c++-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
+(add-hook 'glsl-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
+
+(use-package company
+  :after lsp-mode
+  :hook
+  (prog-mode . company-mode)
+  :bind
+  (:map company-active-map
+        ("<tab>" . company-complete-selection))
+  ;; (:map lsp-mode-map
+  ;;  ("<tab>" . company-indent-or-complete-common))
+  :custom
+  (company-minimum-prefix-length 1)
+  (company-idle-delay 0.0))
+
+;; enable Company mode in all buffers
+(add-hook 'after-init-hook 'global-company-mode)
+
+(use-package company-prescient
+  :after company
+  :config
+  (company-prescient-mode 1))
+
+(use-package company-box
+  :hook
+  (company-mode . company-box-mode))
+
+(use-package lsp-ui
+  :after lsp-mode
+  :commands
+  lsp-ui-mode
+  :custom-face
+  (lsp-ui-doc-background ((t (:background nil))))
+  (lsp-ui-doc-header ((t (:inherit (font-lock-string-face italic)))))
+  :custom
+  (lsp-ui-doc-enable t)
+  (lsp-ui-doc-alignment 'window)
+  (lsp-ui-doc-use-childframe t)
+  (lsp-ui-doc-show-with-nouse t)
+  (lsp-ui-doc-show-with-cursor t)
+  (lsp-ui-doc-header t)
+  (lsp-ui-doc-include-signature t)
+  (lsp-ui-doc-position 'top)
+  (lsp-ui-doc-border "white") ;; (face-foreground 'default))
+  (lsp-ui-sideline-enable t)
+  (lsp-ui-sideline-ignore-duplicate t)
+  (lsp-ui-sideline-show-hover t)
+  (lsp-ui-sideline-show-code-actions t)
+  (lsp-ui-sideline-update-mode 'line)
+  (lsp-lens-enable nil)
+  (lsp-headerline-breadcrumb-enable nil)
+  :hook
+  (lsp-mode . lsp-ui-mode)
+  :config
+  (setq lsp-ui-doc-use-webkit t))
+
+;; Language server
+(use-package ccls
+  :hook
+  ((c-mode c++-mode objc-mode cuda-mode) .
+   (lambda () (require 'ccls) (lsp)))
+  :config
+  (setq ccls-executable "/usr/local/bin/cmd_options_ccls.sh"))
+
+(require 'yasnippet)
+(yas-global-mode)
+
+(require 'pos-tip)
+(use-package company-quickhelp)
+(company-quickhelp-mode)
+
+(use-package flycheck)
+(setq flycheck-indication-mode 'left-fringe)
+(global-flycheck-mode)
+
+;; TODO: use directory variables to configure per project
+(add-hook 'c++-mode-hook (lambda ()
+                           (setq flycheck-gcc-language-standard "c++14")))
+(add-hook 'c++-mode-hook (lambda ()
+                           (setq flycheck-clang-language-standard "c++14")))
+
+(use-package mic-paren)
+
+(use-package lsp-ivy
+  :commands
+  lsp-ivy-workspace-symbol
+  :config
+  ;; Reset `lsp-ui-doc-background' after loading theme
+  (add-hook 'after-load-theme-hook (lambda ()
+                                     (setq lsp-ui-doc-border (face-foreground 'default))
+                                     (set-face-background 'lsp-ui-doc-background (face-background
+                                                                                  'tooltip)))))
+
+;; Boxes comment
+;; Site: https://boxes.thomasjensen.com/
+(defun boxes-create ()
+  "Convert a region into box comments specified by `-d' option."
+  (interactive)
+  (shell-command-on-region (region-beginning)
+                           (region-end) "boxes -d c-cmt2" nil 1 nil))
+
+(defun boxes-remove ()
+  "Convert a region of box comments into plain code."
+  (interactive)
+  (shell-command-on-region (region-beginning)
+                           (region-end) "boxes -r -d c-cmt2" nil 1 nil))
+#+END_SRC
