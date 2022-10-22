@@ -2,7 +2,8 @@
   "global": {
     "check_for_updates_on_startup": true,
     "show_in_menu_bar": true,
-    "show_profile_name_in_menu_bar": false
+    "show_profile_name_in_menu_bar": false,
+    "unsafe_ui": false
   },
   "profiles": [
     {
@@ -197,6 +198,30 @@
             ]
           },
           {
+            "description": "Combine left_option and tilde to function as esc",
+            "manipulators": [
+              {
+                "from": {
+                  "key_code": "grave_accent_and_tilde",
+                  "modifiers": {
+                    "mandatory": [
+                      "left_option"
+                    ],
+                    "optional": [
+                      "any"
+                    ]
+                  }
+                },
+                "to": [
+                  {
+                    "key_code": "escape"
+                  }
+                ],
+                "type": "basic"
+              }
+            ]
+          },
+          {
             "description": "Change left_shift to caps_lock if pressed alone",
             "manipulators": [
               {
@@ -268,7 +293,8 @@
                 }
               ]
             }
-          ]
+          ],
+          "treat_as_built_in_keyboard": false
         },
         {
           "disable_built_in_keyboard_if_exists": false,
@@ -342,7 +368,8 @@
                 }
               ]
             }
-          ]
+          ],
+          "treat_as_built_in_keyboard": false
         },
         {
           "disable_built_in_keyboard_if_exists": false,
@@ -416,7 +443,8 @@
                 }
               ]
             }
-          ]
+          ],
+          "treat_as_built_in_keyboard": false
         },
         {
           "disable_built_in_keyboard_if_exists": false,
@@ -429,7 +457,8 @@
           },
           "ignore": false,
           "manipulate_caps_lock_led": true,
-          "simple_modifications": []
+          "simple_modifications": [],
+          "treat_as_built_in_keyboard": false
         },
         {
           "disable_built_in_keyboard_if_exists": false,
@@ -442,7 +471,8 @@
           },
           "ignore": true,
           "manipulate_caps_lock_led": true,
-          "simple_modifications": []
+          "simple_modifications": [],
+          "treat_as_built_in_keyboard": false
         },
         {
           "disable_built_in_keyboard_if_exists": false,
@@ -455,7 +485,99 @@
           },
           "ignore": true,
           "manipulate_caps_lock_led": true,
-          "simple_modifications": []
+          "simple_modifications": [],
+          "treat_as_built_in_keyboard": false
+        },
+        {
+          "disable_built_in_keyboard_if_exists": false,
+          "fn_function_keys": [],
+          "identifiers": {
+            "is_keyboard": true,
+            "is_pointing_device": false,
+            "product_id": 832,
+            "vendor_id": 1452
+          },
+          "ignore": false,
+          "manipulate_caps_lock_led": true,
+          "simple_modifications": [],
+          "treat_as_built_in_keyboard": false
+        },
+        {
+          "disable_built_in_keyboard_if_exists": false,
+          "fn_function_keys": [],
+          "identifiers": {
+            "is_keyboard": false,
+            "is_pointing_device": true,
+            "product_id": 832,
+            "vendor_id": 1452
+          },
+          "ignore": true,
+          "manipulate_caps_lock_led": false,
+          "simple_modifications": [],
+          "treat_as_built_in_keyboard": false
+        },
+        {
+          "disable_built_in_keyboard_if_exists": false,
+          "fn_function_keys": [],
+          "identifiers": {
+            "is_keyboard": true,
+            "is_pointing_device": false,
+            "product_id": 835,
+            "vendor_id": 1452
+          },
+          "ignore": false,
+          "manipulate_caps_lock_led": true,
+          "simple_modifications": [],
+          "treat_as_built_in_keyboard": false
+        },
+        {
+          "disable_built_in_keyboard_if_exists": false,
+          "fn_function_keys": [],
+          "identifiers": {
+            "is_keyboard": false,
+            "is_pointing_device": true,
+            "product_id": 835,
+            "vendor_id": 1452
+          },
+          "ignore": true,
+          "manipulate_caps_lock_led": false,
+          "simple_modifications": [],
+          "treat_as_built_in_keyboard": false
+        },
+        {
+          "disable_built_in_keyboard_if_exists": true,
+          "fn_function_keys": [],
+          "identifiers": {
+            "is_keyboard": true,
+            "is_pointing_device": false,
+            "product_id": 33,
+            "vendor_id": 1278
+          },
+          "ignore": false,
+          "manipulate_caps_lock_led": true,
+          "simple_modifications": [
+            {
+              "from": {
+                "key_code": "escape"
+              },
+              "to": [
+                {
+                  "key_code": "grave_accent_and_tilde"
+                }
+              ]
+            },
+            {
+              "from": {
+                "key_code": "grave_accent_and_tilde"
+              },
+              "to": [
+                {
+                  "key_code": "escape"
+                }
+              ]
+            }
+          ],
+          "treat_as_built_in_keyboard": false
         }
       ],
       "fn_function_keys": [
@@ -586,6 +708,16 @@
       },
       "selected": true,
       "simple_modifications": [
+        {
+          "from": {
+            "key_code": "caps_lock"
+          },
+          "to": [
+            {
+              "key_code": "left_control"
+            }
+          ]
+        },
         {
           "from": {
             "key_code": "right_shift"
