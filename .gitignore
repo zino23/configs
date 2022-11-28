@@ -1,0 +1,29 @@
+# MacOS
+**/.DS_Store
+
+# Emacs
+**/\#*
+**/.\#*
+emacs/.cache
+emacs/.emacs.desktop
+emacs/.lsp-session-v1
+emacs/.org-id-locations
+emacs/auto-save-list
+emacs/autosave
+emacs/backup
+emacs/bookmarks
+emacs/eln-cache
+emacs/rime
+emacs/elpa
+emacs/history
+**/*-notes.org
+emacs/nov-places
+emacs/places
+emacs/projectile-bookmarks.eld
+emacs/projectile.cache
+emacs/projects
+emacs/recentf
+emacs/tramp
+emacs/transient
+emacs/url
+emacs/var
