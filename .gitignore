@@ -17,6 +17,7 @@ emacs/rime
 emacs/elpa
 emacs/history
 **/*-notes.org
+emacs/manually_installed
 emacs/nov-places
 emacs/places
 emacs/projectile-bookmarks.eld
