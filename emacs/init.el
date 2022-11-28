@@ -129,13 +129,13 @@
 (defun zino/set-font (font-name cn-font-name &optional initial-size cn-font-rescale-ratio)
   "Set different font-family for Latin and Chinese charactors."
   (let* ((size (or initial-size 14))
-	     (ratio (or cn-font-rescale-ratio 0       . 0))
+	     (ratio (or cn-font-rescale-ratio 0.0))
 	     (main (font-spec :name font-name :size size))
 	     (cn (font-spec :name cn-font-name)))
     (set-face-attribute 'default nil :font main)
     (dolist (charset '(kana han symbol cjk-misc bopomofo))
       (set-fontset-font t charset cn))
-    (setq face-font-rescale-alist (if (/= ratio 0 . 0) `((,cn-font-name . ,ratio)) nil))))
+    (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
 
 (zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 21 1)
 
@@ -146,8 +146,6 @@
 (use-package ws-butler
   :config
   (ws-butler-global-mode))
-
-;;(add-hook 'before-save-hook #'untabify)
 
 ;; Disable line numbers for some modes
 (dolist (mode '(term-mode-hook shell-mode-hook eshell-mode-hook pdf-view-mode-hook))
@@ -167,8 +165,8 @@
   (setq highlight-indent-guides-method 'character))
 
 (use-package rainbow-delimiters
-  :init
-  (rainbow-delimiters-mode))
+  :config
+  (rainbow-delimiters-mode +1))
 
 ;; Display keybindings in another buffer
 (use-package command-log-mode
@@ -336,19 +334,19 @@ respectively             . "
 
 (use-package ivy
   :init (setq ivy-re-builders-alist '(;; (swiper . ivy--regex-plus)
-                                      (t         . ivy--regex-fuzzy)))
+                                      (t . ivy--regex-fuzzy)))
   :diminish
   :bind
-  (("s-s"                                        . swiper)
-   ("C-c f"                                      . 'counsel-fzf)
+  (("s-s" . swiper)
+   ;; ("C-c f" . counsel-fzf)
    :map ivy-minibuffer-map
-   ("TAB"                                        . ivy-alt-done)
+   ("TAB" . ivy-alt-done)
    :map
    ivy-switch-buffer-map
-   ("C-d"                                        . ivy-switch-buffer-kill)
+   ("C-d" . ivy-switch-buffer-kill)
    :map
    ivy-reverse-i-search-map
-   ("C-d"                                        . ivy-reverse-i-search-kill))
+   ("C-d" . ivy-reverse-i-search-kill))
   :config (ivy-mode 1)
   (define-key ivy-minibuffer-map [remap ivy-restrict-to-matches] (lambda () (interactive)))
   )
@@ -363,8 +361,8 @@ respectively             . "
   :diminish
   which-key-mode
   :config
-  (setq which-key-idle-delay 0 . 1)
-  (setq which-key-idle-secondary-delay 0 . 05))
+  (setq which-key-idle-delay 0.1)
+  (setq which-key-idle-secondary-delay 0.05))
 
 (use-package ivy-rich
   :init
@@ -518,7 +516,7 @@ respectively             . "
   (org-block-begin-line ((t (:inherit all-faces :foreground "#5B6268"))))
   (org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
   (org-code ((t (:inherit nil :foreground "#da8548"))))
-  (org-document-title ((t (:foreground "#c678dd" :weight bold :height 1 . 2 :family "Iosevka"))))
+  (org-document-title ((t (:foreground "#c678dd" :weight bold :height 1.2 :family "Iosevka"))))
   (org-id-link-to-org-use-id 'create-if-interactive))
 
 (use-package org-bullets
@@ -795,7 +793,7 @@ Similar to `org-capture' like behavior"
 (setq indicate-buffer-boundaries t
       indicate-empty-lines nil)
 
-(setq echo-keystrokes 0 . 01)
+(setq echo-keystrokes 0.01)
 
 (setq scroll-margin 0
       scroll-preserve-screen-position t
@@ -825,7 +823,7 @@ Similar to `org-capture' like behavior"
   :config
   (beacon-mode)
   :custom
-  (beacon-blink-delay 0 . 2)
+  (beacon-blink-delay 0.2)
   (beacon-color "#a8dadc")
   (beacon-size 50))
 
@@ -856,7 +854,7 @@ Similar to `org-capture' like behavior"
 (setq bookmark-default-file (concat user-emacs-directory "bookmarks"))
 
 ;; registers
-(setq register-preview-delay 0 . 2)
+(setq register-preview-delay 0.2)
 ;; end_mastering_emacs
 
 (setq ivy-use-virtual-buffers nil)
@@ -906,6 +904,7 @@ Similar to `org-capture' like behavior"
   :config
   (global-company-mode)
   ;;(setq company-backends (mapcar #'company-mode/backend-with-yas company-backends))
+  (setq company-backends (mapcar #'company-mode/backend-with-yas company-backends))
   )
 
 (global-set-key (kbd "M-.") #'company-show-doc-buffer)
@@ -918,7 +917,7 @@ Similar to `org-capture' like behavior"
     (append (if (consp backend) backend (list backend))
             '(:with company-yasnippet))))
 
-(setq company-backends (mapcar #'company-mode/backend-with-yas company-backends))
+
 ;;; end_company_mode
 (use-package fzf
   :bind
@@ -1292,7 +1291,7 @@ point reaches the beginning or end of the buffer, stop there  . "
   (lsp-ui-doc-include-signature t)
   (lsp-ui-doc-position 'top)
   (lsp-ui-doc-border "#3d4554");;"#51afef") ;;"white")  ;; (face-foreground 'default)
-  (lsp-ui-doc-delay 0 . 2)
+  (lsp-ui-doc-delay 0.2)
 
   ;; lsp-ui-sideline
   (lsp-ui-sideline-mode t)
@@ -1326,12 +1325,12 @@ point reaches the beginning or end of the buffer, stop there  . "
 
 (use-package eglot
   :config
-  (add-to-list 'eglot-server-programs '(c++-mode                               . ("clangd")))
-  (add-to-list 'eglot-server-programs '(perl-mode . ("/usr/local/Cellar/perl/5 . 34.0/lib/perl5/site_perl/5.34.0/Perl/LanguageServer.pm")))
-  (add-to-list 'eglot-server-programs '(c-mode                                 . ("clangd")))
-  (add-to-list 'eglot-server-programs '(cmake-mode                             . ("/home/cs144/.local/bin/cmake-language-server")))
-  (add-to-list 'eglot-server-programs '((js-mode typescript-mode)              . (eglot-deno "deno" "lsp")))
-  (add-to-list 'eglot-server-programs '(lua-mode                               . ("/usr/local/Cellar/lua-language-server/3.5.2/libexec/bin/lua-language-server")))
+  (add-to-list 'eglot-server-programs '(c++-mode . ("clangd")))
+  (add-to-list 'eglot-server-programs '(perl-mode . ("/usr/local/Cellar/perl/5.34.0/lib/perl5/site_perl/5.34.0/Perl/LanguageServer.pm")))
+  (add-to-list 'eglot-server-programs '(c-mode . ("clangd")))
+  (add-to-list 'eglot-server-programs '(cmake-mode . ("/home/cs144/.local/bin/cmake-language-server")))
+  (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp")))
+  (add-to-list 'eglot-server-programs '(lua-mode . ("/usr/local/Cellar/lua-language-server/3.5.2/libexec/bin/lua-language-server")))
   (add-to-list 'eglot-server-programs '(rust-mode . ("/usr/local/bin/rust-analyzer")))
 
   (defclass eglot-deno (eglot-lsp-server) ()
@@ -1356,29 +1355,9 @@ point reaches the beginning or end of the buffer, stop there  . "
   (typescript-mode . eglot-ensure)
   )
 
-(defun clang-format-save-hook-for-this-buffer ()
-  "Create a buffer local save hook            . "
-  (add-hook 'before-save-hook
-            (lambda ()
-              (when (locate-dominating-file " . " ".clang-format")
-                (clang-format-buffer))
-              ;; Continue to save.
-              nil)
-            ;; Default depth of 0
-            nil
-            ;; Buffer local hook.
-            t))
-
-;; Run this for each mode you want to use the hook.
-(add-hook 'c-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
-(add-hook 'c++-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
-
 ;; (add-to-list 'load-path (concat (getenv "GOPATH")  "/src/golang . org/x/lint/misc/emacs/"))
 ;; (require 'golint)
 ;; end_lsp
-
-;; enable Company mode in all buffers
-;;(add-hook 'after-init-hook 'global-company-mode)
 
 (use-package company-prescient
   :after company
@@ -1581,7 +1560,7 @@ point reaches the beginning or end of the buffer, stop there  . "
 
 ;; begin_anki_editor
 (defun zino/anki-editor-reset-cloze-num ()
-  "Reset cloze number of current card to 1 . "
+  "Reset cloze number of current card to 1."
   (interactive)
   (setq anki-editor-cur-cloze-num 1))
 
@@ -1594,7 +1573,7 @@ Automatically increase cloze number"
   (setq anki-editor-cur-cloze-num (1+ anki-editor-cur-cloze-num)))
 
 (defun zino/anki-editor-cloze-region-not-incr ()
-  "Cloze active region or word under corsor without hint .
+  "Cloze active region or word under corsor without hint.
 Do not increase cloze number"
   (interactive)
   (anki-editor-cloze-dwim anki-editor-cur-cloze-num "")
@@ -1625,11 +1604,11 @@ Do not increase cloze number"
 ;; end_anki_editor
 
 (custom-set-faces
- ;; custom-set-faces was added by Custom                                           .
- ;; If you edit it by hand, you could mess it up, so be careful                    .
- ;; Your init file should contain only one such instance                           .
- ;; If there is more than one, they won't work right                               .
- '(company-tooltip-quick-access ((t (:inherit company-tooltip-annotation :height 2 . 0))))
+ ;; custom-set-faces was added by Custom
+ ;; If you edit it by hand, you could mess it up, so be careful
+ ;; Your init file should contain only one such instance
+ ;; If there is more than one, they won't work right
+ '(company-tooltip-quick-access ((t (:inherit company-tooltip-annotation :height 2.0))))
  '(cursor ((t (:background "#51afef"))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
  '(highlight-indent-guides-character-face ((t (:foreground "#3c3c42414e4d"))))
@@ -1644,28 +1623,34 @@ Do not increase cloze number"
  '(org-document-title ((t (:foreground "#c678dd" :weight bold :height 1.2 :family "Iosevka"))))
  '(org-link ((t (:inherit link :foreground "#51afef" :family "Iosevka"))))
  '(org-remark-highlighter ((t (:background "#023047"))))
+ '(org-level-1 ((t (:inherit outline-1 :extend nil :height 1.3 :width normal :family "Iosevka"))))
+ '(org-level-2 ((t (:inherit outline-2 :extend nil :height 1.2 :width normal :family "Iosevka"))))
+ '(org-level-3 ((t (:inherit outline-3 :extend nil :height 1.1 :width normal :family "Iosevka"))))
+ '(org-level-4 ((t (:inherit outline-4 :extend nil :height 1.05 :width normal :family "Iosevka"))))
+ '(org-level-5 ((t (:inherit outline-5 :extend nil :height 1.0 :width normal :family "Iosevka"))))
+ '(org-level-6 ((t (:inherit outline-6 :extend nil :height 1.0 :width normal :family "Iosevka"))))
  '(org-verbatim ((t (:foreground "#98be65"))))
  '(paren-face-match ((t (:foreground "#ff6c6b" :weight ultra-bold))))
- '(tooltip ((t (:background "#21242b" :foreground "#bbc2cf" :height 1              . 0))))
+ '(tooltip ((t (:background "#21242b" :foreground "#bbc2cf" :height 1.0))))
  '(variable-pitch ((t (:family "ETBembo" :height 250 :weight regular)))))
 
 ;;; init . el ends here
 (custom-set-variables
- ;; custom-set-variables was added by Custom                    .
- ;; If you edit it by hand, you could mess it up, so be careful .
- ;; Your init file should contain only one such instance        .
- ;; If there is more than one, they won't work right            .
+ ;; custom-set-variables was added by Custom
+ ;; If you edit it by hand, you could mess it up, so be careful
+ ;; Your init file should contain only one such instance
+ ;; If there is more than one, they won't work right
  '(comment-style 'indent)
- '(company-box-doc-delay 0                                      . 2)
+ '(company-box-doc-delay 0.2)
  '(company-quickhelp-color-foreground nil)
- '(company-quickhelp-delay 0                                    . 01)
+ '(company-quickhelp-delay 0.01)
  '(company-quickhelp-mode t)
  '(company-quickhelp-use-propertized-text t)
  '(dired-create-destination-dirs 'always)
  '(dirvish-header-style 'normal)
- '(dirvish-preview-width 0                                      . 4)
+ '(dirvish-preview-width 0.4)
  '(display-line-numbers-width nil)
- '(eldoc-idle-delay 0                                           . 1)
+ '(eldoc-idle-delay 0.1)
  '(git-gutter:added-sign "+")
  '(git-gutter:deleted-sign "-")
  '(git-gutter:modified-sign "~")
@@ -1690,7 +1675,7 @@ Do not increase cloze number"
  '(paren-display-message 'always)
  '(pdf-view-continuous t)
  '(pdf-view-display-size 'fit-page)
- '(pdf-view-resize-factor 1                                     . 1)
+ '(pdf-view-resize-factor 1.1)
  '(popper-group-function 'popper-group-by-projectile)
  '(rime-cursor "˰")
  '(rime-posframe-style 'vertical)
@@ -1717,10 +1702,10 @@ Do not increase cloze number"
 ;; lua mode
 (add-to-list 'load-path "~/ . emacs.d/manually_installed/lua-mode")
 (autoload 'lua-mode "lua-mode" "Lua editing mode . " t)
-(add-to-list 'auto-mode-alist '("\\              . lua$" . lua-mode))
-(add-to-list 'auto-mode-alist '("\\              . t$" . perl-mode))
+(add-to-list 'auto-mode-alist '("\\.lua$" . lua-mode))
+(add-to-list 'auto-mode-alist '("\\.t$" . perl-mode))
 (add-to-list 'interpreter-mode-alist '("lua"     . lua-mode))
-(add-to-list 'auto-mode-alist '("Makefile        . *" . makefile-mode))
+(add-to-list 'auto-mode-alist '("Makefile.*" . makefile-mode))
 
 (add-hook 'conf-mode-hook (lambda ()
                             "Set tab width to four spacess."
