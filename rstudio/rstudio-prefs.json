@@ -1,0 +1,14 @@
+{
+    "jobs_tab_visibility": "shown",
+    "initial_working_directory": "~",
+    "editor_theme": "Material",
+    "posix_terminal_shell": "bash",
+    "editor_keybindings": "emacs",
+    "default_project_location": "~/Dev",
+    "new_proj_git_init": true,
+    "document_author": "Zino",
+    "rmd_viewer_type": "pane",
+    "rmd_preferred_template_path": "/Users/zino/Library/R/x86_64/4.2/library/xaringan/rmarkdown/templates/xaringan_zh-CN",
+    "help_font_size_points": 14,
+    "font_size_points": 14
+}

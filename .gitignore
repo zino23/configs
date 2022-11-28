@@ -28,3 +28,7 @@ emacs/tramp
 emacs/transient
 emacs/url
 emacs/var
+
+clash
+base16-shell
+fish

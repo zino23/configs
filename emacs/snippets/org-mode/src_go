@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: src_go
+# key: sgo
+# --
+
+src_go{ $0 }
