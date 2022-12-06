@@ -163,9 +163,16 @@
   :config
   (setq highlight-indent-guides-method 'character))
 
+(use-package rainbow-mode
+  :hook
+  (prog-mode . rainbow-mode)
+  (lispy-data-mode . rainbow-mode))
+
 (use-package rainbow-delimiters
-  :config
-  (rainbow-delimiters-mode +1))
+  :hook
+  (prog-mode . rainbow-delimiters-mode)
+  (lispy-data-mode . rainbow-delimiters-mode)
+  (debugger-mode . rainbow-delimiters-mode))
 
 ;; Display keybindings in another buffer
 (use-package command-log-mode
@@ -809,10 +816,6 @@ Similar to `org-capture' like behavior"
   :weight 'normal
   :width 'normal
   :slant 'normal))
-
-(use-package rainbow-mode
-  :config
-  (rainbow-mode 1))
 
 (setq company-box-backends-colors '((company-yasnippet . (:all "#457b9d" :selected (:foreground "#1d3557" :background "#457b9d")))))
 
