@@ -96,7 +96,6 @@
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
 
 ;; Word abbreviation
-;; Dynamic abbreviation
 (setq-default abbrev-mode t)
 (setq abbrev-file-name "~/.config/emacs/.abbrev_defs")
 (setq save-abbrevs 'silently)
@@ -267,15 +266,15 @@
 (sp-pair "{" "}" :wrap "C-{")
 
 (defmacro def-pairs (pairs)
-  "Define functions for pairing                                      . PAIRS is an alist of (NAME . STRING)
+  "Define functions for pairing. PAIRS is an alist of (NAME . STRING)
 conses, where NAME is the function name that will be created and
-STRING is a single-character string that marks the opening character .
+STRING is a single-character string that marks the opening character.
 
   (def-pairs ((paren . \"(\")
               (bracket . \"[\")))
 
 defines the functions WRAP-WITH-PAREN and WRAP-WITH-BRACKET,
-respectively             . "
+respectively."
   `(progn
      ,@(cl-loop for (key . val) in pairs
                 collect
@@ -492,7 +491,7 @@ respectively             . "
 	    org-todo-keywords '((sequence "TODO(t!)" "DOING(i@/!)" "QUESTION(n@/!)" "|" "DONE(d@)" "POSTPONED(p@)" "DELEGATED(g@)" "CANCELED(c@)"))
 	    org-startup-folded t
 	    org-cycle-include-plain-lists 'integrate
-	    org-blank-before-new-entry (quote ((heading                     . nil)
+	    org-blank-before-new-entry (quote ((heading . nil)
 					                       (plain-list-item . nil)))
 	    org-edit-src-content-indentation 0
         org-catch-invisible-edits 'show-and-error
@@ -546,17 +545,17 @@ respectively             . "
 (add-hook 'dired-mode-hook 'org-download-enable)
 
 (defun org-roam-book-template ()
-  "Create a Cornell-style book notes template for org-roam node .
-Return TEMPLATE as a string                                     . "
+  "Create a Cornell-style book notes template for org-roam node.
+Return TEMPLATE as a string. "
   (let* ((chapters (read-number "Number of chapters: "))
-	 (ch 1)
-	 (template ""))
+	     (ch 1)
+	     (template ""))
     (while (<= ch chapters)
-(if (<= ch 9)
-	  (setq template (concat template (format "* Ch0%d          . \n" ch)))
-	(setq template (concat template (format "* Ch%d             . \n" ch))))
-(setq template (concat template "** Questions [/]\n** Notes\n** Summary\n"))
-(setq ch (1+ ch)))
+      (if (<= ch 9)
+	      (setq template (concat template (format "* Ch0%d. \n" ch)))
+	    (setq template (concat template (format "* Ch%d. \n" ch))))
+      (setq template (concat template "** Questions [/]\n** Notes\n** Summary\n"))
+      (setq ch (1+ ch)))
     (setq template (concat template "* General\n** Questions [/]\n** Notes\n** Summary"))
     template))
 
@@ -572,23 +571,22 @@ Return TEMPLATE as a string                                     . "
       :empty-lines-before 1
       :unnarrowed nil)
      ;; ("b" "Book notes" plain (function org-roam-book-template)
-     ;;  :target (file+head "Books/%^{genre}/%<%Y%m%d%H%M%S>-${slug} . org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: folded")
+     ;;  :target (file+head "Books/%^{genre}/%<%Y%m%d%H%M%S>-${slug}.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: folded")
      ;;  :empty-lines-before 1
      ;;  :unnarrowed t)
      ;; ("o" "Outline" entry "* %?"
      ;;  ;; ID is created at heading level, olp is placed after heading
      ;;  :target (file+head+olp "%<%Y%m>.org" "* %t" ("%<%Y>" "%<%W>")))
      ;; ("d" "Day Tree" entry "* %?"
-     ;;  :target (file+datetree "%<%Y%m%d>                           . org" day)
+     ;;  :target (file+datetree "%<%Y%m%d>.org" day)
      ;;  :unnarrowed t)
-     ;; ("w" "Week Tree" entry "* %?"
-     ;;  :target (file+datetree "%<%Y%m%d>                           . org" week)
+     ;; ("w" "Week Tree" entry "* %?".org" week)
      ;;  :unnarrowed nil)
      ;; ("m" "Month Tree" entry "* %?"
      ;;  :target (file+datetree "%<%Y%m%d>.org" month)
      ;;  :unnarrowed nil)
      ;; ("t" "Temporary notes" entry "* %?"
-     ;;  :target (file "Fleeting/%<%Y%m%d%H%M%S>-${slug}             . org")
+     ;;  :target (file "Fleeting/%<%Y%m%d%H%M%S>-${slug}.org")
      ;;  :empty-lines-before 1
      ;;  :unnarrowed t)
      ))
@@ -607,11 +605,11 @@ Return TEMPLATE as a string                                     . "
   :config
   (org-roam-db-autosync-mode)
   ;; :hook
-  ;; (org-capture-mode                                               . evil-insert-state)
+  ;; (org-capture-mode . evil-insert-state)
   )
 
 (defun org-journal-file-header-func (time)
-  "Custom function to create journal header . "
+  "Custom function to create journal header."
   (concat
    (pcase org-journal-file-type
      (`daily "#+TITLE: Daily Journal\n#+STARTUP: showeverything")
@@ -620,8 +618,8 @@ Return TEMPLATE as a string                                     . "
      (`yearly "#+TITLE: Yearly Journal\n#+STARTUP: folded"))))
 
 (defun org-journal-save-entry-and-exit()
-  "Simple convenience function                                   .
-Saves the buffer of the current day's entry and kills the window .
+  "Simple convenience function.
+Saves the buffer of the current day's entry and kills the window.
 Similar to `org-capture' like behavior"
   (interactive)
   (save-buffer)
@@ -639,15 +637,15 @@ Similar to `org-capture' like behavior"
   (org-journal-start-on-weekday 1)
   (org-journal-file-header 'org-journal-file-header-func)
   ;; YYYY-MM-DD-W{index}
-  (org-journal-file-format "%F-W%V   . org")
+  (org-journal-file-format "%F-W%V.org")
   :bind
-  (("C-c j o"                        . org-journal-open-current-journal-file)
+  (("C-c j o" . org-journal-open-current-journal-file)
    ("C-c j n" . org-journal-new-entry)
    ("C-c j s" . org-journal-search)
    :map org-journal-mode-map
    ("C-x s-s" . org-journal-save-entry-and-exit))
   :hook
-  (org-journal-after-entry-create    . org-narrow-to-element)
+  (org-journal-after-entry-create . org-narrow-to-element)
   ;; (org-journal-after-entry-create . evil-insert-state)
   )
 
@@ -682,7 +680,7 @@ Similar to `org-capture' like behavior"
 (use-package rime
   :custom
   (default-input-method "rime")
-  (rime-librime-root "~/ . config/emacs/librime/dist")
+  (rime-librime-root "~/.config/emacs/manually_installed/librime/dist")
   (rime-disable-predicates
    '(rime-predicate-prog-in-code-p
      rime-predicate-auto-english-p
@@ -692,8 +690,7 @@ Similar to `org-capture' like behavior"
      rime-predicate-org-latex-mode-p
      rime-predicate-current-uppercase-letter-p))
   :config
-  (define-key rime-active-mode-map (kbd "M-S-j") 'rime-inline-ascii)
-  )
+  (define-key rime-active-mode-map (kbd "M-S-j") 'rime-inline-ascii))
 
 (setq rime-translate-keybindings
       '("C-f" "C-b" "C-n" "C-p" "C-g" "<left>" "<right>" "<up>"
@@ -701,7 +698,7 @@ Similar to `org-capture' like behavior"
 
 (global-set-key "\C-c\C-d" #'helpful-at-point)
 
-(setq custom-file "~/ . config/emacs/init.el")
+(setq custom-file "~/.config/emacs/init.el")
 
 (setq gc-cons-threshold (* 300 1024 1024))
 ;; end_config
@@ -1236,8 +1233,9 @@ point reaches the beginning or end of the buffer, stop there  . "
   :hook
   (
    ;; (python-mode             . lsp)
+   (lua-mode . lsp)
    (c-mode . lsp)
-   (c++-mode               . lsp)
+   (c++-mode . lsp)
    ;;  (cmake-mode             . lsp)
    (go-mode . lsp)
    (rust-mode . lsp)
@@ -1314,11 +1312,11 @@ point reaches the beginning or end of the buffer, stop there  . "
 (add-hook 'lua-mode-hook 'eglot-ensure)
 (add-hook 'html-mode-hook 'eglot-ensure)
 
-;; https://github                                 . com/joaotavora/eglot/issues/98
+;; https://github.com/joaotavora/eglot/issues/98
 (defun zino/project-try-cargo-toml (dir)
-  "Try to locate a Rust project above DIR         . "
-  (let ((found (locate-dominating-file dir "Cargo . toml")))
-    (if (stringp found) `(transient               . ,found) nil)))
+  "Try to locate a Rust project above DIR."
+  (let ((found (locate-dominating-file dir "Cargo.toml")))
+    (if (stringp found) `(transient . ,found) nil)))
 
 ;; Try rust projects before version-control (vc) projects
 (add-hook 'project-find-functions 'zino/project-try-cargo-toml nil nil)
@@ -1481,9 +1479,9 @@ point reaches the beginning or end of the buffer, stop there  . "
 (setq org-deadline-warning-days 5)
 
 (setq zino/roam-dir "~/Notes/Roam")
-(setq zino/anki-file "~/Notes/Roam/20220517104105-learn_anki   . org"
-      zino/contacts-file "~/Notes/Roam/20220620203106-contacts . org"
-      zino/GTD-file "~/Notes/Roam/20220816100518-gtd           . org"
+(setq zino/anki-file "~/Notes/Roam/20220517104105-anki.org"
+      zino/contacts-file "~/Notes/Roam/20220620203106-contacts.org"
+      zino/GTD-file "~/Notes/Roam/20220816100518-gtd.org"
       zino/meeting-file (concat zino/roam-dir "/20221115143855-meeting.org"))
 
 (setq org-capture-templates
@@ -1700,11 +1698,11 @@ Do not increase cloze number"
 (global-unset-key (kbd "C-x C-n"))
 
 ;; lua mode
-(add-to-list 'load-path "~/ . emacs.d/manually_installed/lua-mode")
-(autoload 'lua-mode "lua-mode" "Lua editing mode . " t)
+(add-to-list 'load-path "~/.config/emacs/manually_installed/lua-mode")
+(autoload 'lua-mode "lua-mode" "Lua editing mode." t)
 (add-to-list 'auto-mode-alist '("\\.lua$" . lua-mode))
 (add-to-list 'auto-mode-alist '("\\.t$" . perl-mode))
-(add-to-list 'interpreter-mode-alist '("lua"     . lua-mode))
+(add-to-list 'interpreter-mode-alist '("lua" . lua-mode))
 (add-to-list 'auto-mode-alist '("Makefile.*" . makefile-mode))
 
 (add-hook 'conf-mode-hook (lambda ()
