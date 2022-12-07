@@ -212,17 +212,11 @@
         doom-themes-enable-italic t) ; if nil, italics is universally disabled
   ;; Enable flashing mode-line on errors
   (doom-themes-visual-bell-config)
-  ;; Enable custom neotree theme (all-the-icons must be installed!)
-  ;; (doom-themes-neotree-config)
-  ;; or for treemacs users
-  ;; (setq doom-themes-treemacs-theme "doom-atom")
-  ;; use "doom-colors" for less minimal icon theme
-  ;; (doom-themes-treemacs-config)
-  ;; Corrects (and improves) org-mode's native fontification .
+  ;; Corrects (and improves) org-mode's native fontification
   (doom-themes-org-config))
 
 ;; Whether display the modal state icon.
-;; Including `evil', `overwrite', `god', `ryo' and `xah-fly-keys', etc .
+;; Including `evil', `overwrite', `god', `ryo' and `xah-fly-keys', etc.
 (setq doom-modeline-modal-icon nil)
 
 (use-package emojify
@@ -354,8 +348,7 @@ respectively."
    ivy-reverse-i-search-map
    ("C-d" . ivy-reverse-i-search-kill))
   :config (ivy-mode 1)
-  (define-key ivy-minibuffer-map [remap ivy-restrict-to-matches] (lambda () (interactive)))
-  )
+  (define-key ivy-minibuffer-map [remap ivy-restrict-to-matches] (lambda () (interactive))))
 
 (define-key minibuffer-mode-map (kbd "S-SPC") nil)
 
@@ -377,7 +370,7 @@ respectively."
 (use-package counsel
   :bind
   (("M-x" . counsel-M-x)
-   ("C-x C-f"                  . counsel-find-file)
+   ("C-x C-f" . counsel-find-file)
    :map
    minibuffer-local-map ("C-r" . 'counsel-minibuffer-history))
   :config
@@ -1171,8 +1164,7 @@ point reaches the beginning or end of the buffer, stop there  . "
 (global-set-key (kbd "M-i") #'helm-imenu)
 ;; end_edit_and_movement
 
-(use-package consult
-  )
+(use-package consult)
 
 (general-create-definer zino/leader-key
   :prefix "SPC")
@@ -1293,7 +1285,6 @@ point reaches the beginning or end of the buffer, stop there  . "
   (lsp-ui-doc-position 'top)
   (lsp-ui-doc-border "#3d4554");;"#51afef") ;;"white")  ;; (face-foreground 'default)
   (lsp-ui-doc-delay 0.2)
-
   ;; lsp-ui-sideline
   (lsp-ui-sideline-mode t)
   (lsp-ui-sideline-show-hover nil)
@@ -1384,6 +1375,7 @@ point reaches the beginning or end of the buffer, stop there  . "
   (define-key flycheck-mode-map (kbd "C-c [") #'flycheck-previous-error)
   (define-key flycheck-mode-map (kbd "C-c ]") #'flycheck-next-error)
   )
+
 ;; (setq flycheck-indication-mode 'left-fringe)
 ;; (global-flycheck-mode)
 
