@@ -235,8 +235,8 @@
 
 (use-package smartparens
   :bind
-  (("C-S-a" . sp-beginning-of-sexp)
-   ("C-S-e" . sp-end-of-sexp)
+  (("C-s-a" . sp-beginning-of-sexp)
+   ("C-s-e" . sp-end-of-sexp)
    ("C-M-f" . sp-forward-sexp)
    ("C-M-b" . sp-backward-sexp)
    ("C-M-u" . sp-backward-up-sexp)
@@ -248,9 +248,16 @@
    ("C-M-p" . sp-previous-sexp)
    ;; unwrap
    ("M-D"   . sp-splice-sexp)
-   ("C-M-r" . sp-rewrap-sexp))
+   ("C-M-r" . sp-rewrap-sexp)
+
+   ;; copy
+   ("C-M-y" . sp-copy-sexp))
   :config
-  (smartparens-global-mode))
+  (smartparens-global-mode)
+
+  ;; not smartparens related, but shares the same philosophy
+  (global-set-key (kbd "C-s-f") #'beginning-of-defun)
+  (global-set-key (kbd "C-s-g") #'end-of-defun))
 
 ;; Handle apostrophe and single quote in Lisp mode
 (require 'smartparens-config)
@@ -1144,8 +1151,6 @@ point reaches the beginning or end of the buffer, stop there  . "
 
 (global-set-key (kbd "M-z") #'zap-up-to-char)
 (global-set-key (kbd "M-Z") #'zap-to-char)
-
-(global-set-key (kbd "C-s-f") #'beginning-of-defun)
 
 (use-package helm
   :custom
