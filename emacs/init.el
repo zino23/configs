@@ -2,6 +2,9 @@
 
 (setq load-prefer-newer t)
 
+;; take the full control, don't load `default.el'
+(setq inhibit-default-init t)
+
 (require 'package)
 
 ;; I don't know why this is not loaded
@@ -368,7 +371,8 @@ respectively."
   which-key-mode
   :config
   (setq which-key-idle-delay 0.1)
-  (setq which-key-idle-secondary-delay 0.05))
+  (setq which-key-idle-secondary-delay 0.05)
+  (setq which-key-show-docstrings nil))
 
 (use-package ivy-rich
   :init
@@ -405,7 +409,7 @@ respectively."
   ([remap describe-function] . counsel-describe-function)
   ([remap describe-command]  . helpful-command)
   ([remap describe-variable] . counsel-describe-variable)
-  ([remap describe-key]      . helpful-key))
+  ([remap describe-key] . helpful-key))
 
 (use-package general
   :config
@@ -448,27 +452,29 @@ respectively."
   ;; commands other than xref-find-definitions (e.g. project-find-regexp)
   ;; as well
   (setq xref-show-xrefs-function #'ivy-xref-show-xrefs)
-  (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1)
-  :config
-  ;; (remove-hook 'magit-status-sections-hook 'magit-insert-tags-header)
-  ;; (remove-hook 'magit-status-sections-hook 'magit-insert-status-headers)
-  ;; (remove-hook 'magit-status-sections-hook 'magit-insert-unpushed-to-pushremote)
-  ;; (remove-hook 'magit-status-sections-hook 'magit-insert-unpulled-from-pushremote)
-  ;; (remove-hook 'magit-status-sections-hook 'magit-insert-unpulled-from-upstream)
-  ;; (remove-hook 'magit-status-sections-hook 'magit-insert-unpushed-to-upstream-or-recent)
-  ;; (remove-hook 'magit-status-sections-hook 'magit-insert-merge-log)
-  ;;(global-set-key (kbd "C-x g") #'magit-status)
-  )
+  (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
+
+;; code review
+(use-package forge)
 
 ;; git-gutter
-;;(global-git-gutter-mode -1)
-
-;;(global-set-key (kbd "C-x C-g") 'git-gutter)
-;;(global-set-key (kbd "C-x v =") 'git-gutter:popup-hunk)
-;;
-;; Jump to next/previous hunk
-;;(global-set-key (kbd "C-x p") 'git-gutter:previous-hunk)
-;;(global-set-key (kbd "C-x n") 'git-gutter:next-hunk)
+(use-package git-gutter
+  :bind
+  (("C-x C-g" . git-gutter-mode)
+   :repeat-map git-gutter-repeat-map
+   ("[" . git-gutter:previous-hunk)
+   ("]" . git-gutter:next-hunk))
+  :config
+  (general-define-key
+   :prefix "<f5> g"
+   "g" 'git-gutter
+   "[" 'git-gutter:previous-hunk
+   "]" 'git-gutter:next-hunk
+   "p" 'git-gutter:popup-hunk
+   "s" 'git-gutter:stage-hunk)
+  :custom
+  (git-gutter:update-interval 2 "Automatically update diff in 2 seconds")
+  (git-gutter:window-width 1))
 
 (defun org-mode-setup ()
   "Run after `org-mode' is initiated."
@@ -504,12 +510,19 @@ respectively."
         org-catch-invisible-edits 'show-and-error
         org-goto-auto-isearch nil
         org-hide-block-startup t
-        org-agenda-files '("~/Notes/Roam")
+
         ;; issue with yasnippet when expanding snippet
         ;; https://www.reddit.com/r/emacs/comments/nj08dz/issues_with_yasnippet_in_emacs_272_lisp_error/
-        org-src-tab-acts-natively nil)
+        org-src-tab-acts-natively nil
+
+        ;; org-agenda
+        zino/GTD-file "~/Notes/Roam/20220816100518-gtd.org"
+        org-agenda-files '("~/Notes/Roam/Journal"))
+  (push zino/GTD-file org-agenda-files)
   (define-key org-mode-map [remap org-return-and-maybe-indent] #'better-jumper-jump-forward)
   (define-key org-mode-map (kbd "C-S-j") #'org-return-and-maybe-indent)
+  (setq org-image-actual-width nil)
+  (setf (cdr (assoc 'file org-link-frame-setup)) 'find-file)
   :custom
   (org-tags-column -80)
   (org-level-1 ((t (:inherit outline-1 :extend nil :height 1.3 :width normal :family "Iosevka"))))
@@ -524,6 +537,8 @@ respectively."
   (org-code ((t (:inherit nil :foreground "#da8548"))))
   (org-document-title ((t (:foreground "#c678dd" :weight bold :height 1.2 :family "Iosevka"))))
   (org-id-link-to-org-use-id 'create-if-interactive))
+
+(use-package org-appear)
 
 (use-package org-bullets
   :after org
@@ -544,7 +559,7 @@ respectively."
   (org-download-heading-lvl nil)
   (org-image-actual-width 300)
   :bind
-  ("C-M-y" . org-download-clipboard)
+  ("C-s-y" . org-download-clipboard)
   :config
   (require 'org-download))
 
@@ -803,10 +818,10 @@ Similar to `org-capture' like behavior"
       scroll-preserve-screen-position t
       next-screen-context-lines 5)
 
-(custom-theme-set-faces
- 'user
- '(variable-pitch ((t (:family "ETBembo" :height 250 :weight regular))))
- '(fixed-pitch ((t ( :family "Fira Code" :height 250)))))
+;; (custom-theme-set-faces
+;;  'user
+;;  '(variable-pitch ((t (:family "ETBembo" :height 250 :weight regular))))
+;;  '(fixed-pitch ((t ( :family "Fira Code" :height 250)))))
 
 (set-fontset-font
  t 'symbol
@@ -841,7 +856,8 @@ Similar to `org-capture' like behavior"
 
 (use-package ace-window
   :config
-  (global-set-key (kbd "M-o") #'ace-window)
+  (global-set-key (kbd "M-o") 'ace-window)
+  (global-set-key (kbd "<f5> k") 'ace-delete-window)
   (setq aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l)
         aw-scope 'frame))
 
@@ -977,7 +993,7 @@ Similar to `org-capture' like behavior"
 (setq backup-directory-alist nil)
 
 (defun make-backup-file-name (file)
-  (let ((dirname (concat "~/ . config/emacs/backup/"
+  (let ((dirname (concat "~/.config/emacs/backup/"
                          (format-time-string "%Y-%m-%d/"))))
     (unless (file-exists-p dirname)
       (make-directory dirname t))
@@ -994,16 +1010,16 @@ Similar to `org-capture' like behavior"
 (setq ivy-dynamic-exhibit-delay-ms 0)
 (setq ivy-re-builders-alist '((t . ivy--regex-fuzzy)))
 
-(setq ivy-initial-inputs-alist '((counsel-minor           . "^+")
-                                 (counsel-package         . "^+")
-                                 (counsel-org-capture     . "^")
-                                 (counsel-M-x             . "^")
+(setq ivy-initial-inputs-alist '((counsel-minor . "^+")
+                                 (counsel-package . "^+")
+                                 (counsel-org-capture . "^")
+                                 (counsel-M-x . "^")
                                  (counsel-describe-symbol . "^")
-                                 (org-refile              . "^")
-                                 (org-agenda-refile       . "^")
-                                 (org-capture-refile      . "^")
-                                 (Man-completion-table    . "^")
-                                 (woman                   . "^")))
+                                 (org-refile . "^")
+                                 (org-agenda-refile . "^")
+                                 (org-capture-refile . "^")
+                                 (Man-completion-table . "^")
+                                 (woman . "^")))
 
 (defvar +ivy--queue-last-input nil)
 (defun +ivy-queue-exhibit-a(f &rest args)
@@ -1042,12 +1058,13 @@ Do not prompt me to create parent directory"
 (setq swiper-use-visual-line-p (lambda (a) nil))
 
 (defun zino/swiper-isearch-again ()
-  "Start swiper-isearch with the last thing searched for . "
+  "Start swiper-isearch with the last thing searched for."
   (interactive)
   (swiper-isearch (car swiper-history)))
+(global-set-key (kbd "s-F") 'zino/swiper-isearch-again)
 
 (defun zino/delete-forward-char ()
-  "Delete the char under cursor and keep it in the `kill-ring' . "
+  "Delete the char under cursor and keep it in the `kill-ring'."
   (interactive)
   (delete-forward-char 1 t))
 
@@ -1225,6 +1242,13 @@ point reaches the beginning or end of the buffer, stop there  . "
   :custom
   (lsp-treemacs-error-list-current-project-only t))
 
+(defun zino/format-if-lsp-mode ()
+  "Format on save if `lsp-mode' is present."
+  (interactive)
+  (if (and (bound-and-true-p lsp-mode)
+           (not bound-and-true-p nginx-mode))
+      (lsp-format-buffer)))
+
 (use-package lsp-mode
   :init
   (setq lsp-keymap-prefix "C-c l")
@@ -1232,21 +1256,21 @@ point reaches the beginning or end of the buffer, stop there  . "
   (setq lsp-clients-lua-language-server-bin "/usr/local/bin/lua-language-server")
   :hook
   (
-   ;; (python-mode             . lsp)
+   (python-mode . lsp)
    (lua-mode . lsp)
    (c-mode . lsp)
    (c++-mode . lsp)
-   ;;  (cmake-mode             . lsp)
+   (cmake-mode . lsp)
    (go-mode . lsp)
    (rust-mode . lsp)
    (python-mode . lsp)
-   ;;  (jsonc-mode             . lsp)
-   ;;  (lua-mode . lsp)
-   ;;  (sh-mode                . lsp)
-   ;;  (html-mode              . lsp)
-   ;;  (css-mode               . lsp)
-   ;;  (javascript-mode        . lsp)
-   )
+   (jsonc-mode . lsp)
+   (sh-mode . lsp)
+   (html-mode . lsp)
+   (css-mode . lsp)
+   (javascript-mode . lsp)
+   ;;; miscs
+   (nginx-mode . lsp))
   :config
   ;;(define-key lsp-mode-map (kbd "C-c C-d") #'lsp-find-definition)
   (define-key lsp-mode-map (kbd "C-c C-d") #'xref-find-definitions)
@@ -1254,11 +1278,16 @@ point reaches the beginning or end of the buffer, stop there  . "
   (define-key lsp-mode-map (kbd "C-c r") #'lsp-rename)
   (define-key lsp-mode-map (kbd "C-c C-e") #'flycheck-list-errors)
   (define-key lsp-mode-map (kbd "C-c C-r") #'lsp-find-references)
+  (setq lsp-signature-auto-activate t
+        lsp-signature-render-documentation t)
+  ;; format-all does not work and it changes the window to the point of distracting ):
+  (add-hook 'before-save-hook 'zino/format-if-lsp-mode)
   :custom
   (lsp-eldoc-enable-hover t)
-  (lsp-modeline-diagnostics-enable t)
+  (lsp-modeline-diagnostics-enable nil)
   (lsp-signature-render-documentation t)
-  (lsp-diagnostics-provider :flycheck))
+  (lsp-diagnostics-provider :flycheck)
+  (lsp-eldoc-render-all t))
 
 (with-eval-after-load 'lsp-mode
   ;; :global/:workspace/:file
@@ -1303,13 +1332,9 @@ point reaches the beginning or end of the buffer, stop there  . "
   :hook
   (lsp-mode . lsp-ui-mode)
   :config
-  (setq lsp-completion-provider :none))
-
-;;; eglot
-(add-hook 'sh-mode-hook 'eglot-ensure)
-(add-hook 'cmake-mode-hook 'eglot-ensure)
-(add-hook 'lua-mode-hook 'eglot-ensure)
-(add-hook 'html-mode-hook 'eglot-ensure)
+  (setq lsp-completion-provider :none)
+  (define-key lsp-ui-imenu-mode-map (kbd "n") 'next-line)
+  (define-key lsp-ui-imenu-mode-map (kbd "p") 'previous-line))
 
 ;; https://github.com/joaotavora/eglot/issues/98
 (defun zino/project-try-cargo-toml (dir)
@@ -1319,6 +1344,17 @@ point reaches the beginning or end of the buffer, stop there  . "
 
 ;; Try rust projects before version-control (vc) projects
 (add-hook 'project-find-functions 'zino/project-try-cargo-toml nil nil)
+
+(defun clang-format-save-hook-for-this-buffer ()
+  "Create a buffer local save hook."
+  (add-hook 'before-save-hook
+            (lambda ()
+              (when (locate-dominating-file "." ".clang-format")
+                (clang-format-buffer))
+              ;; Continue to save
+              nil)
+            ;; Default depth of 0
+            nil))
 
 (use-package eglot
   :config
@@ -1343,13 +1379,13 @@ point reaches the beginning or end of the buffer, stop there  . "
         ("C-c r"   . eglot-rename)
         ("C-c C-r" . xref-find-references)
         ("C-c C-a" . eglot-code-actions))
-  :hook
+  ;; :hook
   ;; (c-mode       . eglot-ensure)
   ;; (c++-mode     . eglot-ensure)
   ;; (cmake-mode   . eglot-ensure)
-  (sh-mode         . eglot-ensure)
-  (js-mode         . eglot-ensure)
-  (typescript-mode . eglot-ensure)
+  ;; (sh-mode         . eglot-ensure)
+  ;; (js-mode         . eglot-ensure)
+  ;; (typescript-mode . eglot-ensure)
   )
 
 ;; (add-to-list 'load-path (concat (getenv "GOPATH")  "/src/golang . org/x/lint/misc/emacs/"))
@@ -1368,6 +1404,8 @@ point reaches the beginning or end of the buffer, stop there  . "
 (use-package yasnippet
   :hook
   (after-init . yas-global-mode))
+
+(use-package yasnippet-snippets)
 
 (use-package flycheck
   :hook
@@ -1391,7 +1429,7 @@ point reaches the beginning or end of the buffer, stop there  . "
 ;;                            (setq flycheck-clang-language-standard "c++17")))
 
 (defun repeatize (keymap)
-  "Add `repeat-mode' support to a KEYMAP . "
+  "Add `repeat-mode' support to a KEYMAP."
   (map-keymap
    (lambda (_key cmd)
      (when (symbolp cmd)
@@ -1403,16 +1441,17 @@ point reaches the beginning or end of the buffer, stop there  . "
     (define-key map "[" #'flycheck-previous-error)
     (define-key map "]" #'flycheck-next-error)
     map)
-  "Repeat map for flycheck . ")
+  "Repeat map for flycheck.")
 
 (defvar isearch-repeat-map
   (let ((map (make-sparse-keymap)))
     (define-key map "s" #'isearch-repeat-forward)
     (define-key map "r" #'isearch-repeat-backward)
     map)
-  "Repeat map for isearch . ")
+  "Repeat map for isearch.")
 
 (repeatize 'isearch-repeat-map)
+(repeatize 'flycheck-repeat-map)
 
 ;; Show matching parenthesis
 (use-package mic-paren)
@@ -1435,10 +1474,10 @@ point reaches the beginning or end of the buffer, stop there  . "
 ;; Add yasnippet support for all company backends
 ;; https://github.com/syl20bnr/spacemacs/pull/179
 (defvar company-mode/enable-yas t
-  "Enable yasnippet for all backends . ")
+  "Enable yasnippet for all backends.")
 
 (defun company-mode/backend-with-yas (backend)
-  "Configure company-mode with BACKEND . "
+  "Configure company-mode with BACKEND."
   (if (or (not company-mode/enable-yas) (and (listp backend) (member 'company-yasnippet backend)))
       backend
     (append (if (consp backend) backend (list backend))
@@ -1470,7 +1509,7 @@ point reaches the beginning or end of the buffer, stop there  . "
   :hook (org-mode . org-fragtog-mode))
 
 (global-set-key (kbd "C-c a") #'org-agenda)
-(global-set-key (kbd "C-c l") #'org-store-link)
+(global-set-key (kbd "C-c C-l") #'org-store-link)
 (global-set-key (kbd "C-c i") #'org-insert-link)
 (global-set-key (kbd "C-c t") #'org-cycle-list-bullet)
 
@@ -1481,7 +1520,6 @@ point reaches the beginning or end of the buffer, stop there  . "
 (setq zino/roam-dir "~/Notes/Roam")
 (setq zino/anki-file "~/Notes/Roam/20220517104105-anki.org"
       zino/contacts-file "~/Notes/Roam/20220620203106-contacts.org"
-      zino/GTD-file "~/Notes/Roam/20220816100518-gtd.org"
       zino/meeting-file (concat zino/roam-dir "/20221115143855-meeting.org"))
 
 (setq org-capture-templates
@@ -1494,11 +1532,11 @@ point reaches the beginning or end of the buffer, stop there  . "
         ("ac" "Cloze"
          entry
          (file+headline zino/anki-file "Dispatch Shelf")
-         "** %<%Y-%m-%d:%H:%M>  %^g\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Cloze\n:ANKI_DECK: %^{Deck|Vocabulary}\n:END:\n*** Text\n%?\n*** Extra\n%x\n")
+         "** %<%Y-%m-%d:%H:%M>  %^g\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Cloze\n:ANKI_DECK: %^{Deck|Vocabulary}\n:END:\n*** Text\n%?\n*** Back extra\n%x\n")
         ("at" "Temporary Note"
-         checkitem
+         entry
          (file+headline zino/anki-file "Temporary Notes")
-         nil)
+         "** TODO %^{Topic|..}\n%?")
 
         ("c" "Contacts")
         ("cf" "Family"
@@ -1508,8 +1546,7 @@ point reaches the beginning or end of the buffer, stop there  . "
         ("cF" "Friends"
          entry
          (file+headline zino/contacts-file "Friends")
-         "** %^{Name} \n:PROPERTIES:\n:CREATED: %(format-time-string
-        \"<%Y-%m-%d:%H:%M>\" (current-time))\n:HowDoWeMeet: %^{How do we meet?}\n:END:\n%?")
+         "** %^{Name} \n:PROPERTIES:\n:CREATED: %(format-time-string \"<%Y-%m-%d:%H:%M>\" (current-time))\n:HowDoWeMeet: %^{How do we meet?}\n:END:\n%?")
 
         ("g" "Get Things Done")
         ("gq" "Questions"
@@ -1547,7 +1584,7 @@ point reaches the beginning or end of the buffer, stop there  . "
         ("mr" "Random"
          entry
          (file+headline zino/meeting-file "Participated")
-         "** %^{What is it about} %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
+         "** %^{What is it about}  %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
          :immediate-finish nil
          :jump-to-captured t)))
 
@@ -1583,29 +1620,37 @@ Do not increase cloze number"
   (anki-editor-push-notes '(4))
   (zino/anki-editor-reset-cloze-num))
 
+(defun zino/anki-editor-push-buffer ()
+  "Push cards of this buffer."
+  (interactive)
+  (anki-editor-push-notes)
+  (zino/anki-editor-reset-cloze-num))
+
 (use-package anki-editor
   :hook
   (org-capture-after-finalize . zino/anki-editor-reset-cloze-num)
   :config
-  (anki-editor-mode 1)
+  ;; initialize cloze states
+  (zino/anki-editor-reset-cloze-num)
   (setq anki-editor-create-decks t
         anki-editor-org-tags-as-anki-tags t)
-  (zino/anki-editor-reset-cloze-num))
 
-(general-define-key
- :prefix "C-c m"
- "i" #'anki-editor-insert-note
- "r" #'zino/anki-editor-reset-cloze-num
- "c" #'zino/anki-editor-cloze-region-auto-incr
- "p" #'zino/anki-editor-push-tree
- )
+  (general-define-key
+   :prefix "C-c m"
+   "i" #'anki-editor-insert-note
+   "r" #'zino/anki-editor-reset-cloze-num
+   "c" #'zino/anki-editor-cloze-region-auto-incr
+   "p" #'zino/anki-editor-push-tree
+   "b" #'zino/anki-editor-push-buffer))
+
+;; check https://github.com/louietan/anki-editor/issues/76
 ;; end_anki_editor
 
 (custom-set-faces
- ;; custom-set-faces was added by Custom
- ;; If you edit it by hand, you could mess it up, so be careful
- ;; Your init file should contain only one such instance
- ;; If there is more than one, they won't work right
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
  '(company-tooltip-quick-access ((t (:inherit company-tooltip-annotation :height 2.0))))
  '(cursor ((t (:background "#51afef"))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
@@ -1619,25 +1664,25 @@ Do not increase cloze number"
  '(org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
  '(org-code ((t (:inherit nil :foreground "#da8548"))))
  '(org-document-title ((t (:foreground "#c678dd" :weight bold :height 1.2 :family "Iosevka"))))
- '(org-link ((t (:inherit link :foreground "#51afef" :family "Iosevka"))))
- '(org-remark-highlighter ((t (:background "#023047"))))
  '(org-level-1 ((t (:inherit outline-1 :extend nil :height 1.3 :width normal :family "Iosevka"))))
  '(org-level-2 ((t (:inherit outline-2 :extend nil :height 1.2 :width normal :family "Iosevka"))))
  '(org-level-3 ((t (:inherit outline-3 :extend nil :height 1.1 :width normal :family "Iosevka"))))
  '(org-level-4 ((t (:inherit outline-4 :extend nil :height 1.05 :width normal :family "Iosevka"))))
  '(org-level-5 ((t (:inherit outline-5 :extend nil :height 1.0 :width normal :family "Iosevka"))))
  '(org-level-6 ((t (:inherit outline-6 :extend nil :height 1.0 :width normal :family "Iosevka"))))
+ '(org-link ((t (:inherit link :foreground "#51afef" :family "Iosevka"))))
+ '(org-remark-highlighter ((t (:background "#023047"))))
  '(org-verbatim ((t (:foreground "#98be65"))))
  '(paren-face-match ((t (:foreground "#ff6c6b" :weight ultra-bold))))
  '(tooltip ((t (:background "#21242b" :foreground "#bbc2cf" :height 1.0))))
  '(variable-pitch ((t (:family "ETBembo" :height 250 :weight regular)))))
 
-;;; init . el ends here
+;;; init.el ends here
 (custom-set-variables
- ;; custom-set-variables was added by Custom
- ;; If you edit it by hand, you could mess it up, so be careful
- ;; Your init file should contain only one such instance
- ;; If there is more than one, they won't work right
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
  '(comment-style 'indent)
  '(company-box-doc-delay 0.2)
  '(company-quickhelp-color-foreground nil)
@@ -1648,10 +1693,8 @@ Do not increase cloze number"
  '(dirvish-header-style 'normal)
  '(dirvish-preview-width 0.4)
  '(display-line-numbers-width nil)
- '(eldoc-idle-delay 0.1)
- '(git-gutter:added-sign "+")
- '(git-gutter:deleted-sign "-")
- '(git-gutter:modified-sign "~")
+ '(eldoc-echo-area-prefer-doc-buffer t)
+ '(eldoc-idle-delay 0.2)
  '(helm-minibuffer-history-key "M-p")
  '(highlight-indent-guides-auto-character-face-perc 20)
  '(highlight-indent-guides-auto-top-character-face-perc 50)
@@ -1669,7 +1712,7 @@ Do not increase cloze number"
    '(ol-bbdb ol-bibtex ol-docview ol-doi ol-eww ol-gnus ol-info ol-irc ol-mhe ol-rmail ol-w3m org-mac-link))
  '(org-remark-notes-file-name 'org-remark-notes-file-name-function)
  '(package-selected-packages
-   '(flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-mac-link org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request anki-editor beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-quickhelp company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
+   '(forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-mac-link org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-quickhelp company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(paren-display-message 'always)
  '(pdf-view-continuous t)
  '(pdf-view-display-size 'fit-page)
@@ -1678,32 +1721,34 @@ Do not increase cloze number"
  '(rime-cursor "˰")
  '(rime-posframe-style 'vertical)
  '(rime-show-candidate 'posframe)
+ '(safe-local-variable-values
+   '((lsp-lua-runtime-path .
+                           ["/home/zino/gitlab/tengine-modules/?/?.lua" "?.lua" "?/init.lua" "?/?.lua"])))
  '(tab-always-indent nil)
  '(tab-bar-close-button-show nil)
  '(tab-bar-show nil)
  '(tab-width 4)
- '(tramp-default-proxies-alist nil))
+ '(tramp-default-proxies-alist nil)
+ '(warning-suppress-types '((lsp-mode))))
 
-;;
 (winner-mode)
-
-(global-set-key (kbd "C-M-y") #'sp-copy-sexp)
-(global-set-key (kbd "C-s-y") #'org-download-clipboard)
-
-;; git-gutter
-;; (global-set-key (kbd "C-c C-n") 'git-gutter:next-hunk)
-;; (global-set-key (kbd "C-c C-p") 'git-gutter:previous-hunk)
 
 ;; the original keybinding is set-goal-column
 (global-unset-key (kbd "C-x C-n"))
 
 ;; lua mode
+(use-package lua-mode
+  :bind
+  (:map lua-mode-map
+        ([remap beginning-of-defun] . lua-beginning-of-proc)
+        ([remap end-of-defun] . lua-end-of-proc)))
+
 (add-to-list 'load-path "~/.config/emacs/manually_installed/lua-mode")
 (autoload 'lua-mode "lua-mode" "Lua editing mode." t)
 (add-to-list 'auto-mode-alist '("\\.lua$" . lua-mode))
 (add-to-list 'auto-mode-alist '("\\.t$" . perl-mode))
 (add-to-list 'interpreter-mode-alist '("lua" . lua-mode))
-(add-to-list 'auto-mode-alist '("Makefile.*" . makefile-mode))
+(add-to-list 'auto-mode-alist '(".*Makefile" . makefile-mode))
 
 (add-hook 'conf-mode-hook (lambda ()
                             "Set tab width to four spacess."
@@ -1790,11 +1835,14 @@ Do not increase cloze number"
  '((C . t)
    (emacs-lisp . t)
    (shell . t)
-   (lua . t)))
+   (lua . t)
+   (dot . t)))
 
 (use-package yaml-mode
   :config
   (add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-mode)))
+
+(use-package nginx-mode)
 
 ;;; comint
 (setq comint-prompt-read-only t)
@@ -1834,9 +1882,10 @@ Save the buffer of the current window and kill it"
 
 (use-package format-all
   :hook
-  (rust-mode . format-all-mode)
-  (go-mode . format-all-mode)
-  (c++-mode . format-all-mode))
+  ;; (rust-mode . format-all-mode)
+  ;; (go-mode . format-all-mode)
+  ;; (c++-mode . format-all-mode)
+  (nginx-mode . format-all-mode))
 
 (setq read-process-output-max (* 1024 1024)) ;; 1MB
 
@@ -1852,25 +1901,27 @@ Save the buffer of the current window and kill it"
   (global-set-key [?\H-i] #'better-jumper-jump-forward)
 
   ;; terminal emacs cannot differenciate C-i from tab
-  (global-set-key (kbd "C-j") #'better-jumper-jump-forward)
-  )
+  (global-set-key (kbd "C-j") #'better-jumper-jump-forward))
 
-(defun zino/set-jump-for-xref (identifier)
-  "Set jump before using xref to find definition of IDENTIFIER."
+(defun zino/set-jump-for-one-arg-fn (arg)
+  "Set jump for functions with one ARG."
   (call-interactively #'better-jumper-set-jump))
 
-(defun zino/set-jump-for-switch-other-buffer ()
-  "Set jump before switching to other buffer."
+(defun zino/set-jump-for-one-arg-one-opt-arg-fn (arg &optional OPT)
+  "Set jump for functions with one ARG and one optional OPT."
   (call-interactively #'better-jumper-set-jump))
 
-(defun zino/set-jump-for-widget-button-press (POS &optional EVENT)
-  "Set jump before pressing a button at POS."
+(defun zino/set-jump-for-one-option-arg (&optional ARG)
+  "Set jump for functions with one optional ARG."
   (call-interactively #'better-jumper-set-jump))
 
-(advice-add #'xref-find-definitions :before #'zino/set-jump-for-xref)
-(advice-add #'zino/switch-other-buffer :before #'zino/set-jump-for-switch-other-buffer)
+(advice-add #'xref-find-definitions :before #'zino/set-jump-for-one-arg-fn)
+(advice-add #'zino/switch-other-buffer :before #'better-jumper-set-jump)
 (advice-add #'helm-imenu :before #'better-jumper-set-jump)
-(advice-add #'widget-button-press :before #'zino/set-jump-for-widget-button-press)
+(advice-add #'widget-button-press :before #'zino/set-jump-for-one-arg-one-opt-arg-fn)
+(advice-add #'org-open-at-point :before #'zino/set-jump-for-one-option-arg)
+(advice-add #'beginning-of-buffer :before #'zino/set-jump-for-one-option-arg)
+(advice-add #'end-of-buffer :before #'zino/set-jump-for-one-option-arg)
 
 ;; unable to set advice for `lsp-find-definition' for now
 ;; (advice-add #'lsp-find-definition :before #'zino/set-jump-for-lsp-find-def)
@@ -1881,16 +1932,17 @@ Save the buffer of the current window and kill it"
   :config
   ;; turn on `org-remark' highlights on startup
   (org-remark-global-tracking-mode 1)
-  (global-set-key (kbd "C-x C-n m") #'org-remark-mark)
+  (keyboard-translate ?\C-m ?\H-m)
+  (global-set-key (kbd "C-x H-m m") #'org-remark-mark)
   (with-eval-after-load 'org-remark
-    (define-key org-remark-mode-map (kbd "C-x C-n o") #'org-remark-open)
-    (define-key org-remark-mode-map (kbd "C-x C-n v") #'org-remark-view)
-    (define-key org-remark-mode-map (kbd "C-x C-n ]") #'org-remark-view-next)
-    (define-key org-remark-mode-map (kbd "C-x C-n [") #'org-remark-view-prev)
-    (define-key org-remark-mode-map (kbd "C-x C-n r") #'org-remark-remove)
-    (define-key org-remark-mode-map (kbd "C-x C-n d") #'org-remark-delete)
-    (define-key org-remark-mode-map (kbd "C-x C-n y") #'org-remark-mark-yellow)
-    (define-key org-remark-mode-map (kbd "C-x C-n l") #'org-remark-mark-red-line)))
+    (define-key org-remark-mode-map (kbd "C-x H-m o") #'org-remark-open)
+    (define-key org-remark-mode-map (kbd "C-x H-m v") #'org-remark-view)
+    (define-key org-remark-mode-map (kbd "C-x H-m ]") #'org-remark-view-next)
+    (define-key org-remark-mode-map (kbd "C-x H-m [") #'org-remark-view-prev)
+    (define-key org-remark-mode-map (kbd "C-x H-m r") #'org-remark-remove)
+    (define-key org-remark-mode-map (kbd "C-x H-m d") #'org-remark-delete)
+    (define-key org-remark-mode-map (kbd "C-x H-m y") #'org-remark-mark-yellow)
+    (define-key org-remark-mode-map (kbd "C-x H-m l") #'org-remark-mark-red-line)))
 
 (use-package graphviz-dot-mode
   :ensure t
@@ -1900,36 +1952,44 @@ Save the buffer of the current window and kill it"
 ;; one tab for one workspace
 (tab-bar-mode +1)
 
+;; it is not common to mis-type this
+(global-unset-key (kbd "C-<tab>"))
+(global-set-key (kbd "M-<tab>") 'tab-next)
+(global-set-key (kbd "M-S-<tab>") 'tab-previous)
+(global-set-key (kbd "C-s-<tab>") 'tab-bar-select-tab-by-name)
+
 (with-eval-after-load 'python-mode
   (setq python-shell-interpreter "jupyter"
         python-shell-interpreter-args "console --simple-prompt"
         python-shell-prompt-detect-failure-warning nil))
 
 ;;; Google's gn meta build system
-(add-to-list 'auto-mode-alist '("\\.gn\\'" . gn-mode))
-(add-to-list 'auto-mode-alist '("\\.gn\\'" . gn-mode))
+(use-package gn-mode
+  :config
+  (add-to-list 'auto-mode-alist '("\\.gn\\'" . gn-mode)))
 
 (use-package expand-region
   :config
   (global-set-key (kbd "C-=") 'er/expand-region))
 
-(defun zino/isearch-resion-or-forward ()
+(defun zino/isearch-region-or-forward ()
   "isearch thing in region if region is active, otherwise perform normal isearch."
   (interactive)
   (if (use-region-p)
       (isearch-forward-thing-at-point)
     (isearch-forward)))
 
-(global-set-key (kbd "C-s-s") #'swiper)
+(global-set-key (kbd "C-s-s") #'zino/isearch-region-or-forward)
+(put 'zino/isearch-region-or-forward 'repeat-map isearch-repeat-map)
 
-(add-hook 'pdf-view-mode-hook 'my-inhibit-buffer-messages)
-
-(defun my-inhibit-buffer-messages ()
+(defun zino/inhibit-buffer-messages ()
   "Set `inhibit-message' buffer-locally."
   (setq-local inhibit-message t))
+(add-hook 'pdf-view-mode-hook 'zino/inhibit-buffer-messages)
 
 ;; run as daemon
 (server-start)
 
 ;; Put this at the end otherwise `pcache' will still register itself
 (remove-hook 'kill-emacs-hook 'pcache-kill-emacs-hook)
+(put 'narrow-to-region 'disabled nil)
