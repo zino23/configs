@@ -31,6 +31,7 @@ emacs/var
 emacs/librime
 emacs/request
 emacs/.emacs.desktop.lock
+emacs/forge-database.sqlite
 
 clash
 base16-shell
@@ -38,3 +39,6 @@ fish
 
 # karabiner
 karabiner/automatic_backups
+
+# htop
+htop/htoprc
