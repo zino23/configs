@@ -249,6 +249,7 @@
    ;; in the same nested level
    ("C-M-n" . sp-next-sexp)
    ("C-M-p" . sp-previous-sexp)
+
    ;; unwrap
    ("M-D"   . sp-splice-sexp)
    ("C-M-r" . sp-rewrap-sexp)
@@ -428,7 +429,6 @@ respectively."
   (projectile-mode)
   (setq projectile-indexing-method 'alien)
   (setq projectile-enable-caching t)
-  ;; (define-key projectile-mode-map (kbd "C-x C-f") #'project-find-file)
   :custom
   ((projectile-completion-system 'ivy))
   :bind-keymap
@@ -438,9 +438,6 @@ respectively."
   (when (file-directory-p "~/Dev")
     (setq projectile-project-search-path '("~/Dev")))
   (setq projectile-switch-project-action #'projectile-find-file))
-
-;; (use-package counsel-projectile
-;;  :config (counsel-projectile-mode))
 
 (use-package magit
   :custom
@@ -478,7 +475,6 @@ respectively."
 
 (defun org-mode-setup ()
   "Run after `org-mode' is initiated."
-  ;; (setq evil-auto-indent nil)
   (org-indent-mode)
   (set-face-attribute 'org-table nil :font (font-spec :name "Sarasa Mono SC Nerd" :size 22))
   (set-fontset-font t nil "Sarasa Mono SC Nerd" nil 'append))
@@ -486,8 +482,6 @@ respectively."
 (use-package org
   :hook
   (org-mode . org-mode-setup)
-  ;;(org-mode . valign-mode)
-  ;; (org-insert-heading . evil-insert-state)
   :config
   (setq org-ellipsis " ▾"
         org-hide-emphasis-markers nil
@@ -591,27 +585,7 @@ Return TEMPLATE as a string. "
    '(("c" "Default" entry "* %?"
       :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: folded")
       :empty-lines-before 1
-      :unnarrowed nil)
-     ;; ("b" "Book notes" plain (function org-roam-book-template)
-     ;;  :target (file+head "Books/%^{genre}/%<%Y%m%d%H%M%S>-${slug}.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: folded")
-     ;;  :empty-lines-before 1
-     ;;  :unnarrowed t)
-     ;; ("o" "Outline" entry "* %?"
-     ;;  ;; ID is created at heading level, olp is placed after heading
-     ;;  :target (file+head+olp "%<%Y%m>.org" "* %t" ("%<%Y>" "%<%W>")))
-     ;; ("d" "Day Tree" entry "* %?"
-     ;;  :target (file+datetree "%<%Y%m%d>.org" day)
-     ;;  :unnarrowed t)
-     ;; ("w" "Week Tree" entry "* %?".org" week)
-     ;;  :unnarrowed nil)
-     ;; ("m" "Month Tree" entry "* %?"
-     ;;  :target (file+datetree "%<%Y%m%d>.org" month)
-     ;;  :unnarrowed nil)
-     ;; ("t" "Temporary notes" entry "* %?"
-     ;;  :target (file "Fleeting/%<%Y%m%d%H%M%S>-${slug}.org")
-     ;;  :empty-lines-before 1
-     ;;  :unnarrowed t)
-     ))
+      :unnarrowed nil)))
   (org-roam-dailies-capture-templates
    '(("c" "default" entry
       #'org-roam-capture--get-point
@@ -626,8 +600,6 @@ Return TEMPLATE as a string. "
       :head "#+title: %<%Y-%m-%d %a>\n\n[[roam:%<%Y-%B>]]\n\n")))
   :config
   (org-roam-db-autosync-mode)
-  ;; :hook
-  ;; (org-capture-mode . evil-insert-state)
   )
 
 (defun org-journal-file-header-func (time)
@@ -668,16 +640,7 @@ Similar to `org-capture' like behavior"
    ("C-x s-s" . org-journal-save-entry-and-exit))
   :hook
   (org-journal-after-entry-create . org-narrow-to-element)
-  ;; (org-journal-after-entry-create . evil-insert-state)
   )
-
-;; (org-babel-load-file (concat user-emacs-directory "config.org"))
-
-;;reset lsp session in lsp mode
-;;(setq lsp--session nil)
-
-;;(define-key c-mode-base-map (kbd "C-M-e") 'sp-up-sexp)
-;;(define-key c-mode-base-map (kbd "C-M-a") 'sp-backward-down-sexp)
 
 (require 'all-the-icons)
 
@@ -686,10 +649,8 @@ Similar to `org-capture' like behavior"
 ;; begin_config
 (setq native-comp-async-report-warnings-errors nil)
 
-;; (setq exec-path (cons "/usr/local/bin/python3" exec-path))
-
 ;; temporary workaround
-;; REVIEW See Wilfred/elisp-refs#35 . Remove once fixed upstream.
+;; REVIEW See Wilfred/elisp-refs#35. Remove once fixed upstream.
 (defvar read-symbol-positions-list nil)
 
 (if (and (fboundp 'native-comp-available-p)
@@ -910,16 +871,12 @@ Similar to `org-capture' like behavior"
   (:map company-active-map
         ("<return>"   . company-complete-selection)
         ("<tab>"      . company-complete-common))
-  ;; :hook
-  ;; (emacs-lisp-mode . company-mode)
-  ;; (org-mode        . company-mode)
   :custom
   (company-minimum-prefix-length 2)
   (company-idle-delay 0.1)
   (company-require-match nil)
   :config
   (global-company-mode)
-  ;;(setq company-backends (mapcar #'company-mode/backend-with-yas company-backends))
   (setq company-backends (mapcar #'company-mode/backend-with-yas company-backends))
   )
 
@@ -999,14 +956,11 @@ Similar to `org-capture' like behavior"
       (make-directory dirname t))
     (concat dirname (concat (replace-regexp-in-string "/" "!" (buffer-file-name)) (format-time-string "T%H:%M~")))))
 
-;;; auto save current buffer
 (use-package super-save
   :ensure t
   :config
   (super-save-mode +1))
-;;;
 
-;;; begin_ivy
 (setq ivy-dynamic-exhibit-delay-ms 0)
 (setq ivy-re-builders-alist '((t . ivy--regex-fuzzy)))
 
@@ -1028,7 +982,6 @@ Similar to `org-capture' like behavior"
     (apply f args))
   (setq +ivy--queue-last-input (ivy--input)))
 (advice-add 'ivy--queue-exhibit :around #'+ivy-queue-exhibit-a)
-;;; end_ivy
 
 (defun find-file--auto-create-dir (filename &optional wildcards)
   "Create parent directory during visiting file if necessary .
@@ -1114,13 +1067,14 @@ Do not prompt me to create parent directory"
 (global-set-key (kbd "C-S-s-k") #'zino/kill-whole-line-without-newline)
 
 (defun smarter-move-beginning-of-line (arg)
-  "Move point back to indentation of beginning of line        .
-Move point to the first non-whitespace character on this line .
-If point is already there, move to the beginning of the line  .
+  "Move point back to indentation of beginning of line.
+Move point to the first non-whitespace character on this line.
+If point is already there, move to the beginning of the line.
 Effectively toggle between the first non-whitespace character and
-the beginning of the line                                     .
-If ARG is not nil or 1, move forward ARG - 1 lines first      . If
-point reaches the beginning or end of the buffer, stop there  . "
+the beginning of the line.
+
+If ARG is not nil or 1, move forward ARG - 1 lines first. If
+point reaches the beginning or end of the buffer, stop there."
   (interactive "^p")
   (setq arg (or arg 1))
 
@@ -1192,7 +1146,7 @@ point reaches the beginning or end of the buffer, stop there  . "
   :prefix "SPC")
 
 (defun zino/switch-other-buffer ()
-  "Swithch to the most recent buffer . "
+  "Swithch to the most recent buffer."
   (interactive)
   (switch-to-buffer (other-buffer)))
 
@@ -1210,7 +1164,7 @@ point reaches the beginning or end of the buffer, stop there  . "
   :config
   (move-text-default-bindings))
 
-;; Set up before-save hooks to format buffer and add/delete imports .
+;; Set up before-save hooks to format buffer and add/delete imports.
 ;; Make sure you don't have other gofmt/goimports hooks enabled.
 (defun lsp-go-install-save-hooks ()
   "Befor-save hooks to format buffer."
@@ -1220,8 +1174,6 @@ point reaches the beginning or end of the buffer, stop there  . "
 (use-package go-mode
   :hook
   (go-mode . lsp-go-install-save-hooks))
-
-;;(evil-define-key '(normal motion) go-mode-map "gd" 'evil-goto-definition)
 
 ;; begin_tramp
 (setq remote-file-name-inhibit-cache nil)
@@ -1255,8 +1207,7 @@ point reaches the beginning or end of the buffer, stop there  . "
   (setq lsp-clangd-binary-path "/Library/Developer/CommandLineTools/usr/bin/clangd") ;; "/usr/local/opt/llvm/bin/clangd")
   (setq lsp-clients-lua-language-server-bin "/usr/local/bin/lua-language-server")
   :hook
-  (
-   (python-mode . lsp)
+  ((python-mode . lsp)
    (lua-mode . lsp)
    (c-mode . lsp)
    (c++-mode . lsp)
@@ -1293,8 +1244,8 @@ point reaches the beginning or end of the buffer, stop there  . "
   ;; :global/:workspace/:file
   (setq lsp-modeline-diagnostics-scope :workspace))
 
-;;reset lsp session in lsp mode
-;;(setq lsp--session nil)
+;; reset lsp session in lsp mode
+;; (setq lsp--session nil)
 
 (setq lsp-clients-clangd-args
       '("--header-insertion=iwyu"))
@@ -1491,18 +1442,12 @@ point reaches the beginning or end of the buffer, stop there  . "
   (org-noter-auto-save-last-location t)
   (org-noter-closest-tipping-point 1e-05)
   (org-noter-hide-other nil)
-  (org-noter-notes-window-behavior '(scroll))
-  )
-
+  (org-noter-notes-window-behavior '(scroll)))
 
 (defun zino/org-journal-cycle-after-open-current-journal-file ()
   "Toggle visibility according to buffer's setting."
   (org-cycle t))
 
-;; (add-hook 'org-mode-hook (lambda ()
-;;                           (define-key org-mode-map (kbd "C-c g") 'org-mac-grab-link)))
-
-;;(add-function :after (symbol-function 'org-journal-open-current-journal-file) 'zino/org-journal-cycle-after-open-current-journal-file)
 (advice-add 'org-journal-open-current-journal-file :after #'zino/org-journal-cycle-after-open-current-journal-file)
 
 (use-package org-fragtog
@@ -1569,7 +1514,7 @@ point reaches the beginning or end of the buffer, stop there  . "
         ("we" "Weekend"
          entry
          (file+function zino/GTD-file (lambda ()
-                                        "Locate * Weekly Plan heading . Insert a timestamp of current week if there is none. create a TODO"
+                                        "Locate * Weekly Plan heading. Insert a timestamp of current week if there is none. create a TODO"
                                         (goto-char (point-min))
                                         (unless (re-search-forward "\\* Weekly Plan" (point-max) t)
                                           (goto-char (point-max))
@@ -1642,7 +1587,6 @@ Do not increase cloze number"
    "c" #'zino/anki-editor-cloze-region-auto-incr
    "p" #'zino/anki-editor-push-tree
    "b" #'zino/anki-editor-push-buffer))
-
 ;; check https://github.com/louietan/anki-editor/issues/76
 ;; end_anki_editor
 
@@ -1721,9 +1665,6 @@ Do not increase cloze number"
  '(rime-cursor "˰")
  '(rime-posframe-style 'vertical)
  '(rime-show-candidate 'posframe)
- '(safe-local-variable-values
-   '((lsp-lua-runtime-path .
-                           ["/home/zino/gitlab/tengine-modules/?/?.lua" "?.lua" "?/init.lua" "?/?.lua"])))
  '(tab-always-indent nil)
  '(tab-bar-close-button-show nil)
  '(tab-bar-show nil)
