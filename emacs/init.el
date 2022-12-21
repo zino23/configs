@@ -67,7 +67,7 @@
 (dir-locals-set-class-variables 'read-only '((nil . ((buffer-read-only . t)))))
 
 ;; Emacs source for help system
-(setq emacs-src-dir "~/Dev/emacs-27.2")
+(setq emacs-src-dir "/usr/local/Cellar/emacs-plus@28/28.1/share/emacs")
 (setq macos-sdk-dir "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.1.sdk")
 (setq go-src-dir "/usr/local/Cellar/go/1.17.8/libexec/src")
 
@@ -103,6 +103,9 @@
 (setq abbrev-file-name "~/.config/emacs/.abbrev_defs")
 (setq save-abbrevs 'silently)
 (quietly-read-abbrev-file)
+(setq abbrev-suggest t)
+(setq abbrev-suggest-hint-threshold 3)
+(abbrev-table-put global-abbrev-table :case-fixed t)
 
 (setq-default tab-width 2)
 (setq-default evil-shift-width tab-width)
@@ -139,7 +142,7 @@
       (set-fontset-font t charset cn))
     (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
 
-(zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 21 1)
+(zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 19 1)
 
 ;; check if font exist
 ;; (member "Sarasa Mono SC Nerd" (font-family-list))
@@ -437,6 +440,7 @@ respectively."
   ;; NOTE: Set this to the folder where you keep your Git repos!
   (when (file-directory-p "~/Dev")
     (setq projectile-project-search-path '("~/Dev")))
+  ;; |USE|: call `projectile-find-file' with prefix argument will invalidate cache first
   (setq projectile-switch-project-action #'projectile-find-file))
 
 (use-package magit
@@ -880,6 +884,36 @@ Similar to `org-capture' like behavior"
   (setq company-backends (mapcar #'company-mode/backend-with-yas company-backends))
   )
 
+(defun makefile-mode-setup ()
+  (setq-local company-dabbrev-ignore-case t)
+  ;; (setq-local company-dabbrev-other-buffers nil)
+  (setq-local company-dabbrev-code-ignore-case t)
+  (setq-local company-backends '((company-dabbrev-code
+                                  company-keywords
+                                  company-yasnippet
+                                  company-dabbrev
+                                  :separate)))
+  (setf (alist-get major-mode company-keywords-alist)
+        (-uniq
+         (append makefile-statements
+                 makefile-special-targets-list
+                 (->> (pcase major-mode
+                        ('makefile-automake-mode makefile-automake-statements)
+                        ('makefile-gmake-mode makefile-gmake-statements)
+                        ('makefile-makepp-mode makefile-makepp-statements)
+                        ('makefile-bsdmake-mode makefile-bsdmake-statements)
+                        ('makefile-imake-mode makefile-imake-s))
+                      (-filter #'stringp)
+                      (-map #'split-string)
+                      (-flatten))))))
+
+(with-eval-after-load 'company
+  (dolist (hook '(makefile-gmake-mode-hook
+                  makefile-makepp-mode-hook
+                  makefile-bsdmake-mode-hook
+                  makefile-imake-mode-hook))
+    (add-hook hook #'makefile-mode-setup)))
+
 (global-set-key (kbd "M-.") #'company-show-doc-buffer)
 (defvar company-mode/enable-yas nil
   "Enable yasnippet for all backends.")
@@ -1118,7 +1152,8 @@ point reaches the beginning or end of the buffer, stop there."
 (global-set-key (kbd "C-c C-k") #'copy-line)
 
 ;; Vim like return to last mark location
-(global-set-key (kbd "C-o") #'pop-global-mark)
+;; use better-jumper for now
+;; (global-set-key (kbd "C-o") #'pop-global-mark)
 
 (global-set-key (kbd "M-z") #'zap-up-to-char)
 (global-set-key (kbd "M-Z") #'zap-to-char)
@@ -1134,8 +1169,7 @@ point reaches the beginning or end of the buffer, stop there."
         helm-locate-create-db-command
         "gupdatedb --output='%s' --localpaths='%s'")
   (setq helm-locate-project-list
-        (list "~/Dev"))
-  )
+        (list "~/Dev")))
 
 (global-set-key (kbd "M-i") #'helm-imenu)
 ;; end_edit_and_movement
@@ -1201,6 +1235,8 @@ point reaches the beginning or end of the buffer, stop there."
            (not bound-and-true-p nginx-mode))
       (lsp-format-buffer)))
 
+(use-package cmake-mode)
+
 (use-package lsp-mode
   :init
   (setq lsp-keymap-prefix "C-c l")
@@ -1219,7 +1255,7 @@ point reaches the beginning or end of the buffer, stop there."
    (sh-mode . lsp)
    (html-mode . lsp)
    (css-mode . lsp)
-   (javascript-mode . lsp)
+   (js-mode . lsp)
    ;;; miscs
    (nginx-mode . lsp))
   :config
@@ -1602,7 +1638,7 @@ Do not increase cloze number"
  '(highlight-indent-guides-top-character-face ((t (:foreground "#bbc2cf"))))
  '(hl-line ((t (:extend t :background "#42444a"))))
  '(lsp-ui-doc-background ((t (:inherit tooltip :background "#2e3138"))))
- '(lsp-ui-doc-header ((t (:inherit (font-lock-string-face italic)))))
+ '(lsp-ui-doc-header ((t (:inherit (font-lock-string-face italic)))) t)
  '(org-block ((t (:inherit nil :extend t :background "#282c34"))))
  '(org-block-begin-line ((t (:inherit all-faces :foreground "#5B6268"))))
  '(org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
@@ -1656,7 +1692,7 @@ Do not increase cloze number"
    '(ol-bbdb ol-bibtex ol-docview ol-doi ol-eww ol-gnus ol-info ol-irc ol-mhe ol-rmail ol-w3m org-mac-link))
  '(org-remark-notes-file-name 'org-remark-notes-file-name-function)
  '(package-selected-packages
-   '(forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-mac-link org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-quickhelp company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
+   '(nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-mac-link org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-quickhelp company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(paren-display-message 'always)
  '(pdf-view-continuous t)
  '(pdf-view-display-size 'fit-page)
@@ -1689,7 +1725,7 @@ Do not increase cloze number"
 (add-to-list 'auto-mode-alist '("\\.lua$" . lua-mode))
 (add-to-list 'auto-mode-alist '("\\.t$" . perl-mode))
 (add-to-list 'interpreter-mode-alist '("lua" . lua-mode))
-(add-to-list 'auto-mode-alist '(".*Makefile" . makefile-mode))
+(add-to-list 'auto-mode-alist '(".*Makefile" . makefile-gmake-mode))
 
 (add-hook 'conf-mode-hook (lambda ()
                             "Set tab width to four spacess."
@@ -1873,7 +1909,7 @@ Save the buffer of the current window and kill it"
   :config
   ;; turn on `org-remark' highlights on startup
   (org-remark-global-tracking-mode 1)
-  (keyboard-translate ?\C-m ?\H-m)
+  ;; (keyboard-translate ?\C-m ?\H-m)
   (global-set-key (kbd "C-x H-m m") #'org-remark-mark)
   (with-eval-after-load 'org-remark
     (define-key org-remark-mode-map (kbd "C-x H-m o") #'org-remark-open)
@@ -1927,6 +1963,21 @@ Save the buffer of the current window and kill it"
   "Set `inhibit-message' buffer-locally."
   (setq-local inhibit-message t))
 (add-hook 'pdf-view-mode-hook 'zino/inhibit-buffer-messages)
+
+(use-package flycheck-vale
+  :config
+  (flycheck-vale-setup))
+
+(use-package nasm-mode
+  :config
+  (add-to-list 'auto-mode-alist '("\\.asm\\'" . nasm-mode)))
+
+(add-hook 'prog-mode-hook
+          (lambda ()
+            "Set `auto-fill-mode' for comments."
+            (auto-fill-mode 1)
+            (setq-local comment-auto-fill-only-commnts t
+                        fill-column 80)))
 
 ;; run as daemon
 (server-start)
