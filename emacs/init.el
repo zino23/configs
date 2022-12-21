@@ -1910,16 +1910,16 @@ Save the buffer of the current window and kill it"
   ;; turn on `org-remark' highlights on startup
   (org-remark-global-tracking-mode 1)
   ;; (keyboard-translate ?\C-m ?\H-m)
-  (global-set-key (kbd "C-x H-m m") #'org-remark-mark)
+  (global-set-key (kbd "C-x C-n m") #'org-remark-mark)
   (with-eval-after-load 'org-remark
-    (define-key org-remark-mode-map (kbd "C-x H-m o") #'org-remark-open)
-    (define-key org-remark-mode-map (kbd "C-x H-m v") #'org-remark-view)
-    (define-key org-remark-mode-map (kbd "C-x H-m ]") #'org-remark-view-next)
-    (define-key org-remark-mode-map (kbd "C-x H-m [") #'org-remark-view-prev)
-    (define-key org-remark-mode-map (kbd "C-x H-m r") #'org-remark-remove)
-    (define-key org-remark-mode-map (kbd "C-x H-m d") #'org-remark-delete)
-    (define-key org-remark-mode-map (kbd "C-x H-m y") #'org-remark-mark-yellow)
-    (define-key org-remark-mode-map (kbd "C-x H-m l") #'org-remark-mark-red-line)))
+    (define-key org-remark-mode-map (kbd "C-x C-n o") #'org-remark-open)
+    (define-key org-remark-mode-map (kbd "C-x C-n v") #'org-remark-view)
+    (define-key org-remark-mode-map (kbd "C-x C-n ]") #'org-remark-view-next)
+    (define-key org-remark-mode-map (kbd "C-x C-n [") #'org-remark-view-prev)
+    (define-key org-remark-mode-map (kbd "C-x C-n r") #'org-remark-remove)
+    (define-key org-remark-mode-map (kbd "C-x C-n d") #'org-remark-delete)
+    (define-key org-remark-mode-map (kbd "C-x C-n y") #'org-remark-mark-yellow)
+    (define-key org-remark-mode-map (kbd "C-x C-n l") #'org-remark-mark-red-line)))
 
 (use-package graphviz-dot-mode
   :ensure t
