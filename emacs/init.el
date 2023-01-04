@@ -281,10 +281,7 @@
    ("C-M-y" . sp-copy-sexp)
 
    ;; eat the next sexp into current one
-   ("C-M-S" . sp-forward-slurp-sexp)
-   :map c-mode-base-map
-   ("C-M-a" . sp-backward-up-sexp)
-   ("C-M-e" . sp-up-sexp))
+   ("C-M-S" . sp-forward-slurp-sexp))
 
   :config
   (smartparens-global-mode)
@@ -1327,7 +1324,9 @@ point reaches the beginning or end of the buffer, stop there."
 (with-eval-after-load 'c-or-c++-mode
   (define-key c-mode-base-map [remap c-toggle-comment-style] 'copy-line)
   (define-key c-mode-base-map [remap beginning-of-defun] 'c-beginning-of-defun)
-  (define-key c-mode-base-map [remap end-of-defun] 'c-end-of-defun))
+  (define-key c-mode-base-map [remap end-of-defun] 'c-end-of-defun)
+  (define-key c-mode-base-map (kbd ("C-M-a") 'sp-backward-up-sexp))
+  (define-key c-mode-base-map (kbd ("C-M-e") 'sp-up-sexp)))
 
 (setq lsp-intelephense-multi-root nil)
 
