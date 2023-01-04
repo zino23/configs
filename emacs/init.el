@@ -81,6 +81,7 @@
 
 ;; Rebind bc by default `list-buffers' list buffers in another window
 (global-set-key "\C-x\C-b" 'ibuffer)
+(global-set-key (kbd "s-b") 'zino/switch-other-buffer)
 
 ;; scroll one line at a time (less "jumpy" than defaults)
 (setq mouse-wheel-scroll-amount '(1 ((shift) . 1)))
@@ -103,9 +104,21 @@
 (setq abbrev-file-name "~/.config/emacs/.abbrev_defs")
 (setq save-abbrevs 'silently)
 (quietly-read-abbrev-file)
-(setq abbrev-suggest t)
+(setq abbrev-suggest nil)
 (setq abbrev-suggest-hint-threshold 3)
 (abbrev-table-put global-abbrev-table :case-fixed t)
+
+(defun self-insert-no-abbrev ()
+  (interactive)
+  (let ((abbrev-mode nil))
+    (call-interactively 'self-insert-command)))
+
+(global-set-key "_" #'self-insert-no-abbrev)
+(global-set-key "." #'self-insert-no-abbrev)
+(global-set-key "-" #'self-insert-no-abbrev)
+
+(setq zino/abbrev-table [])
+(define-abbrev global-abbrev-table "tset" "test")
 
 (setq-default tab-width 2)
 (setq-default evil-shift-width tab-width)
@@ -116,7 +129,9 @@
   :commands
   (dired dired-jump)
   :bind
-  (("C-x C-j" . dired-jump)))
+  (("C-x C-j" . dired-jump))
+  :custom
+  (dired-dwim-target t))
 
 (setenv "PATH" (concat "/Library/TeX/texbin" (getenv "PATH")))
 (setq exec-path (append '("/Library/TeX/texbin") exec-path))
@@ -142,7 +157,7 @@
       (set-fontset-font t charset cn))
     (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
 
-(zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 19 1)
+(zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 18 1)
 
 ;; check if font exist
 ;; (member "Sarasa Mono SC Nerd" (font-family-list))
@@ -249,16 +264,28 @@
    ("C-M-d" . sp-down-sexp)
    ("C-M-a" . sp-backward-down-sexp)
    ("C-M-e" . sp-up-sexp)
-   ;; in the same nested level
+   ;; in the same nested level and go up a level if needed
    ("C-M-n" . sp-next-sexp)
    ("C-M-p" . sp-previous-sexp)
 
-   ;; unwrap
+   ;;; unwrap
+   ;; unwrap the enclosing sexp
    ("M-D"   . sp-splice-sexp)
+   ;; unwrap the sexp under cursor
+   ("C-c u" . sp-unwrap-sexp)
+
+   ;;; rewrap
    ("C-M-r" . sp-rewrap-sexp)
 
    ;; copy
-   ("C-M-y" . sp-copy-sexp))
+   ("C-M-y" . sp-copy-sexp)
+
+   ;; eat the next sexp into current one
+   ("C-M-S" . sp-forward-slurp-sexp)
+   :map c-mode-base-map
+   ("C-M-a" . sp-backward-up-sexp)
+   ("C-M-e" . sp-up-sexp))
+
   :config
   (smartparens-global-mode)
 
@@ -274,8 +301,6 @@
 (global-set-key (kbd "C-c {")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "{")))
 (global-set-key (kbd "C-c \"")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "\"")))
 (global-set-key (kbd "C-c \'")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "\'")))
-;; unwrap the next sexp; `sp-splice-sexp' unwrap the current
-(global-set-key (kbd "C-c u") (lambda (&optional arg) (interactive "P") (sp-unwrap-sexp)))
 
 (sp-pair "(" ")" :wrap "C-(")
 (sp-pair "{" "}" :wrap "C-{")
@@ -444,6 +469,8 @@ respectively."
   (setq projectile-switch-project-action #'projectile-find-file))
 
 (use-package magit
+  :bind
+  ("C-x g" . magit-status)
   :custom
   (magit-git-executable "/usr/local/bin/git")
   ;; variables which can be set rather than just one
@@ -534,7 +561,10 @@ respectively."
   (org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
   (org-code ((t (:inherit nil :foreground "#da8548"))))
   (org-document-title ((t (:foreground "#c678dd" :weight bold :height 1.2 :family "Iosevka"))))
-  (org-id-link-to-org-use-id 'create-if-interactive))
+  (org-id-link-to-org-use-id 'create-if-interactive)
+  :bind
+  (:map org-mode-map
+        ("C-c C-g" . counsel-org-goto)))
 
 (use-package org-appear)
 
@@ -824,7 +854,8 @@ Similar to `org-capture' like behavior"
   (global-set-key (kbd "M-o") 'ace-window)
   (global-set-key (kbd "<f5> k") 'ace-delete-window)
   (setq aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l)
-        aw-scope 'frame))
+        aw-scope 'frame)
+  (setq aw-ignored-buffers '("*Calc Trail*" " *LV*")))
 
 (setq next-screen-context-lines 2)
 
@@ -881,8 +912,7 @@ Similar to `org-capture' like behavior"
   (company-require-match nil)
   :config
   (global-company-mode)
-  (setq company-backends (mapcar #'company-mode/backend-with-yas company-backends))
-  )
+  (setq company-backends (mapcar #'company-mode/backend-with-yas company-backends)))
 
 (defun makefile-mode-setup ()
   (setq-local company-dabbrev-ignore-case t)
@@ -1226,7 +1256,9 @@ point reaches the beginning or end of the buffer, stop there."
 
 (use-package lsp-treemacs
   :custom
-  (lsp-treemacs-error-list-current-project-only t))
+  (lsp-treemacs-error-list-current-project-only t)
+  :config
+  (setq lsp-treemacs-generic-root '()))
 
 (defun zino/format-if-lsp-mode ()
   "Format on save if `lsp-mode' is present."
@@ -1239,14 +1271,15 @@ point reaches the beginning or end of the buffer, stop there."
 
 (use-package lsp-mode
   :init
-  (setq lsp-keymap-prefix "C-c l")
   (setq lsp-clangd-binary-path "/Library/Developer/CommandLineTools/usr/bin/clangd") ;; "/usr/local/opt/llvm/bin/clangd")
   (setq lsp-clients-lua-language-server-bin "/usr/local/bin/lua-language-server")
   :hook
   ((python-mode . lsp)
    (lua-mode . lsp)
+   ;;; bug with company and template compeltion, use eglot
    (c-mode . lsp)
    (c++-mode . lsp)
+   ;; (remove-hook 'c-mode-hook 'lsp)
    (cmake-mode . lsp)
    (go-mode . lsp)
    (rust-mode . lsp)
@@ -1259,21 +1292,26 @@ point reaches the beginning or end of the buffer, stop there."
    ;;; miscs
    (nginx-mode . lsp))
   :config
-  ;;(define-key lsp-mode-map (kbd "C-c C-d") #'lsp-find-definition)
-  (define-key lsp-mode-map (kbd "C-c C-d") #'xref-find-definitions)
-  (define-key lsp-mode-map (kbd "C-c d") #'xref-find-definitions-other-window)
-  (define-key lsp-mode-map (kbd "C-c r") #'lsp-rename)
-  (define-key lsp-mode-map (kbd "C-c C-e") #'flycheck-list-errors)
-  (define-key lsp-mode-map (kbd "C-c C-r") #'lsp-find-references)
+  (setq lsp-keymap-prefix "C-c l")
   (setq lsp-signature-auto-activate t
         lsp-signature-render-documentation t)
   ;; format-all does not work and it changes the window to the point of distracting ):
-  (add-hook 'before-save-hook 'zino/format-if-lsp-mode)
+  ;; (remove-hook 'before-save-hook 'zino/format-if-lsp-mode)
+  :bind
+  (:map lsp-mode-map
+        ("C-c C-l" . lsp-treemacs-symbols)
+        ;; "C-c C-d" 'lsp-find-definition)
+        ("C-c C-d" . 'xref-find-definitions)
+        ("C-c d" . 'xref-find-definitions-other-window)
+        ("C-c r" . 'lsp-rename)
+        ;; ("C-c C-e" . 'flycheck-list-errors)
+        ("C-c C-e" . 'flymake-show-buffer-diagnostics)
+        ("C-c C-r" . 'lsp-find-references))
   :custom
   (lsp-eldoc-enable-hover t)
   (lsp-modeline-diagnostics-enable nil)
   (lsp-signature-render-documentation t)
-  (lsp-diagnostics-provider :flycheck)
+  (lsp-diagnostics-provider :flymake)
   (lsp-eldoc-render-all t))
 
 (with-eval-after-load 'lsp-mode
@@ -1285,6 +1323,11 @@ point reaches the beginning or end of the buffer, stop there."
 
 (setq lsp-clients-clangd-args
       '("--header-insertion=iwyu"))
+
+(with-eval-after-load 'c-or-c++-mode
+  (define-key c-mode-base-map [remap c-toggle-comment-style] 'copy-line)
+  (define-key c-mode-base-map [remap beginning-of-defun] 'c-beginning-of-defun)
+  (define-key c-mode-base-map [remap end-of-defun] 'c-end-of-defun))
 
 (setq lsp-intelephense-multi-root nil)
 
@@ -1345,9 +1388,9 @@ point reaches the beginning or end of the buffer, stop there."
 
 (use-package eglot
   :config
-  (add-to-list 'eglot-server-programs '(c++-mode . ("clangd")))
+  (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(perl-mode . ("/usr/local/Cellar/perl/5.34.0/lib/perl5/site_perl/5.34.0/Perl/LanguageServer.pm")))
-  (add-to-list 'eglot-server-programs '(c-mode . ("clangd")))
+  (add-to-list 'eglot-server-programs '(c-mode . ("clangd" "--header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(cmake-mode . ("/home/cs144/.local/bin/cmake-language-server")))
   (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp")))
   (add-to-list 'eglot-server-programs '(lua-mode . ("/usr/local/Cellar/lua-language-server/3.5.2/libexec/bin/lua-language-server")))
@@ -1363,16 +1406,19 @@ point reaches the beginning or end of the buffer, stop there."
   :bind
   (:map eglot-mode-map
         ("C-c C-d" . xref-find-definitions)
+        ("C-c d" . xref-find-definitions-other-window)
         ("C-c r"   . eglot-rename)
         ("C-c C-r" . xref-find-references)
-        ("C-c C-a" . eglot-code-actions))
+        ("C-c C-a" . eglot-code-actions)
+        ("C-c C-e" . flymake-show-buffer-diagnostics))
   ;; :hook
-  ;; (c-mode       . eglot-ensure)
-  ;; (c++-mode     . eglot-ensure)
+  ;; (c-mode . eglot-ensure)
+  ;; (c++-mode . eglot-ensure)
   ;; (cmake-mode   . eglot-ensure)
   ;; (sh-mode         . eglot-ensure)
   ;; (js-mode         . eglot-ensure)
   ;; (typescript-mode . eglot-ensure)
+  ;; (remove-hook 'c-mode-hook 'eglot-ensure)
   )
 
 ;; (add-to-list 'load-path (concat (getenv "GOPATH")  "/src/golang . org/x/lint/misc/emacs/"))
@@ -1395,8 +1441,9 @@ point reaches the beginning or end of the buffer, stop there."
 (use-package yasnippet-snippets)
 
 (use-package flycheck
-  :hook
-  (lsp-mode . flycheck-mode))
+  ;; :hook
+  ;; (lsp-mode . flycheck-mode)
+  )
 
 (use-package flycheck-rust
   :hook
@@ -1430,6 +1477,13 @@ point reaches the beginning or end of the buffer, stop there."
     map)
   "Repeat map for flycheck.")
 
+(defvar flymake-repeat-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "[" #'flymake-goto-prev-error)
+    (define-key map "]" #'flymake-goto-next-error)
+    map)
+  "Repeat map for flymake.")
+
 (defvar isearch-repeat-map
   (let ((map (make-sparse-keymap)))
     (define-key map "s" #'isearch-repeat-forward)
@@ -1437,8 +1491,25 @@ point reaches the beginning or end of the buffer, stop there."
     map)
   "Repeat map for isearch.")
 
+(defvar winner-repeat-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "<left>") 'winner-undo)
+    (define-key map (kbd "<right>") 'winner-redo)
+    map)
+  "Repeat map for `winner-mode'.")
+
+(defvar org-remark-repeat-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "[") 'org-remark-view-prev)
+    (define-key map (kbd "]") 'org-remark-view-next)
+    map)
+  "Repeat map for `org-remark'.")
+
 (repeatize 'isearch-repeat-map)
 (repeatize 'flycheck-repeat-map)
+(repeatize 'winner-repeat-map)
+(repeatize 'flymake-repeat-map)
+(repeatize 'org-remark-repeat-map)
 
 ;; Show matching parenthesis
 (use-package mic-paren)
@@ -1490,7 +1561,7 @@ point reaches the beginning or end of the buffer, stop there."
   :hook (org-mode . org-fragtog-mode))
 
 (global-set-key (kbd "C-c a") #'org-agenda)
-(global-set-key (kbd "C-c C-l") #'org-store-link)
+(global-set-key (kbd "C-c l") #'org-store-link)
 (global-set-key (kbd "C-c i") #'org-insert-link)
 (global-set-key (kbd "C-c t") #'org-cycle-list-bullet)
 
@@ -1565,7 +1636,7 @@ point reaches the beginning or end of the buffer, stop there."
         ("mr" "Random"
          entry
          (file+headline zino/meeting-file "Participated")
-         "** %^{What is it about}  %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
+         "** %^{What is it about}  %^g\n:PROPERTIES:\n:ID: %(shell-command-to-string \"uuidgen\"):CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
          :immediate-finish nil
          :jump-to-captured t)))
 
@@ -1610,6 +1681,7 @@ Do not increase cloze number"
 (use-package anki-editor
   :hook
   (org-capture-after-finalize . zino/anki-editor-reset-cloze-num)
+  (org-capture . anki-editor-mode)
   :config
   ;; initialize cloze states
   (zino/anki-editor-reset-cloze-num)
@@ -1638,7 +1710,7 @@ Do not increase cloze number"
  '(highlight-indent-guides-top-character-face ((t (:foreground "#bbc2cf"))))
  '(hl-line ((t (:extend t :background "#42444a"))))
  '(lsp-ui-doc-background ((t (:inherit tooltip :background "#2e3138"))))
- '(lsp-ui-doc-header ((t (:inherit (font-lock-string-face italic)))) t)
+ '(lsp-ui-doc-header ((t (:inherit (font-lock-string-face italic)))))
  '(org-block ((t (:inherit nil :extend t :background "#282c34"))))
  '(org-block-begin-line ((t (:inherit all-faces :foreground "#5B6268"))))
  '(org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
@@ -1655,7 +1727,7 @@ Do not increase cloze number"
  '(org-verbatim ((t (:foreground "#98be65"))))
  '(paren-face-match ((t (:foreground "#ff6c6b" :weight ultra-bold))))
  '(tooltip ((t (:background "#21242b" :foreground "#bbc2cf" :height 1.0))))
- '(variable-pitch ((t (:family "ETBembo" :height 250 :weight regular)))))
+ '(variable-pitch ((t (:family "ETBembo" :height 180 :weight regular)))))
 
 ;;; init.el ends here
 (custom-set-variables
@@ -1663,6 +1735,8 @@ Do not increase cloze number"
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(beacon-blink-when-buffer-changes t)
+ '(beacon-blink-when-window-changes nil)
  '(comment-style 'indent)
  '(company-box-doc-delay 0.2)
  '(company-quickhelp-color-foreground nil)
@@ -1675,6 +1749,9 @@ Do not increase cloze number"
  '(display-line-numbers-width nil)
  '(eldoc-echo-area-prefer-doc-buffer t)
  '(eldoc-idle-delay 0.2)
+ '(elfeed-feeds
+   '("https://www.reddit.com/r/emacs.rss"
+     ("https://news.ycombinator.com/rss" hacker)))
  '(helm-minibuffer-history-key "M-p")
  '(highlight-indent-guides-auto-character-face-perc 20)
  '(highlight-indent-guides-auto-top-character-face-perc 50)
@@ -1691,8 +1768,9 @@ Do not increase cloze number"
  '(org-modules
    '(ol-bbdb ol-bibtex ol-docview ol-doi ol-eww ol-gnus ol-info ol-irc ol-mhe ol-rmail ol-w3m org-mac-link))
  '(org-remark-notes-file-name 'org-remark-notes-file-name-function)
+ '(org-tags-column -120 nil nil "Customized with use-package org")
  '(package-selected-packages
-   '(nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-mac-link org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-quickhelp company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
+   '(elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-mac-link org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-quickhelp company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(paren-display-message 'always)
  '(pdf-view-continuous t)
  '(pdf-view-display-size 'fit-page)
@@ -1726,6 +1804,12 @@ Do not increase cloze number"
 (add-to-list 'auto-mode-alist '("\\.t$" . perl-mode))
 (add-to-list 'interpreter-mode-alist '("lua" . lua-mode))
 (add-to-list 'auto-mode-alist '(".*Makefile" . makefile-gmake-mode))
+
+;; \` matches beginning of string
+;; \' matches end of string
+;; ^ matches beginning of (buffer || string || line)
+;; $ matches end of (buffer || string || line)
+(add-to-list 'auto-mode-alist '("\\`README\\'" . markdown-mode))
 
 (add-hook 'conf-mode-hook (lambda ()
                             "Set tab width to four spacess."
@@ -1792,7 +1876,10 @@ Do not increase cloze number"
         ("C-c [" . flymake-goto-prev-error)
         ("C-c ]" . flymake-goto-next-error))
   :config
-  (eval-after-load 'flymake '(require 'flymake-cursor)))
+  (eval-after-load 'flymake '(require 'flymake-cursor))
+  :hook
+  (lsp-mode . flymake-mode)
+  )
 (use-package flymake-cursor)
 
 ;; git-modes
@@ -1813,7 +1900,10 @@ Do not increase cloze number"
    (emacs-lisp . t)
    (shell . t)
    (lua . t)
-   (dot . t)))
+   (dot . t)
+   (js . t)))
+
+(setq org-confirm-babel-evaluate nil)
 
 (use-package yaml-mode
   :config
@@ -1861,7 +1951,7 @@ Save the buffer of the current window and kill it"
   :hook
   ;; (rust-mode . format-all-mode)
   ;; (go-mode . format-all-mode)
-  ;; (c++-mode . format-all-mode)
+  (c++-mode . format-all-mode)
   (nginx-mode . format-all-mode))
 
 (setq read-process-output-max (* 1024 1024)) ;; 1MB
@@ -1876,6 +1966,8 @@ Save the buffer of the current window and kill it"
   ;; https://stackoverflow.com/questions/4512075/how-to-use-ctrl-i-for-an-emacs-shortcut-without-breaking-tabs
   (keyboard-translate ?\C-i ?\H-i)
   (global-set-key [?\H-i] #'better-jumper-jump-forward)
+  (define-key org-mode-map (kbd "C-c C-x H-i") 'org-clock-in)
+  ;; (define-key org-journal-mode-map (kbd "C-c C-x H-i") 'org-clock-in)
 
   ;; terminal emacs cannot differenciate C-i from tab
   (global-set-key (kbd "C-j") #'better-jumper-jump-forward))
@@ -1899,6 +1991,8 @@ Save the buffer of the current window and kill it"
 (advice-add #'org-open-at-point :before #'zino/set-jump-for-one-option-arg)
 (advice-add #'beginning-of-buffer :before #'zino/set-jump-for-one-option-arg)
 (advice-add #'end-of-buffer :before #'zino/set-jump-for-one-option-arg)
+(advice-add #'c-beginning-of-defun :before #'zino/set-jump-for-one-option-arg)
+(advice-add #'c-end-of-defun :before #'zino/set-jump-for-one-option-arg)
 
 ;; unable to set advice for `lsp-find-definition' for now
 ;; (advice-add #'lsp-find-definition :before #'zino/set-jump-for-lsp-find-def)
@@ -1908,18 +2002,59 @@ Save the buffer of the current window and kill it"
 (use-package org-remark
   :config
   ;; turn on `org-remark' highlights on startup
-  (org-remark-global-tracking-mode 1)
+  (require 'org-remark-global-tracking)
+  (org-remark-global-tracking-mode +1)
+    ;;; `org-remark' builtin function redefinition and helper function
+  (defun org-remark-open (point &optional view-only)
+    "Open remark note buffer if there is notes from `point' to the beginning of
+the line."
+    (interactive "d\nP")
+    (when-let ((id
+                  ;;; #+begin_modified
+                (let ((point-beginning-of-line (line-beginning-position))
+                      remark-id)
+                  (while (>= point point-beginning-of-line)
+                    (if (get-char-property point 'org-remark-id)
+                        (progn
+                          (setq remark-id (get-char-property point
+                                                             'org-remark-id))
+                          (setq point (1- point-beginning-of-line)))
+                      (setq point (1- point))))
+                  remark-id))
+                 ;;; #+end_modified
+               (ibuf (org-remark-notes-buffer-get-or-create))
+               (cbuf (current-buffer)))
+      (pop-to-buffer ibuf org-remark-notes-display-buffer-action)
+      (widen)
+      (when-let (p (org-find-property org-remark-prop-id id))
+        ;; Somehow recenter is needed when a highlight is deleted and move to a
+        ;; previous highlight.  Otherwise, the cursor is too low to show the
+        ;; entire entry.  It looks like there is no entry.
+        (goto-char p)(org-narrow-to-subtree)(org-end-of-meta-data t)(recenter))
+      ;; Avoid error when buffer-action is set to display a new frame
+      (when-let ((view-only view-only)
+                 (window (get-buffer-window cbuf)))
+        (select-window window))))
+
+  (defun zino/org-remark-mark-and-open ()
+    "Helper function to mark region and open notes buffer.
+I find myself often do this workflow"
+    (interactive)
+    (org-remark-mark (region-beginning) (region-end))
+    (org-remark-open (point)))
+
+  :bind
   ;; (keyboard-translate ?\C-m ?\H-m)
-  (global-set-key (kbd "C-x C-n m") #'org-remark-mark)
-  (with-eval-after-load 'org-remark
-    (define-key org-remark-mode-map (kbd "C-x C-n o") #'org-remark-open)
-    (define-key org-remark-mode-map (kbd "C-x C-n v") #'org-remark-view)
-    (define-key org-remark-mode-map (kbd "C-x C-n ]") #'org-remark-view-next)
-    (define-key org-remark-mode-map (kbd "C-x C-n [") #'org-remark-view-prev)
-    (define-key org-remark-mode-map (kbd "C-x C-n r") #'org-remark-remove)
-    (define-key org-remark-mode-map (kbd "C-x C-n d") #'org-remark-delete)
-    (define-key org-remark-mode-map (kbd "C-x C-n y") #'org-remark-mark-yellow)
-    (define-key org-remark-mode-map (kbd "C-x C-n l") #'org-remark-mark-red-line)))
+  (("C-x C-n m" . org-remark-mark)
+   ("C-x C-n o" . org-remark-open)
+   ("C-x C-n v" . org-remark-view)
+   ("C-x C-n ]" . org-remark-view-next)
+   ("C-x C-n [" . org-remark-view-prev)
+   ("C-x C-n r" . org-remark-remove)
+   ("C-x C-n d" . org-remark-delete)
+   ("C-x C-n y" . org-remark-mark-yellow)
+   ("C-x C-n l" . org-remark-mark-red-line)
+   ("C-x C-n e" . zino/org-remark-mark-and-open)))
 
 (use-package graphviz-dot-mode
   :ensure t
@@ -1978,6 +2113,81 @@ Save the buffer of the current window and kill it"
             (auto-fill-mode 1)
             (setq-local comment-auto-fill-only-commnts t
                         fill-column 80)))
+
+;; (setq ba/org-adjust-tags-column t)
+
+;; (defun ba/org-adjust-tags-column-reset-tags ()
+;;   "In org-mode buffers it will reset tag position according to
+;; `org-tags-column'."
+;;   (when (and
+;;          (not (string= (buffer-name) "*Remember*"))
+;;          (eql major-mode 'org-mode))
+;;     (let ((b-m-p (buffer-modified-p)))
+;;       (condition-case nil
+;;           (save-excursion
+;;             (goto-char (point-min))
+;;             (command-execute 'outline-next-visible-heading)
+;;             ;; disable (message) that org-set-tags generates
+;;             (flet ((message (&rest ignored) nil))
+;;                   (org-set-tags 1 t))
+;;             (set-buffer-modified-p b-m-p))
+;;         (error nil)))))
+
+;; (defun ba/org-adjust-tags-column-now ()
+;;   "Right-adjust `org-tags-column' value, then reset tag position."
+;;   (set (make-local-variable 'org-tags-column)
+;;        (- (- (window-width) (length org-ellipsis))))
+;;   (ba/org-adjust-tags-column-reset-tags))
+
+;; (defun ba/org-adjust-tags-column-maybe ()
+;;   "If `ba/org-adjust-tags-column' is set to non-nil, adjust tags."
+;;   (when ba/org-adjust-tags-column
+;;     (ba/org-adjust-tags-column-now)))
+
+;; (defun ba/org-adjust-tags-column-before-save ()
+;;   "Tags need to be left-adjusted when saving."
+;;   (when ba/org-adjust-tags-column
+;;     (setq org-tags-column 1)
+;;     (ba/org-adjust-tags-column-reset-tags)))
+
+;; (defun ba/org-adjust-tags-column-after-save ()
+;;   "Revert left-adjusted tag position done by before-save hook."
+;;   (ba/org-adjust-tags-column-maybe)
+;;   (set-buffer-modified-p nil))
+
+;;                                         ; automatically align tags on right-hand side
+;; (add-hook 'window-configuration-change-hook
+;;           'ba/org-adjust-tags-column-maybe)
+;; (add-hook 'before-save-hook 'ba/org-adjust-tags-column-before-save)
+;; (add-hook 'after-save-hook 'ba/org-adjust-tags-column-after-save)
+;; (add-hook 'org-agenda-mode-hook (lambda ()
+;;                                   (setq org-agenda-tags-column (- (window-width)))))
+
+;;                                         ; between invoking org-refile and displaying the prompt (which
+;;                                         ; triggers window-configuration-change-hook) tags might adjust,
+;;                                         ; which invalidates the org-refile cache
+;; (defadvice org-refile (around org-refile-disable-adjust-tags)
+;;   "Disable dynamically adjusting tags"
+;;   (let ((ba/org-adjust-tags-column nil))
+;;     ad-do-it))
+;; (ad-activate 'org-refile)
+
+(use-package json-mode)
+
+(use-package elfeed
+  :config
+  (setq elfeed-feeds
+        '(
+          ("https://news.ycombinator.com/rss" hacker)
+          )))
+
+(setenv "clang-format" "~/.local/bin/clang-format")
+
+(defconst zino/cc-style
+  '("cc-mode"
+    (c-offsets-alist . ((innamespace . [0])))))
+
+(c-add-style "my-cc-mode" zino/cc-style)
 
 ;; run as daemon
 (server-start)
