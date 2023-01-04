@@ -43,3 +43,9 @@ karabiner/automatic_backups
 
 # htop
 htop/htoprc
+
+# flameshot
+flameshot.ini
+
+# remove it until I figure out a way to unsave `:count` property
+.abbrev_defs
