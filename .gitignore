@@ -30,6 +30,7 @@ emacs/url
 emacs/var
 emacs/librime
 emacs/request
+emacs/.emacs.desktop
 emacs/.emacs.desktop.lock
 emacs/forge-database.sqlite
 emacs/org-roam.db

@@ -119,6 +119,11 @@
 
 (setq zino/abbrev-table [])
 (define-abbrev global-abbrev-table "tset" "test")
+(define-abbrev global-abbrev-table "js" "JavaScript")
+(define-abbrev global-abbrev-table "teh" "the")
+(define-abbrev global-abbrev-table "adn" "and")
+(define-abbrev global-abbrev-table "sturct" "struct")
+(define-abbrev global-abbrev-table "recieve" "receive")
 
 (setq-default tab-width 2)
 (setq-default evil-shift-width tab-width)
@@ -157,7 +162,7 @@
       (set-fontset-font t charset cn))
     (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
 
-(zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 18 1)
+(zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 17 1)
 
 ;; check if font exist
 ;; (member "Sarasa Mono SC Nerd" (font-family-list))
@@ -271,24 +276,30 @@
    ;;; unwrap
    ;; unwrap the enclosing sexp
    ("M-D"   . sp-splice-sexp)
-   ;; unwrap the sexp under cursor
-   ("C-c u" . sp-unwrap-sexp)
 
    ;;; rewrap
    ("C-M-r" . sp-rewrap-sexp)
 
    ;; copy
-   ("C-M-y" . sp-copy-sexp)
-
-   ;; eat the next sexp into current one
-   ("C-M-S" . sp-forward-slurp-sexp))
+   ("C-M-y" . sp-copy-sexp))
 
   :config
   (smartparens-global-mode)
 
   ;; not smartparens related, but shares the same philosophy
   (global-set-key (kbd "C-s-f") #'beginning-of-defun)
-  (global-set-key (kbd "C-s-g") #'end-of-defun))
+  (global-set-key (kbd "C-s-g") #'end-of-defun)
+
+  (general-define-key
+   :prefix "C-c s"
+   ;; remove the last sexp from current list by moving the closing delimiter
+   "b" 'sp-forward-barf-sexp
+   ;; eat the next sexp into current one
+   "s" 'sp-forward-slurp-sexp
+   ;; unwrap the next sexp
+   "n" 'sp-unwrap-sexp
+   ;; unwrap the current list
+   "u" 'sp-splice-sexp))
 
 ;; Handle apostrophe and single quote in Lisp mode
 (require 'smartparens-config)
@@ -460,8 +471,8 @@ respectively."
   ("C-c p" . projectile-command-map)
   :init
   ;; NOTE: Set this to the folder where you keep your Git repos!
-  (when (file-directory-p "~/Dev")
-    (setq projectile-project-search-path '("~/Dev")))
+  (when (file-directory-p "~/dev")
+    (setq projectile-project-search-path '("~/dev")))
   ;; |USE|: call `projectile-find-file' with prefix argument will invalidate cache first
   (setq projectile-switch-project-action #'projectile-find-file))
 
@@ -657,6 +668,13 @@ Similar to `org-capture' like behavior"
   :config
   (setq org-journal-dir "~/Notes/Roam/Journal/")
   (setq org-journal-file-type 'weekly)
+
+  (defun zino/org-journal-new-todo (prefix)
+    "Create a new todo entry in `org-journal'."
+    (interactive "P")
+    (org-journal-new-entry prefix)
+    (org-todo))
+
   :custom
   ;; Start on Monday
   (org-journal-start-on-weekday 1)
@@ -667,11 +685,11 @@ Similar to `org-capture' like behavior"
   (("C-c j o" . org-journal-open-current-journal-file)
    ("C-c j n" . org-journal-new-entry)
    ("C-c j s" . org-journal-search)
+   ("C-c j t" . zino/org-journal-new-todo)
    :map org-journal-mode-map
    ("C-x s-s" . org-journal-save-entry-and-exit))
   :hook
-  (org-journal-after-entry-create . org-narrow-to-element)
-  )
+  (org-journal-after-entry-create . org-narrow-to-element))
 
 (require 'all-the-icons)
 
@@ -734,10 +752,10 @@ Similar to `org-capture' like behavior"
 (define-key pdf-view-mode-map (kbd "p") #'pdf-view-previous-line-or-previous-page)
 (define-key pdf-view-mode-map (kbd ",") #'pdf-view-previous-page)
 (define-key pdf-view-mode-map (kbd ".") #'pdf-view-next-page)
-(define-key pdf-view-mode-map (kbd "s-5") 'pdf-annot-add-highlight-markup-annotation)
-(define-key pdf-view-mode-map (kbd "s-6") 'pdf-annot-add-squiggly-markup-annotation)
-(define-key pdf-view-mode-map (kbd "s-7") 'pdf-annot-add-text-annotation)
-(define-key pdf-view-mode-map (kbd "s-8") 'pdf-annot-delete)
+(define-key pdf-view-mode-map (kbd "s-1") 'pdf-annot-add-highlight-markup-annotation)
+(define-key pdf-view-mode-map (kbd "s-2") 'pdf-annot-add-squiggly-markup-annotation)
+(define-key pdf-view-mode-map (kbd "s-3") 'pdf-annot-add-text-annotation)
+(define-key pdf-view-mode-map (kbd "s-4") 'pdf-annot-delete)
 
 ;;(add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode))
 ;;(defun my-nov-font-setup ()
@@ -841,7 +859,6 @@ Similar to `org-capture' like behavior"
 ;; end_UI
 
 (global-set-key (kbd "C-x b") #'ido-switch-buffer)
-(global-set-key (kbd "s-b") #'ido-switch-buffer)
 
 ;; begin_mastering_emacs
 (setq apropos-sort-by-scores t)
@@ -1266,6 +1283,10 @@ point reaches the beginning or end of the buffer, stop there."
 
 (use-package cmake-mode)
 
+(use-package js
+  :config
+  (setq js-indent-level 2))
+
 (use-package lsp-mode
   :init
   (setq lsp-clangd-binary-path "/Library/Developer/CommandLineTools/usr/bin/clangd") ;; "/usr/local/opt/llvm/bin/clangd")
@@ -1294,22 +1315,41 @@ point reaches the beginning or end of the buffer, stop there."
         lsp-signature-render-documentation t)
   ;; format-all does not work and it changes the window to the point of distracting ):
   ;; (remove-hook 'before-save-hook 'zino/format-if-lsp-mode)
+
+  (defun zino/lsp-find-references ()
+    "Make xref use window at the left."
+    (interactive)
+    (windmove-display-left)
+    (lsp-find-references))
+
+  (advice-add 'lsp-find-references :before
+              (lambda (&optional exclude-declaration &key display-action)
+                "Display xref buffer at the left.
+TODO: optimize this to use `display-buffer-in-side-window'."
+                (windmove-display-left)))
+
   :bind
   (:map lsp-mode-map
         ("C-c C-l" . lsp-treemacs-symbols)
         ;; "C-c C-d" 'lsp-find-definition)
-        ("C-c C-d" . 'xref-find-definitions)
-        ("C-c d" . 'xref-find-definitions-other-window)
-        ("C-c r" . 'lsp-rename)
-        ;; ("C-c C-e" . 'flycheck-list-errors)
-        ("C-c C-e" . 'flymake-show-buffer-diagnostics)
-        ("C-c C-r" . 'lsp-find-references))
+        ("C-c C-d" . xref-find-definitions)
+        ("C-c d" . xref-find-definitions-other-window)
+        ("C-c r" . lsp-rename)
+        ("C-c C-e" . flycheck-list-errors)
+        ;; ("C-c C-e" . 'flymake-show-buffer-diagnostics)
+        ("C-c C-r" . lsp-find-references))
   :custom
   (lsp-eldoc-enable-hover t)
   (lsp-modeline-diagnostics-enable nil)
   (lsp-signature-render-documentation t)
-  (lsp-diagnostics-provider :flymake)
+  (lsp-diagnostics-provider :flycheck)
   (lsp-eldoc-render-all t))
+
+(advice-add 'xref-find-references :before
+            (lambda (identifier)
+              "Advice function for `xref-find-references'."
+              (windmove-display-left)))
+(advice-remove 'xref-find-references 'windmove-display-left)
 
 (with-eval-after-load 'lsp-mode
   ;; :global/:workspace/:file
@@ -1440,9 +1480,8 @@ point reaches the beginning or end of the buffer, stop there."
 (use-package yasnippet-snippets)
 
 (use-package flycheck
-  ;; :hook
-  ;; (lsp-mode . flycheck-mode)
-  )
+  :hook
+  (lsp-mode . flycheck-mode))
 
 (use-package flycheck-rust
   :hook
@@ -1764,12 +1803,14 @@ Do not increase cloze number"
  '(lsp-ui-doc-max-height 120)
  '(lsp-ui-doc-max-width 80)
  '(lsp-ui-doc-webkit-max-width-px 800)
+ '(org-agenda-files
+   '("/Users/zino/Notes/Roam/20220816100518-gtd.org" "/Users/zino/Notes/Roam/Journal/2022-12-05-W49.org" "/Users/zino/Notes/Roam/Journal/2022-12-12-W50.org" "/Users/zino/Notes/Roam/Journal/2022-12-19-W51.org" "/Users/zino/Notes/Roam/Journal/2022-12-26-W52.org" "/Users/zino/Notes/Roam/Journal/2023-01-02-W01.org"))
  '(org-modules
-   '(ol-bbdb ol-bibtex ol-docview ol-doi ol-eww ol-gnus ol-info ol-irc ol-mhe ol-rmail ol-w3m org-mac-link))
+   '(ol-bbdb ol-bibtex ol-docview ol-doi ol-eww ol-gnus ol-info ol-irc ol-mhe ol-rmail ol-w3m))
  '(org-remark-notes-file-name 'org-remark-notes-file-name-function)
  '(org-tags-column -120 nil nil "Customized with use-package org")
  '(package-selected-packages
-   '(elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-mac-link org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-quickhelp company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
+   '(go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-quickhelp company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(paren-display-message 'always)
  '(pdf-view-continuous t)
  '(pdf-view-display-size 'fit-page)
@@ -1781,7 +1822,7 @@ Do not increase cloze number"
  '(tab-always-indent nil)
  '(tab-bar-close-button-show nil)
  '(tab-bar-show nil)
- '(tab-width 4)
+ '(tab-width 2)
  '(tramp-default-proxies-alist nil)
  '(warning-suppress-types '((lsp-mode))))
 
@@ -1795,7 +1836,9 @@ Do not increase cloze number"
   :bind
   (:map lua-mode-map
         ([remap beginning-of-defun] . lua-beginning-of-proc)
-        ([remap end-of-defun] . lua-end-of-proc)))
+        ([remap end-of-defun] . lua-end-of-proc))
+  :custom
+  (lua-indent-level 4))
 
 (add-to-list 'load-path "~/.config/emacs/manually_installed/lua-mode")
 (autoload 'lua-mode "lua-mode" "Lua editing mode." t)
@@ -1876,8 +1919,8 @@ Do not increase cloze number"
         ("C-c ]" . flymake-goto-next-error))
   :config
   (eval-after-load 'flymake '(require 'flymake-cursor))
-  :hook
-  (lsp-mode . flymake-mode)
+  ;; :hook
+  ;; (lsp-mode . flymake-mode)
   )
 (use-package flymake-cursor)
 
@@ -1948,10 +1991,8 @@ Save the buffer of the current window and kill it"
 
 (use-package format-all
   :hook
-  ;; (rust-mode . format-all-mode)
-  ;; (go-mode . format-all-mode)
-  (c++-mode . format-all-mode)
-  (nginx-mode . format-all-mode))
+  (prog-mode . format-all-ensure-formatter)
+  (prog-mode-hook . format-all-mode))
 
 (setq read-process-output-max (* 1024 1024)) ;; 1MB
 
