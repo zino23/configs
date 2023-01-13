@@ -70,13 +70,14 @@
 (setq emacs-src-dir "/usr/local/Cellar/emacs-plus@28/28.1/share/emacs")
 (setq macos-sdk-dir "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.1.sdk")
 (setq go-src-dir "/usr/local/Cellar/go/1.17.8/libexec/src")
+(setq edgeworker-deps "~/gitlab/edgeworker/deps")
 
 ;; Associate directories with the read-only class
 (dolist (dir (list
               "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1"
               emacs-src-dir
               go-src-dir
-              ))
+              edgeworker-deps))
   (dir-locals-set-directory-class (file-truename dir) 'read-only))
 
 ;; Rebind bc by default `list-buffers' list buffers in another window
@@ -466,7 +467,8 @@ respectively."
   (setq projectile-indexing-method 'alien)
   (setq projectile-enable-caching t)
   :custom
-  ((projectile-completion-system 'ivy))
+  (projectile-completion-system 'ivy)
+  (projectile-globally-ignored-directories . nil) ; quick fix for bbatsov/projectile#1777
   :bind-keymap
   ("C-c p" . projectile-command-map)
   :init
@@ -1344,6 +1346,12 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (lsp-signature-render-documentation t)
   (lsp-diagnostics-provider :flycheck)
   (lsp-eldoc-render-all t))
+
+(use-package dap-mode
+  :config
+  (dap-mode 1)
+  (dap-ui-mode 1)
+  (require 'dap-dlv-go))
 
 (advice-add 'xref-find-references :before
             (lambda (identifier)
