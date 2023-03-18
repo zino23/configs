@@ -24,7 +24,13 @@
 (require 'use-package)
 (setq use-package-always-ensure t)
 
+(setenv "PATH" (concat "/Library/TeX/texbin" (getenv "PATH")))
+(setenv "clang-format" "~/.local/bin/clang-format")
+
+(setq exec-path (append '("/Library/TeX/texbin") exec-path))
+
 (setq confirm-kill-emacs #'yes-or-no-p)
+(setq read-process-output-max (* 1024 1024)) ;; 1MB
 
 (set-default-coding-systems 'utf-8)
 (setq inhibit-startup-screen t)
@@ -63,21 +69,29 @@
 ;; Change all prompts to y or n
 (fset 'yes-or-no-p 'y-or-n-p)
 
+(put 'narrow-to-region 'disabled nil)
+(put 'erase-buffer 'disabled nil)
+
 ;; Define a read-only directory class
 (dir-locals-set-class-variables 'read-only '((nil . ((buffer-read-only . t)))))
+
+(global-set-key (kbd "C-;") #'comment-line)
 
 ;; Emacs source for help system
 (setq emacs-src-dir "/usr/local/Cellar/emacs-plus@28/28.1/share/emacs")
 (setq macos-sdk-dir "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.1.sdk")
 (setq go-src-dir "/usr/local/Cellar/go/1.17.8/libexec/src")
 (setq edgeworker-deps "~/gitlab/edgeworker/deps")
+(setq emacs-pkgs-dir "~/.config/emacs/elpa")
+(setq rust-src-dir "~/.rustup/toolchains/stable-x86_64-apple-darwin")
 
 ;; Associate directories with the read-only class
 (dolist (dir (list
               "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1"
               emacs-src-dir
               go-src-dir
-              edgeworker-deps))
+              edgeworker-deps
+              rust-src-dir))
   (dir-locals-set-directory-class (file-truename dir) 'read-only))
 
 ;; Rebind bc by default `list-buffers' list buffers in another window
@@ -93,53 +107,81 @@
 ;; Disable the visible bell
 (setq visible-bell nil)
 
+;; the following only undoes remapping instead of remapping to nil
+;; (define-key global-map [remap ns-print-buffer] nil)
+(global-unset-key (kbd "s-p"))
+
+;; `auto-fill-mode' is defined in package `simple'
 ;; Auto soft-break line
-(auto-fill-mode nil)
+(use-package simple
+  :ensure nil
+  :config
+  (auto-fill-mode nil)
+  :hook
+  ;; to toggle automatic line breaking, M-x `auto-fill-mode'
+  (prog-mode . (lambda ()
+                 "Set `auto-fill-mode' for comments."
+                 (auto-fill-mode 1)
+                 (setq-local
+                  comment-auto-fill-only-comments t
+                  fill-column 80))))
+
 (global-visual-line-mode t)
 
 ;; Make ESC quit prompts
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
 
 ;; Word abbreviation
-(setq-default abbrev-mode t)
-(setq abbrev-file-name "~/.config/emacs/.abbrev_defs")
-(setq save-abbrevs 'silently)
-(quietly-read-abbrev-file)
-(setq abbrev-suggest nil)
-(setq abbrev-suggest-hint-threshold 3)
-(abbrev-table-put global-abbrev-table :case-fixed t)
+(use-package abbrev
+  :ensure nil
+  :init
+  (setq-default abbrev-mode t)
 
-(defun self-insert-no-abbrev ()
-  (interactive)
-  (let ((abbrev-mode nil))
-    (call-interactively 'self-insert-command)))
+  (defun self-insert-no-abbrev ()
+    (interactive)
+    (let ((abbrev-mode nil))
+      (call-interactively 'self-insert-command)))
 
-(global-set-key "_" #'self-insert-no-abbrev)
-(global-set-key "." #'self-insert-no-abbrev)
-(global-set-key "-" #'self-insert-no-abbrev)
-(global-set-key "\"" #'self-insert-no-abbrev)
+  :bind
+  ("_" . self-insert-no-abbrev)
+  ("." . self-insert-no-abbrev)
+  ("-" . self-insert-no-abbrev)
+  ("\"" . self-insert-no-abbrev)
+  (";" . self-insert-no-abbrev)
+  (":" . self-insert-no-abbrev)
+  :custom
+  (abbrev-file-name "~/.config/emacs/abbrev_defs")
+  (save-abbrevs 'silently)
+  (abbrev-suggest nil)
+  (abbrev-suggest-hint-threshold 3)
+  :config
+  (quietly-read-abbrev-file)
+  (abbrev-table-put global-abbrev-table :case-fixed t)
 
-(progn
-  (setq zino/abbrev-table '(("tset" "test")
-                            ("arch" "architecture")
-                            ("var" "variable")
-                            ("conf" "configuration")
-                            ("tyep" "type")
-                            ("env" "environment")
-                            ("fiel" "file")
-                            ("recieve" "receive")
-                            ("sturct" "struct")
-                            ("adn" "and")
-                            ("teh" "the")
-                            ("js" "JavaScript")
-                            ("arch" "architecture")))
-  (dolist (pair zino/abbrev-table)
-    (let ((from (car pair))
-          (to (car (cdr pair))))
-      (define-abbrev global-abbrev-table from to))))
+  (progn
+    (setq zino/abbrev-table '(("tset" "test")
+                              ("arch" "architecture")
+                              ("var" "variable")
+                              ("conf" "configuration")
+                              ("tyep" "type")
+                              ("env" "environment")
+                              ("fiel" "file")
+                              ("recieve" "receive")
+                              ("sturct" "struct")
+                              ("adn" "and")
+                              ("teh" "the")
+                              ("JS" "JavaScript")
+                              ("arch" "architecture")
+                              ("hte" "the")
+                              ("wiat" "wait")
+                              ("smae" "same")
+                              ("accordign" "according")))
+    (dolist (pair zino/abbrev-table)
+      (let ((from (car pair))
+            (to (car (cdr pair))))
+        (define-abbrev global-abbrev-table from to)))))
 
 (setq-default tab-width 2)
-(setq-default evil-shift-width tab-width)
 (setq-default indent-tabs-mode nil)
 
 (use-package dired
@@ -149,10 +191,13 @@
   :bind
   (("C-x C-j" . dired-jump))
   :custom
-  (dired-dwim-target t))
+  (dired-dwim-target t)
+  (dired-create-destination-dirs 'always))
 
-(setenv "PATH" (concat "/Library/TeX/texbin" (getenv "PATH")))
-(setq exec-path (append '("/Library/TeX/texbin") exec-path))
+;; (use-package dirvish
+;;   :custom
+;;   (dirvish-header-style 'normal)
+;;   (dirvish-preview-width 0.4))
 
 (defun copy-full-path-to-kill-ring ()
   "Copy buffer's full path to kill ring."
@@ -163,22 +208,22 @@
 ;; Full screen
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
 
+;; check if a font exist
+;; (member "Sarasa Mono SC Nerd" (font-family-list))
+
 ;; Set up fonts for different charsets and make sure one Chinese char is as twice wide as one English char
 (defun zino/set-font (font-name cn-font-name &optional initial-size cn-font-rescale-ratio)
   "Set different font-family for Latin and Chinese charactors."
   (let* ((size (or initial-size 14))
-	     (ratio (or cn-font-rescale-ratio 0.0))
-	     (main (font-spec :name font-name :size size))
-	     (cn (font-spec :name cn-font-name)))
+	       (ratio (or cn-font-rescale-ratio 0.0))
+	       (main (font-spec :name font-name :size size))
+	       (cn (font-spec :name cn-font-name)))
     (set-face-attribute 'default nil :font main)
     (dolist (charset '(kana han symbol cjk-misc bopomofo))
       (set-fontset-font t charset cn))
     (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
 
 (zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 17 1)
-
-;; check if font exist
-;; (member "Sarasa Mono SC Nerd" (font-family-list))
 
 ;; Automatically trim white spaces at the end of line
 (use-package ws-butler
@@ -199,8 +244,15 @@
 (use-package highlight-indent-guides
   :hook
   (conf-mode . highlight-indent-guides-mode)
-  :config
-  (setq highlight-indent-guides-method 'character))
+  :custom
+  (highlight-indent-guides-auto-character-face-perc 20)
+  (highlight-indent-guides-auto-top-character-face-perc 50)
+  (highlight-indent-guides-delay 0)
+  (highlight-indent-guides-responsive 'top)
+  (highlight-indent-guides-method 'character)
+  :custom-face
+  (highlight-indent-guides-character-face ((t (:foreground "#3c3c42414e4d"))))
+  (highlight-indent-guides-top-character-face ((t (:foreground "#bbc2cf")))))
 
 (use-package rainbow-mode
   :hook
@@ -221,10 +273,10 @@
 
 (use-package paren
   :config
-  (set-face-attribute 'show-paren-match-expression nil
-                      :background "#363e4a")
+  (set-face-attribute 'show-paren-match-expression nil :background "#363e4a")
   (show-paren-mode 1)
-  (setq show-paren-delay 0))
+  :custom
+  (show-paren-delay 0))
 
 (use-package all-the-icons
   :if
@@ -236,6 +288,8 @@
   :hook
   (dired-mode . all-the-icons-dired-mode)
   (dired-mode . auto-revert-mode)
+  ;; Drag-and-drop to `dired'
+  (dired-mode . org-download-enable)
   :custom
   (auto-revert-verbose nil))
 
@@ -247,16 +301,16 @@
   :init
   (load-theme 'doom-one t)
   :config
-  (setq doom-themes-enable-bold t ; if nil, bold is universally disabled
-        doom-themes-enable-italic t) ; if nil, italics is universally disabled
   ;; Enable flashing mode-line on errors
   (doom-themes-visual-bell-config)
   ;; Corrects (and improves) org-mode's native fontification
-  (doom-themes-org-config))
-
-;; Whether display the modal state icon.
-;; Including `evil', `overwrite', `god', `ryo' and `xah-fly-keys', etc.
-(setq doom-modeline-modal-icon nil)
+  (doom-themes-org-config)
+  :custom
+  (doom-themes-enable-bold t) ; if nil, bold is universally disabled
+  (doom-themes-enable-italic t) ; if nil, italics is universally disabled
+  ;; Whether display the modal state icon.
+  ;; Including `evil', `overwrite', `god', `ryo' and `xah-fly-keys', etc.
+  (doom-modeline-modal-icon t))
 
 (use-package emojify
   :hook
@@ -274,7 +328,11 @@
 
 (use-package smartparens
   :bind
-  (("C-s-a" . sp-beginning-of-sexp)
+  (;; not smartparens related, but shares the same philosophy
+   ("C-s-f" . beginning-of-defun)
+   ("C-s-g" . end-of-defun)
+
+   ("C-s-a" . sp-beginning-of-sexp)
    ("C-s-e" . sp-end-of-sexp)
    ("C-M-f" . sp-forward-sexp)
    ("C-M-b" . sp-backward-sexp)
@@ -282,6 +340,7 @@
    ("C-M-d" . sp-down-sexp)
    ("C-M-a" . sp-backward-down-sexp)
    ("C-M-e" . sp-up-sexp)
+
    ;; in the same nested level and go up a level if needed
    ("C-M-n" . sp-next-sexp)
    ("C-M-p" . sp-previous-sexp)
@@ -294,14 +353,16 @@
    ("C-M-r" . sp-rewrap-sexp)
 
    ;; copy
-   ("C-M-y" . sp-copy-sexp))
+   ("C-M-y" . sp-copy-sexp)
+
+   ;; kill
+   ("C-M-k" . sp-kill-sexp))
 
   :config
   (smartparens-global-mode)
 
-  ;; not smartparens related, but shares the same philosophy
-  (global-set-key (kbd "C-s-f") #'beginning-of-defun)
-  (global-set-key (kbd "C-s-g") #'end-of-defun)
+  ;; Handle apostrophe and single quote in Lisp mode
+  (require 'smartparens-config)
 
   (general-define-key
    :prefix "C-c s"
@@ -312,19 +373,19 @@
    ;; unwrap the next sexp
    "n" 'sp-unwrap-sexp
    ;; unwrap the current list
-   "u" 'sp-splice-sexp))
+   "u" 'sp-splice-sexp
 
-;; Handle apostrophe and single quote in Lisp mode
-(require 'smartparens-config)
+   ;; clear the inside of the enclosing sexp, like vim's <ci)>
+   "k" 'sp-change-enclosing)
+  (global-set-key (kbd "C-c (")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "(")))
+  (global-set-key (kbd "C-c [")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "[")))
+  (global-set-key (kbd "C-c {")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "{")))
+  (global-set-key (kbd "C-c \"")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "\"")))
+  (global-set-key (kbd "C-c \'")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "\'")))
 
-(global-set-key (kbd "C-c (")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "(")))
-(global-set-key (kbd "C-c [")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "[")))
-(global-set-key (kbd "C-c {")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "{")))
-(global-set-key (kbd "C-c \"")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "\"")))
-(global-set-key (kbd "C-c \'")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "\'")))
-
-(sp-pair "(" ")" :wrap "C-(")
-(sp-pair "{" "}" :wrap "C-{")
+  (sp-pair "(" ")" :wrap "C-(")
+  (sp-pair "{" "}" :wrap "C-{")
+  (sp-pair "{" nil :post-handlers '(("||\n[i]" "RET"))))
 
 (defmacro def-pairs (pairs)
   "Define functions for pairing. PAIRS is an alist of (NAME . STRING)
@@ -368,6 +429,7 @@ respectively."
   (setq evil-move-cursor-back nil)
   (setq evil-auto-indent t)
   (setq evil-undo-system 'undo-tree)
+  (setq-default evil-shift-width tab-width)
   :config
   ;; (evil-mode 1)
   (define-key evil-insert-state-map (kbd "C-g") 'evil-normal-state)
@@ -382,37 +444,39 @@ respectively."
   (evil-set-initial-state 'messages-buffer-mode 'normal)
   (evil-set-initial-state 'dashboard-mode 'normal))
 
-(use-package hydra)
-
-(defhydra hydra-text-scale
-  (:timeout 4)
-  "scale text"
-  ("j" text-scale-increase "in")
-  ("k" text-scale-decrease "out")
-  ("f" nil "finished"
-   :exit t))
+(use-package hydra
+  :config
+  (defhydra hydra-text-scale
+    (:timeout 4)
+    "scale text"
+    ("j" text-scale-increase "in")
+    ("k" text-scale-decrease "out")
+    ("f" nil "finished"
+     :exit t)))
 
 (use-package ivy
-  :init (setq ivy-re-builders-alist '(;; (swiper . ivy--regex-plus)
-                                      (t . ivy--regex-fuzzy)))
+  :init
+  (setq ivy-re-builders-alist '(;; (swiper . ivy--regex-plus)
+                                (t . ivy--regex-fuzzy)))
   :diminish
   :bind
   (("s-s" . swiper)
    ;; ("C-c f" . counsel-fzf)
    :map ivy-minibuffer-map
    ("TAB" . ivy-alt-done)
-   :map
-   ivy-switch-buffer-map
+   :map ivy-switch-buffer-map
    ("C-d" . ivy-switch-buffer-kill)
-   :map
-   ivy-reverse-i-search-map
+   :map ivy-reverse-i-search-map
    ("C-d" . ivy-reverse-i-search-kill))
-  :config (ivy-mode 1)
-  (define-key ivy-minibuffer-map [remap ivy-restrict-to-matches] (lambda () (interactive))))
+  :config
+  (ivy-mode 1)
+  (define-key ivy-minibuffer-map [remap ivy-restrict-to-matches] (lambda ()
+                                                                   (interactive)))
+  (setq counsel-fzf-cmd "fd -H -c never \"%s\"")
+  :custom
+  (ivy-use-selectable-prompt t))
 
 (define-key minibuffer-mode-map (kbd "S-SPC") nil)
-
-(setq ivy-use-selectable-prompt t)
 
 (use-package which-key
   :init
@@ -459,7 +523,8 @@ respectively."
   ([remap describe-function] . counsel-describe-function)
   ([remap describe-command]  . helpful-command)
   ([remap describe-variable] . counsel-describe-variable)
-  ([remap describe-key] . helpful-key))
+  ([remap describe-key] . helpful-key)
+  ("\C-c\C-d" . helpful-at-point))
 
 (use-package general
   :config
@@ -476,9 +541,9 @@ respectively."
 (use-package projectile
   :config
   (projectile-mode)
-  (setq projectile-indexing-method 'alien)
-  (setq projectile-enable-caching t)
   :custom
+  (projectile-indexing-method 'alien)
+  (projectile-enable-caching t)
   (projectile-completion-system 'ivy)
   (projectile-globally-ignored-directories . nil) ; quick fix for bbatsov/projectile#1777
   :bind-keymap
@@ -487,7 +552,7 @@ respectively."
   ;; NOTE: Set this to the folder where you keep your Git repos!
   (when (file-directory-p "~/dev")
     (setq projectile-project-search-path '("~/dev")))
-  ;; |USE|: call `projectile-find-file' with prefix argument will invalidate cache first
+  ;; [use] call `projectile-find-file' with prefix argument will invalidate cache first
   (setq projectile-switch-project-action #'projectile-find-file))
 
 (use-package magit
@@ -501,59 +566,68 @@ respectively."
   ;; Necessary in Emacs < 27. In Emacs 27 it will affect all xref-based
   ;; commands other than xref-find-definitions (e.g. project-find-regexp)
   ;; as well
-  (setq xref-show-xrefs-function #'ivy-xref-show-xrefs)
-  (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
+  (setq xref-show-xrefs-function 'ivy-xref-show-xrefs)
+  (magit-display-buffer-function 'magit-display-buffer-same-window-except-diff-v1)
+  ;; [use] magit-log-buffer-file: show a region or buffer's commit history
+  )
+
+;; (use-package magit-todos
+;;   :hook
+;;   (magit-mode . magit-todos-mode))
+
+(use-package hl-todo)
 
 ;; code review
 (use-package forge)
 
-;; git-gutter
 (use-package git-gutter
   :bind
-  (("C-x C-g" . git-gutter-mode)
-   :repeat-map git-gutter-repeat-map
+  (:repeat-map
+   git-gutter-repeat-map
    ("[" . git-gutter:previous-hunk)
    ("]" . git-gutter:next-hunk))
   :config
   (general-define-key
    :prefix "<f5> g"
-   "g" 'git-gutter
+   "g" 'git-gutter-mode
    "[" 'git-gutter:previous-hunk
    "]" 'git-gutter:next-hunk
    "p" 'git-gutter:popup-hunk
    "s" 'git-gutter:stage-hunk)
   :custom
-  (git-gutter:update-interval 2 "Automatically update diff in 2 seconds")
+  (git-gutter:update-interval 0.1 "Automatically update diff in 0.1 seconds")
   (git-gutter:window-width 1))
 
 (defun org-mode-setup ()
   "Run after `org-mode' is initiated."
   (org-indent-mode)
-  (set-face-attribute 'org-table nil :font (font-spec :name "Sarasa Mono SC Nerd" :size 22))
+  (set-face-attribute 'org-table nil :font (font-spec :name "Sarasa Mono SC Nerd" :size 18))
   (set-fontset-font t nil "Sarasa Mono SC Nerd" nil 'append))
 
 (use-package org
   :hook
   (org-mode . org-mode-setup)
+  (org-babel-after-execute . org-redisplay-inline-images)
   :config
   (setq org-ellipsis " ▾"
         org-hide-emphasis-markers nil
-	    org-M-RET-may-split-line nil
-	    org-list-allow-alphabetical t
-	    org-return-follows-link t
-	    org-log-into-drawer t
+	      org-M-RET-may-split-line nil
+	      org-list-allow-alphabetical t
+	      org-return-follows-link t
+	      org-log-into-drawer t
+
         ;; track todo changes
         ;; prepend with '/', when leaving this state and the target state does not specify @ or i
         ;; otherwise when entering
         ;; @: note with a timestamp
         ;; !: a timestamp
         ;; /!: a timestamp when *leaving* this state and the target state does not specify @ or i
-	    org-todo-keywords '((sequence "TODO(t!)" "DOING(i@/!)" "QUESTION(n@/!)" "|" "DONE(d@)" "POSTPONED(p@)" "DELEGATED(g@)" "CANCELED(c@)"))
-	    org-startup-folded t
-	    org-cycle-include-plain-lists 'integrate
-	    org-blank-before-new-entry (quote ((heading . nil)
-					                       (plain-list-item . nil)))
-	    org-edit-src-content-indentation 0
+	      org-todo-keywords '((sequence "TODO(t!)" "DOING(i@/!)" "Q(n@/!)" "|" "DONE(d@)" "POSTPONED(p@)" "DELEGATED(g@)" "CANCELED(c@)"))
+	      org-startup-folded t
+	      org-cycle-include-plain-lists 'integrate
+	      org-blank-before-new-entry (quote ((heading . nil)
+					                                 (plain-list-item . nil)))
+	      org-edit-src-content-indentation 0
         org-catch-invisible-edits 'show-and-error
         org-goto-auto-isearch nil
         org-hide-block-startup t
@@ -565,13 +639,38 @@ respectively."
         ;; org-agenda
         zino/GTD-file "~/Notes/Roam/20220816100518-gtd.org"
         org-agenda-files '("~/Notes/Roam/Journal"))
+  :config
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((C . t)
+     (emacs-lisp . t)
+     (shell . t)
+     (lua . t)
+     (dot . t)
+     (js . t)))
+
+  :config
   (push zino/GTD-file org-agenda-files)
   (define-key org-mode-map [remap org-return-and-maybe-indent] #'better-jumper-jump-forward)
   (define-key org-mode-map (kbd "C-S-j") #'org-return-and-maybe-indent)
   (setq org-image-actual-width nil)
   (setf (cdr (assoc 'file org-link-frame-setup)) 'find-file)
-  :custom
-  (org-tags-column -80)
+
+  :config
+  (defun zino/advise-org-edit-src-code (f &rest args)
+    "Temporarily make current window undedicated if needed."
+    (let ((dedicated-p (window-dedicated-p)))
+      (if dedicated-p
+          (progn
+            (zino/toggle-window-dedication)
+            (apply f args)
+            (zino/toggle-window-dedication)))))
+
+  ;; set `org-src-window-setup' to 'current-window
+  ;; this will not work, tinker later
+  ;; (advice-add 'org-edit-src-code :around 'zino/advise-org-edit-src-code)
+
+  :custom-face
   (org-level-1 ((t (:inherit outline-1 :extend nil :height 1.3 :width normal :family "Iosevka"))))
   (org-level-2 ((t (:inherit outline-2 :extend nil :height 1.2 :width normal :family "Iosevka"))))
   (org-level-3 ((t (:inherit outline-3 :extend nil :height 1.1 :width normal :family "Iosevka"))))
@@ -579,14 +678,38 @@ respectively."
   (org-level-5 ((t (:inherit outline-5 :extend nil :height 1.0 :width normal :family "Iosevka"))))
   (org-level-6 ((t (:inherit outline-6 :extend nil :height 1.0 :width normal :family "Iosevka"))))
   (org-block ((t (:inherit nil :extend t :background "#282c34"))))
-  (org-block-begin-line ((t (:inherit all-faces :foreground "#5B6268"))))
+  (org-block-begin-line ((t (:inherit all-faces :foreground "#83898d"))))  ;;"#5B6268"))))
   (org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
   (org-code ((t (:inherit nil :foreground "#da8548"))))
+  (org-verbatim ((t (:foreground "#98be65"))))
   (org-document-title ((t (:foreground "#c678dd" :weight bold :height 1.2 :family "Iosevka"))))
+  (org-link ((t (:inherit link :foreground "#51afef" :family "Iosevka"))))
+  (org-table ((t (:foreground "#a9a1e1" :slant normal :weight normal :height 180 :width normal :foundry "nil" :family "Sarasa Mono SC Nerd"))))
+
+  :custom
   (org-id-link-to-org-use-id 'create-if-interactive)
+  (org-src-window-setup 'split-window-below)
+
+  ;; the default is ?C
+  (org-priority-lowest ?D)
+  (org-tags-column -85 nil nil "Customized with use-package org")
+  (org-confirm-babel-evaluate nil)
+  (org-deadline-warning-days 5)
+
   :bind
-  (:map org-mode-map
-        ("C-c C-g" . counsel-org-goto)))
+  (("C-c c" . org-capture)
+   ("C-c a" . org-agenda)
+   ("C-c C-l" . org-store-link)
+   ("C-c C-i" . org-insert-link)
+   ("C-c t" . org-cycle-list-bullet)
+   :map org-mode-map
+   ("C-c H-i" . counsel-org-goto)))
+
+(use-package org-agenda
+  :ensure nil
+  :custom
+  (org-agenda-include-diary t)
+  (org-agenda-todo-list-sublevels t))
 
 (use-package org-appear)
 
@@ -607,25 +730,23 @@ respectively."
   (org-download-method 'directory)
   (org-download-image-dir "~/Pictures/org-images")
   (org-download-heading-lvl nil)
-  (org-image-actual-width 300)
+  (org-image-actual-width t)
   :bind
   ("C-s-y" . org-download-clipboard)
-  :config
-  (require 'org-download))
-
-;; Drag-and-drop to `dired'
-(add-hook 'dired-mode-hook 'org-download-enable)
+  ;; :config
+  ;; (require 'org-download)
+  )
 
 (defun org-roam-book-template ()
   "Create a Cornell-style book notes template for org-roam node.
 Return TEMPLATE as a string. "
   (let* ((chapters (read-number "Number of chapters: "))
-	     (ch 1)
-	     (template ""))
+	       (ch 1)
+	       (template ""))
     (while (<= ch chapters)
       (if (<= ch 9)
-	      (setq template (concat template (format "* Ch0%d. \n" ch)))
-	    (setq template (concat template (format "* Ch%d. \n" ch))))
+	        (setq template (concat template (format "* Ch0%d. \n" ch)))
+	      (setq template (concat template (format "* Ch%d. \n" ch))))
       (setq template (concat template "** Questions [/]\n** Notes\n** Summary\n"))
       (setq ch (1+ ch)))
     (setq template (concat template "* General\n** Questions [/]\n** Notes\n** Summary"))
@@ -636,7 +757,6 @@ Return TEMPLATE as a string. "
   (org-roam-directory "~/Notes/Roam")
   (org-roam-dailies-directory "Journal/")
   (org-roam-completion-everywhere t)
-  ;;(org-roam-completion-system 'default)
   (org-roam-capture-templates
    '(("c" "Default" entry "* %?"
       :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: folded")
@@ -654,9 +774,11 @@ Return TEMPLATE as a string. "
       :file-name "Journal/%<%Y-%m-%d>"
       :olp ("Log")
       :head "#+title: %<%Y-%m-%d %a>\n\n[[roam:%<%Y-%B>]]\n\n")))
+  (org-roam-node-display-template
+   (concat "${title:*} "
+           (propertize "${tags:40}" 'face 'org-tag)))
   :config
-  (org-roam-db-autosync-mode)
-  )
+  (org-roam-db-autosync-mode))
 
 (defun org-journal-file-header-func (time)
   "Custom function to create journal header."
@@ -705,11 +827,104 @@ Similar to `org-capture' like behavior"
   :hook
   (org-journal-after-entry-create . org-narrow-to-element))
 
-(require 'all-the-icons)
+(use-package org-noter
+  :custom
+  (org-noter-auto-save-last-location t)
+  (org-noter-closest-tipping-point 1e-05)
+  (org-noter-hide-other nil)
+  (org-noter-notes-window-behavior '(scroll))
+  :config
+  (defun zino/no-op (&rest args))
+  (advice-add 'org-noter--set-notes-scroll :override 'zino/no-op))
+
+(defun zino/org-journal-cycle-after-open-current-journal-file ()
+  "Toggle visibility according to buffer's setting."
+  (org-cycle t))
+
+(advice-add 'org-journal-open-current-journal-file :after 'zino/org-journal-cycle-after-open-current-journal-file)
+
+(use-package org-fragtog
+  :hook (org-mode . org-fragtog-mode))
+
+(setq zino/roam-dir "~/Notes/Roam"
+      zino/anki-file "~/Notes/Roam/20220517104105-anki.org"
+      zino/contacts-file "~/Notes/Roam/20220620203106-contacts.org"
+      zino/meeting-file (concat zino/roam-dir "/20221115143855-meeting.org"))
+
+(setq org-capture-templates
+      `(
+        ("a" "Anki")
+        ("ab" "Basic card with a front and a back"
+         entry
+         (file+headline zino/anki-file "Dispatch Shelf")
+         "** %<%Y-%m-%d:%H:%M>  %^g\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Basic\n:ANKI_DECK: %^{Deck|Vocabulary}\n:END:\n*** Front\n%?\n*** Back\n%x\n")
+        ("ac" "Cloze"
+         entry
+         (file+headline zino/anki-file "Dispatch Shelf")
+         "** %<%Y-%m-%d:%H:%M>  %^g\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Cloze\n:ANKI_DECK: %^{Deck|Vocabulary}\n:END:\n*** Text\n%?\n*** Back extra\n%x\n")
+        ("at" "Temporary Note"
+         entry
+         (file+headline zino/anki-file "Temporary Notes")
+         "** TODO %^{Topic|..}\n%?")
+
+        ;; c for "Contacts"
+        ("c" "Contacts")
+        ("cf" "Family"
+         entry
+         (file+headline zino/contacts-file "Family")
+         "** %^{Name} \n:PROPERTIES:\n:CREATED: %(format-time-string \"<%Y-%m-%dT%H:%M>\" (current-time))\n:BIRTHDAY: %^{BIRTHDAY}\n:END:\n%?")
+        ("cF" "Friends"
+         entry
+         (file+headline zino/contacts-file "Friends")
+         "** %^{Name} \n:PROPERTIES:\n:CREATED: %(format-time-string \"<%Y-%m-%d:%H:%M>\" (current-time))\n:HowDoWeMeet: %^{How do we meet?}\n:END:\n%?")
+
+        ;; g for "Get Things Done"
+        ("g" "Get Things Done")
+        ("gq" "Questions"
+         entry
+         (file+regexp zino/GTD-file "\\* Questions \\[[0-9]*/[0-9]*\\]")
+         "** TODO %^{What is the QUESTION} %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
+         :immediate-finish nil)
+        ("gt" "Tasks"
+         entry
+         (file+regexp zino/GTD-file "\\* Tasks \\[[0-9]*/[0-9]*\\]")
+         "** TODO %^{What is the TASK} %^g\n:PROPERTIES:\n:ID: %(shell-command-to-string \"uuidgen\"):CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
+         :immediate-finish nil)
+        ("gl" "Later"
+         entry
+         (file+regexp zino/GTD-file "\\* Later")
+         "** TODO %^{What TO DO later} %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n\n"
+         :immediate-finish nil)
+
+        ;; w for "Weekly Plan"
+        ("w" "Weekly Plan")
+        ("we" "Weekend"
+         entry
+         (file+function zino/GTD-file (lambda ()
+                                        "Locate * Weekly Plan heading. Insert a timestamp of current week if there is none. create a TODO"
+                                        (goto-char (point-min))
+                                        (unless (re-search-forward "\\* Weekly Plan" (point-max) t)
+                                          (goto-char (point-max))
+                                          (newline)
+                                          (insert "* Weekly Plan\n"))
+                                        (unless (re-search-forward (concat "\\*\\* " (format-time-string "%Y-%m") "\\(-[0-9]*\\)?" (format-time-string "-W%V")) (point-max) t)
+                                          (newline)
+                                          (insert (concat "** " (format-time-string "%Y-%m-%d-W%V\n"))))))
+         "*** TODO %^{What to do this weekend} %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n\n")
+
+        ;; m for "Meeting"
+        ("m" "Meeting")
+        ("mr" "Random"
+         entry
+         (file+headline zino/meeting-file "Participated")
+         "** %^{What is it about}  %^g\n:PROPERTIES:\n:ID: %(shell-command-to-string \"uuidgen\"):CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
+         :immediate-finish nil
+         :jump-to-captured t)))
+
+(use-package all-the-icons)
 
 (global-set-key (kbd "C-x C-c") #'save-buffers-kill-terminal)
 
-;; begin_config
 (setq native-comp-async-report-warnings-errors nil)
 
 ;; temporary workaround
@@ -735,41 +950,47 @@ Similar to `org-capture' like behavior"
      rime-predicate-tex-math-or-command-p
      rime-predicate-org-latex-mode-p
      rime-predicate-current-uppercase-letter-p))
+  (rime-cursor "˰")
+  (rime-posframe-style 'vertical)
+  (rime-show-candidate 'posframe)
+
   :config
-  (define-key rime-active-mode-map (kbd "M-S-j") 'rime-inline-ascii))
-
-(setq rime-translate-keybindings
-      '("C-f" "C-b" "C-n" "C-p" "C-g" "<left>" "<right>" "<up>"
-        "<down>" "<prior>" "<next>" "<delete>" "C-`" "C-v" "M-v"))
-
-(global-set-key "\C-c\C-d" #'helpful-at-point)
+  (define-key rime-active-mode-map (kbd "M-S-j") 'rime-inline-ascii)
+  (setq rime-translate-keybindings
+        '("C-f" "C-b" "C-n" "C-p" "C-g" "<left>" "<right>" "<up>"
+          "<down>" "<prior>" "<next>" "<delete>" "C-`" "C-v" "M-v"))
+  :bind
+  ("C-s-r" . rime-force-enable))
 
 (setq custom-file "~/.config/emacs/init.el")
 
 (setq gc-cons-threshold (* 300 1024 1024))
-;; end_config
 
-;; begin_read
 ;;; arch
 ;; epdfinfo runs poppler in server mode, receives request from emacs
 ;; poppler render pdf into PNGs on the go and return them to emacs
 ;; poppler can provide rich information about the pdf and also the
 ;; ability to modify
 
-;;; installation
-;; poppler, epdfinfo
-(when (not (package-installed-p 'pdf-tools))
-  (package-install 'pdf-tools))
-(pdf-tools-install)
-(setq pdf-view-use-scaling t)
-(define-key pdf-view-mode-map (kbd "n") #'pdf-view-next-line-or-next-page)
-(define-key pdf-view-mode-map (kbd "p") #'pdf-view-previous-line-or-previous-page)
-(define-key pdf-view-mode-map (kbd ",") #'pdf-view-previous-page)
-(define-key pdf-view-mode-map (kbd ".") #'pdf-view-next-page)
-(define-key pdf-view-mode-map (kbd "s-1") 'pdf-annot-add-highlight-markup-annotation)
-(define-key pdf-view-mode-map (kbd "s-2") 'pdf-annot-add-squiggly-markup-annotation)
-(define-key pdf-view-mode-map (kbd "s-3") 'pdf-annot-add-text-annotation)
-(define-key pdf-view-mode-map (kbd "s-4") 'pdf-annot-delete)
+;;; install dependencies first on the system: poppler, epdfinfo
+(use-package pdf-tools
+  :init
+  (pdf-tools-install)
+  :bind
+  (:map pdf-view-mode-map
+        ("n" . pdf-view-next-line-or-next-page)
+        ("p" . pdf-view-previous-line-or-previous-page)
+        ("," . pdf-view-previous-page)
+        ("." . pdf-view-next-page)
+        ("s-1" . pdf-annot-add-highlight-markup-annotation)
+        ("s-2" . pdf-annot-add-squiggly-markup-annotation)
+        ("s-3" . pdf-annot-add-text-annotation)
+        ("s-4" . pdf-annot-delete))
+  :custom
+  (pdf-view-use-scaling t)
+  (pdf-view-continuous t)
+  (pdf-view-display-size 'fit-page)
+  (pdf-view-resize-factor 1.1))
 
 ;;(add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode))
 ;;(defun my-nov-font-setup ()
@@ -805,7 +1026,6 @@ Similar to `org-capture' like behavior"
 ;;              nil t)))
 
 ;;(add-hook 'nov-post-html-render-hook 'my-nov-post-html-render-hook)
-;; end_read
 
 ;; begin_UI
 ;;(defvar message-filter-regexp-list '("^Starting new Ispell process \\[.+\\] \\.\\.\\.$"
@@ -856,15 +1076,15 @@ Similar to `org-capture' like behavior"
   :width 'normal
   :slant 'normal))
 
-(setq company-box-backends-colors '((company-yasnippet . (:all "#457b9d" :selected (:foreground "#1d3557" :background "#457b9d")))))
-
 (use-package beacon
   :config
   (beacon-mode)
   :custom
   (beacon-blink-delay 0.2)
   (beacon-color "#a8dadc")
-  (beacon-size 50))
+  (beacon-size 50)
+  (beacon-blink-when-buffer-changes t)
+  (beacon-blink-when-window-changes nil))
 
 (setq custom-safe-themes t)
 
@@ -901,9 +1121,7 @@ Similar to `org-capture' like behavior"
 
 ;; begin_move_and_edit
 
-(setq org-roam-node-display-template
-      (concat "${title:*} "
-              (propertize "${tags:50}" 'face 'org-tag)))
+
 
 (defun my-increment-number-decimal (&optional arg)
   "Increment the number forward from point by ARG . "
@@ -928,19 +1146,21 @@ Similar to `org-capture' like behavior"
 
 (global-set-key (kbd "C-c +") 'my-increment-number-decimal)
 
-;;; begin_company_mode
 (use-package company
+  :config
+  (setq company-backends (mapcar #'company-mode/backend-with-yas company-backends))
   :bind
   (:map company-active-map
         ("<return>"   . company-complete-selection)
         ("<tab>"      . company-complete-common))
   :custom
   (company-minimum-prefix-length 2)
-  (company-idle-delay 0.1)
+  (company-idle-delay 0.05)
   (company-require-match nil)
-  :config
-  (global-company-mode)
-  (setq company-backends (mapcar #'company-mode/backend-with-yas company-backends)))
+  :custom-face
+  (company-tooltip-quick-access ((t (:inherit company-tooltip-annotation :height 2.0))))
+  :hook
+  (add-hook 'after-init-hook 'global-company-mode))
 
 (defun makefile-mode-setup ()
   (setq-local company-dabbrev-ignore-case t)
@@ -982,8 +1202,6 @@ Similar to `org-capture' like behavior"
     (append (if (consp backend) backend (list backend))
             '(:with company-yasnippet))))
 
-
-;;; end_company_mode
 (use-package fzf
   :bind
   ;; Don't forget to set keybinds!
@@ -1055,7 +1273,6 @@ Similar to `org-capture' like behavior"
 
 (setq ivy-dynamic-exhibit-delay-ms 0)
 (setq ivy-re-builders-alist '((t . ivy--regex-fuzzy)))
-
 (setq ivy-initial-inputs-alist '((counsel-minor . "^+")
                                  (counsel-package . "^+")
                                  (counsel-org-capture . "^")
@@ -1094,8 +1311,6 @@ Do not prompt me to create parent directory"
 
 (global-set-key (kbd "M-j") 'avy-goto-char-timer)
 
-(sp-pair "{" nil :post-handlers '(("||\n[i]" "RET")))
-
 ;; speed up swiper
 ;; when visual-line mode is enabled, emacs will forward
 ;; by visual line which is very slow in large files
@@ -1113,7 +1328,7 @@ Do not prompt me to create parent directory"
   (interactive)
   (delete-forward-char 1 t))
 
-(global-set-key (kbd "C-d") #'zino/delete-forward-char)
+(global-set-key (kbd "C-d") 'zino/delete-forward-char)
 
 ;; vim like newline
 (defun newline-below ()
@@ -1121,42 +1336,44 @@ Do not prompt me to create parent directory"
   (interactive)
   (end-of-line)
   (newline-and-indent))
-(global-set-key (kbd "<C-return>") #'newline-below)
+(global-set-key (kbd "<C-return>") 'newline-below)
 
 (defun newline-above ()
-  "Newline like vim's O . "
+  "Newline like vim's O."
   (interactive)
   (beginning-of-line)
   (open-line 1)
   (indent-for-tab-command))
-(global-set-key (kbd "C-S-<return>") #'newline-above)
+(global-set-key (kbd "C-S-<return>") 'newline-above)
 
 (defun zino/next-k-lines ()
-  "Move cursor down k lines"
+  "Move cursor down k lines."
   (interactive)
   (next-line 5))
 
 (defun zino/previous-k-lines ()
-  "Move cursor up k lines"
+  "Move cursor up k lines."
   (interactive)
   (next-line -5))
 
-(global-set-key (kbd "M-n") #'zino/next-k-lines)
-(global-set-key (kbd "M-p") #'zino/previous-k-lines)
+(global-set-key (kbd "M-n") 'zino/next-k-lines)
+(global-set-key (kbd "M-p") 'zino/previous-k-lines)
+(global-set-key (kbd "C-,") 'scroll-up-command)
+(global-set-key (kbd "C-.") 'scroll-down-command)
 
-(global-set-key (kbd "C-a") #'smarter-move-beginning-of-line)
+(global-set-key (kbd "C-a") 'smarter-move-beginning-of-line)
 
-(global-set-key (kbd "M-f") #'forward-to-word)
-(global-set-key (kbd "M-e") #'forward-word)
+(global-set-key (kbd "M-f") 'forward-to-word)
+(global-set-key (kbd "M-e") 'forward-word)
 
 (defun zino/kill-whole-line-without-newline ()
-  "Kill the whole line but leave the trailing newline . "
+  "Kill the whole line but leave the trailing newline."
   (interactive)
   (kill-whole-line 0))
 
-(global-set-key (kbd "C-k") #'kill-whole-line)
-(global-set-key (kbd "C-S-k") #'kill-line)
-(global-set-key (kbd "C-S-s-k") #'zino/kill-whole-line-without-newline)
+(global-set-key (kbd "C-k") 'kill-whole-line)
+(global-set-key (kbd "C-S-k") 'kill-line)
+(global-set-key (kbd "C-S-s-k") 'zino/kill-whole-line-without-newline)
 
 (defun smarter-move-beginning-of-line (arg)
   "Move point back to indentation of beginning of line.
@@ -1220,37 +1437,34 @@ point reaches the beginning or end of the buffer, stop there."
   :custom
   (helm-semantic-fuzzy-match t)
   (helm-imenu-fuzzy-match    t)
+  (helm-minibuffer-history-key "M-p")
+
   :config
   (add-to-list 'helm-sources-using-default-as-input 'helm-source-man-pages)
-  (setq helm-locate-command
-        "glocate %s %s"
-        helm-locate-create-db-command
-        "gupdatedb --output='%s' --localpaths='%s'")
-  (setq helm-locate-project-list
-        (list "~/Dev")))
-
-(global-set-key (kbd "M-i") #'helm-imenu)
+  (setq helm-locate-command "glocate %s %s"
+        helm-locate-create-db-command "gupdatedb --output='%s' --localpaths='%s'")
+  (setq helm-locate-project-list (list "~/Dev"))
+  :bind
+  ("M-i" . helm-imenu))
 ;; end_edit_and_movement
 
 (use-package consult)
-
-(general-create-definer zino/leader-key
-  :prefix "SPC")
 
 (defun zino/switch-other-buffer ()
   "Swithch to the most recent buffer."
   (interactive)
   (switch-to-buffer (other-buffer)))
 
-(zino/leader-key
-  :keymaps 'normal
-  "b" 'zino/switch-other-buffer)
+(global-set-key (kbd "C-c b") 'zino/switch-other-buffer)
+(global-set-key (kbd "C-c C-b") 'zino/switch-other-buffer)
 
-(bind-key (kbd "C-c b") 'zino/switch-other-buffer)
-(bind-key (kbd "C-c C-b") 'zino/switch-other-buffer)
-
-(require 'hl-line)
-(add-hook 'dired-mode-hook 'hl-line-mode)
+(use-package hl-line
+  :hook
+  (dired-mode . hl-line-mode)
+  :config
+  ;; original region face #42444a
+  (set-face-attribute 'hl-line nil :inherit nil :background "#42444a")
+  (set-face-attribute 'region nil :inherit nil :background "#3a3c42"))
 
 (use-package move-text
   :config
@@ -1267,17 +1481,18 @@ point reaches the beginning or end of the buffer, stop there."
   :hook
   (go-mode . lsp-go-install-save-hooks))
 
-;; begin_tramp
+(use-package tramp
+  :custom
+  (tramp-default-proxies-alist nil)
+  (tramp-verbose 3)
+  (tramp-auto-save-directory "~/tmp/tramp/")
+  (tramp-chunksize 2000))
+
 (setq remote-file-name-inhibit-cache nil)
 (setq vc-ignore-dir-regexp
       (format "%s\\|%s"
               vc-ignore-dir-regexp
               tramp-file-name-regexp))
-(setq tramp-verbose 1)
-
-(setq tramp-auto-save-directory "~/tmp/tramp/")
-(setq tramp-chunksize 2000)
-;; end_tramp
 
 ;; begin_lsp
 (use-package rust-mode)
@@ -1309,13 +1524,13 @@ point reaches the beginning or end of the buffer, stop there."
   ((python-mode . lsp)
    (lua-mode . lsp)
    ;;; bug with company and template compeltion, use eglot
-   (c-mode . lsp)
-   (c++-mode . lsp)
-   ;; (remove-hook 'c-mode-hook 'lsp)
+   ;; (c-mode . lsp)
+   ;; (c++-mode . lsp)
+   ;; (remove-hook 'go-mode-hook 'lsp)
+
    (cmake-mode . lsp)
-   (go-mode . lsp)
-   (rust-mode . lsp)
-   (python-mode . lsp)
+   ;; (go-mode . lsp)
+   ;; (rust-mode . lsp)
    (jsonc-mode . lsp)
    (sh-mode . lsp)
    (html-mode . lsp)
@@ -1327,8 +1542,6 @@ point reaches the beginning or end of the buffer, stop there."
   (setq lsp-keymap-prefix "C-c l")
   (setq lsp-signature-auto-activate t
         lsp-signature-render-documentation t)
-  ;; format-all does not work and it changes the window to the point of distracting ):
-  ;; (remove-hook 'before-save-hook 'zino/format-if-lsp-mode)
 
   (defun zino/lsp-find-references ()
     "Make xref use window at the left."
@@ -1357,7 +1570,28 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (lsp-modeline-diagnostics-enable nil)
   (lsp-signature-render-documentation t)
   (lsp-diagnostics-provider :flycheck)
-  (lsp-eldoc-render-all t))
+  (lsp-eldoc-render-all t)
+  (lsp-clients-lua-lsp-server-install-dir "/usr/local/bin/lua-language-server")
+  (lsp-elm-only-update-diagnostics-on-save t)
+  (lsp-go-library-directories '("~/go/src/goroot" "/usr"))
+  (warning-suppress-types '((lsp-mode)))
+  :custom
+  ;; what to use when checking on-save. "check" is default, I prefer clippy
+  (lsp-rust-analyzer-cargo-watch-command "clippy")
+  (lsp-eldoc-render-all t)
+  (lsp-idle-delay 0.5)
+  ;; enable / disable the hints as you prefer:
+  (lsp-rust-analyzer-server-display-inlay-hints t)
+  (lsp-rust-analyzer-display-lifetime-elision-hints-enable "never")
+  (lsp-rust-analyzer-display-chaining-hints t)
+  (lsp-rust-analyzer-display-lifetime-elision-hints-use-parameter-names nil)
+  (lsp-rust-analyzer-display-closure-return-type-hints t)
+  (lsp-rust-analyzer-display-parameter-hints nil)
+  (lsp-rust-analyzer-display-reborrow-hints nil))
+
+(use-package rustic
+  :custom
+  (rustic-lsp-client 'eglot))
 
 (use-package dap-mode
   :config
@@ -1396,6 +1630,7 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   lsp-ui-mode
   :custom-face
   (lsp-ui-doc-header ((t (:inherit (font-lock-string-face italic)))))
+  (lsp-ui-doc-background ((t (:inherit tooltip :background "#2e3138"))))
   :custom
   ;; lsp-ui-doc
   (lsp-ui-doc-enable nil)
@@ -1408,6 +1643,10 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (lsp-ui-doc-position 'top)
   (lsp-ui-doc-border "#3d4554");;"#51afef") ;;"white")  ;; (face-foreground 'default)
   (lsp-ui-doc-delay 0.2)
+  (lsp-ui-doc-max-height 120)
+  (lsp-ui-doc-max-width 80)
+  (lsp-ui-doc-webkit-max-width-px 800)
+
   ;; lsp-ui-sideline
   (lsp-ui-sideline-mode t)
   (lsp-ui-sideline-show-hover nil)
@@ -1418,10 +1657,10 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (lsp-ui-sideline-update-mode 'line)
   (lsp-lens-enable nil)
   (lsp-headerline-breadcrumb-enable nil)
+
   :hook
   (lsp-mode . lsp-ui-mode)
   :config
-  (setq lsp-completion-provider :none)
   (define-key lsp-ui-imenu-mode-map (kbd "n") 'next-line)
   (define-key lsp-ui-imenu-mode-map (kbd "p") 'previous-line))
 
@@ -1434,18 +1673,11 @@ TODO: optimize this to use `display-buffer-in-side-window'."
 ;; Try rust projects before version-control (vc) projects
 (add-hook 'project-find-functions 'zino/project-try-cargo-toml nil nil)
 
-(defun clang-format-save-hook-for-this-buffer ()
-  "Create a buffer local save hook."
-  (add-hook 'before-save-hook
-            (lambda ()
-              (when (locate-dominating-file "." ".clang-format")
-                (clang-format-buffer))
-              ;; Continue to save
-              nil)
-            ;; Default depth of 0
-            nil))
-
 (use-package eglot
+  :init
+  ;; eglot use this variable to determine if `company-mode' ignores case
+  (setq completion-ignore-case  t)
+
   :config
   (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(perl-mode . ("/usr/local/Cellar/perl/5.34.0/lib/perl5/site_perl/5.34.0/Perl/LanguageServer.pm")))
@@ -1469,18 +1701,19 @@ TODO: optimize this to use `display-buffer-in-side-window'."
         ("C-c r"   . eglot-rename)
         ("C-c C-r" . xref-find-references)
         ("C-c C-a" . eglot-code-actions)
-        ("C-c C-e" . flymake-show-buffer-diagnostics))
-  ;; :hook
-  ;; (c-mode . eglot-ensure)
-  ;; (c++-mode . eglot-ensure)
+        ("C-c C-e" . flycheck-list-errors))
+  ;; ("C-c C-e" . flymake-show-buffer-diagnostics))
+  :hook
+  (rust-mode . eglot-ensure)
+  (c-mode . eglot-ensure)
+  (c++-mode . eglot-ensure)
+  (go-mode . eglot-ensure)
   ;; (cmake-mode   . eglot-ensure)
   ;; (sh-mode         . eglot-ensure)
   ;; (js-mode         . eglot-ensure)
   ;; (typescript-mode . eglot-ensure)
-  ;; (remove-hook 'c-mode-hook 'eglot-ensure)
   )
 
-;; (add-to-list 'load-path (concat (getenv "GOPATH")  "/src/golang . org/x/lint/misc/emacs/"))
 ;; (require 'golint)
 ;; end_lsp
 
@@ -1491,7 +1724,11 @@ TODO: optimize this to use `display-buffer-in-side-window'."
 
 (use-package company-box
   :hook
-  (company-mode . company-box-mode))
+  (company-mode . company-box-mode)
+  :custom
+  (company-box-doc-delay 0.2)
+  :config
+  (setq company-box-backends-colors '((company-yasnippet . (:all "#457b9d" :selected (:foreground "#1d3557" :background "#457b9d"))))))
 
 (use-package yasnippet
   :hook
@@ -1501,15 +1738,16 @@ TODO: optimize this to use `display-buffer-in-side-window'."
 
 (use-package flycheck
   :hook
-  (lsp-mode . flycheck-mode))
+  (prog-mode . flycheck-mode)
+  :config
+  (push 'rustic-clippy flycheck-checkers))
 
 (use-package flycheck-rust
   :hook
   (flycheck-mode . flycheck-rust-setup)
   :config
   (define-key flycheck-mode-map (kbd "C-c [") #'flycheck-previous-error)
-  (define-key flycheck-mode-map (kbd "C-c ]") #'flycheck-next-error)
-  )
+  (define-key flycheck-mode-map (kbd "C-c ]") #'flycheck-next-error))
 
 ;; (setq flycheck-indication-mode 'left-fringe)
 ;; (global-flycheck-mode)
@@ -1570,8 +1808,13 @@ TODO: optimize this to use `display-buffer-in-side-window'."
 (repeatize 'org-remark-repeat-map)
 
 ;; Show matching parenthesis
-(use-package mic-paren)
-(paren-activate)
+(use-package mic-paren
+  :custom-face
+  (paren-face-match ((t (:foreground "#ff6c6b" :weight ultra-bold))))
+  :config
+  (paren-activate)
+  :custom
+  (paren-display-message 'always))
 
 ;; Boxes comment
 ;; Site: https://boxes.thomasjensen.com/
@@ -1601,145 +1844,43 @@ TODO: optimize this to use `display-buffer-in-side-window'."
 
 (use-package button-lock)
 
-;; begin_orgmode
-(use-package org-noter
-  :custom
-  (org-noter-auto-save-last-location t)
-  (org-noter-closest-tipping-point 1e-05)
-  (org-noter-hide-other nil)
-  (org-noter-notes-window-behavior '(scroll)))
-
-(defun zino/org-journal-cycle-after-open-current-journal-file ()
-  "Toggle visibility according to buffer's setting."
-  (org-cycle t))
-
-(advice-add 'org-journal-open-current-journal-file :after #'zino/org-journal-cycle-after-open-current-journal-file)
-
-(use-package org-fragtog
-  :hook (org-mode . org-fragtog-mode))
-
-(global-set-key (kbd "C-c a") #'org-agenda)
-(global-set-key (kbd "C-c l") #'org-store-link)
-(global-set-key (kbd "C-c i") #'org-insert-link)
-(global-set-key (kbd "C-c t") #'org-cycle-list-bullet)
-
-(setq org-agenda-include-diary t)
-(setq org-agenda-todo-list-sublevels t)
-(setq org-deadline-warning-days 5)
-
-(setq zino/roam-dir "~/Notes/Roam")
-(setq zino/anki-file "~/Notes/Roam/20220517104105-anki.org"
-      zino/contacts-file "~/Notes/Roam/20220620203106-contacts.org"
-      zino/meeting-file (concat zino/roam-dir "/20221115143855-meeting.org"))
-
-(setq org-capture-templates
-      `(
-        ("a" "Anki")
-        ("ab" "Basic card with a front and a back"
-         entry
-         (file+headline zino/anki-file "Dispatch Shelf")
-         "** %<%Y-%m-%d:%H:%M>  %^g\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Basic\n:ANKI_DECK: %^{Deck|Vocabulary}\n:END:\n*** Front\n%?\n*** Back\n%x\n")
-        ("ac" "Cloze"
-         entry
-         (file+headline zino/anki-file "Dispatch Shelf")
-         "** %<%Y-%m-%d:%H:%M>  %^g\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Cloze\n:ANKI_DECK: %^{Deck|Vocabulary}\n:END:\n*** Text\n%?\n*** Back extra\n%x\n")
-        ("at" "Temporary Note"
-         entry
-         (file+headline zino/anki-file "Temporary Notes")
-         "** TODO %^{Topic|..}\n%?")
-
-        ("c" "Contacts")
-        ("cf" "Family"
-         entry
-         (file+headline zino/contacts-file "Family")
-         "** %^{Name} \n:PROPERTIES:\n:CREATED: %(format-time-string \"<%Y-%m-%dT%H:%M>\" (current-time))\n:BIRTHDAY: %^{BIRTHDAY}\n:END:\n%?")
-        ("cF" "Friends"
-         entry
-         (file+headline zino/contacts-file "Friends")
-         "** %^{Name} \n:PROPERTIES:\n:CREATED: %(format-time-string \"<%Y-%m-%d:%H:%M>\" (current-time))\n:HowDoWeMeet: %^{How do we meet?}\n:END:\n%?")
-
-        ("g" "Get Things Done")
-        ("gq" "Questions"
-         entry
-         (file+regexp zino/GTD-file "\\* Questions \\[[0-9]*/[0-9]*\\]")
-         "** TODO %^{What is the QUESTION} %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
-         :immediate-finish nil)
-        ("gt" "Tasks"
-         entry
-         (file+regexp zino/GTD-file "\\* Tasks \\[[0-9]*/[0-9]*\\]")
-         "** TODO %^{What is the TASK} %^g\n:PROPERTIES:\n:ID: %(shell-command-to-string \"uuidgen\"):CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
-         :immediate-finish nil)
-        ("gl" "Later"
-         entry
-         (file+regexp zino/GTD-file "\\* Later")
-         "** TODO %^{What TO DO later} %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n\n"
-         :immediate-finish nil)
-
-        ("w" "Weekly Plan")
-        ("we" "Weekend"
-         entry
-         (file+function zino/GTD-file (lambda ()
-                                        "Locate * Weekly Plan heading. Insert a timestamp of current week if there is none. create a TODO"
-                                        (goto-char (point-min))
-                                        (unless (re-search-forward "\\* Weekly Plan" (point-max) t)
-                                          (goto-char (point-max))
-                                          (newline)
-                                          (insert "* Weekly Plan\n"))
-                                        (unless (re-search-forward (concat "\\*\\* " (format-time-string "%Y-%m") "\\(-[0-9]*\\)?" (format-time-string "-W%V")) (point-max) t)
-                                          (newline)
-                                          (insert (concat "** " (format-time-string "%Y-%m-%d-W%V\n"))))))
-         "*** TODO %^{What to do this weekend} %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n\n")
-
-        ("m" "Meeting")
-        ("mr" "Random"
-         entry
-         (file+headline zino/meeting-file "Participated")
-         "** %^{What is it about}  %^g\n:PROPERTIES:\n:ID: %(shell-command-to-string \"uuidgen\"):CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
-         :immediate-finish nil
-         :jump-to-captured t)))
-
-(global-set-key (kbd "C-c c") #'org-capture)
-;; end_orgmode
-
-(setq request-log-level 'debug)
-
-;; begin_anki_editor
-(defun zino/anki-editor-reset-cloze-num ()
-  "Reset cloze number of current card to 1."
-  (interactive)
-  (setq anki-editor-cur-cloze-num 1))
-
-(defun zino/anki-editor-cloze-region-auto-incr ()
-  "Cloze active region or word under corsor without hint.
-Automatically increase cloze number"
-  (interactive)
-  (anki-editor-cloze-dwim anki-editor-cur-cloze-num "")
-  (sp-forward-sexp)
-  (setq anki-editor-cur-cloze-num (1+ anki-editor-cur-cloze-num)))
-
-(defun zino/anki-editor-cloze-region-not-incr ()
-  "Cloze active region or word under corsor without hint.
-Do not increase cloze number"
-  (interactive)
-  (anki-editor-cloze-dwim anki-editor-cur-cloze-num "")
-  (sp-forward-sexp))
-
-(defun zino/anki-editor-push-tree ()
-  "Push cards of the org subtree under cursor to Anki."
-  (interactive)
-  (anki-editor-push-notes '(4))
-  (zino/anki-editor-reset-cloze-num))
-
-(defun zino/anki-editor-push-buffer ()
-  "Push cards of this buffer."
-  (interactive)
-  (anki-editor-push-notes)
-  (zino/anki-editor-reset-cloze-num))
-
 (use-package anki-editor
   :hook
   (org-capture-after-finalize . zino/anki-editor-reset-cloze-num)
   (org-capture . anki-editor-mode)
+  :config
+  (defun zino/anki-editor-reset-cloze-num ()
+    "Reset cloze number of current card to 1."
+    (interactive)
+    (setq anki-editor-cur-cloze-num 1))
+
+  (defun zino/anki-editor-cloze-region-auto-incr ()
+    "Cloze active region or word under corsor without hint.
+Automatically increase cloze number"
+    (interactive)
+    (anki-editor-cloze-dwim anki-editor-cur-cloze-num "")
+    (sp-forward-sexp)
+    (setq anki-editor-cur-cloze-num (1+ anki-editor-cur-cloze-num)))
+
+  (defun zino/anki-editor-cloze-region-not-incr ()
+    "Cloze active region or word under corsor without hint.
+Do not increase cloze number"
+    (interactive)
+    (anki-editor-cloze-dwim anki-editor-cur-cloze-num "")
+    (sp-forward-sexp))
+
+  (defun zino/anki-editor-push-tree ()
+    "Push cards of the org subtree under cursor to Anki."
+    (interactive)
+    (anki-editor-push-notes '(4))
+    (zino/anki-editor-reset-cloze-num))
+
+  (defun zino/anki-editor-push-buffer ()
+    "Push cards of this buffer."
+    (interactive)
+    (anki-editor-push-notes)
+    (zino/anki-editor-reset-cloze-num))
+
   :config
   ;; initialize cloze states
   (zino/anki-editor-reset-cloze-num)
@@ -1761,92 +1902,37 @@ Do not increase cloze number"
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(company-tooltip-quick-access ((t (:inherit company-tooltip-annotation :height 2.0))))
  '(cursor ((t (:background "#51afef"))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
- '(highlight-indent-guides-character-face ((t (:foreground "#3c3c42414e4d"))))
- '(highlight-indent-guides-top-character-face ((t (:foreground "#bbc2cf"))))
- '(hl-line ((t (:extend t :background "#42444a"))))
- '(lsp-ui-doc-background ((t (:inherit tooltip :background "#2e3138"))))
- '(lsp-ui-doc-header ((t (:inherit (font-lock-string-face italic)))))
- '(org-block ((t (:inherit nil :extend t :background "#282c34"))))
- '(org-block-begin-line ((t (:inherit all-faces :foreground "#5B6268"))))
- '(org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
- '(org-code ((t (:inherit nil :foreground "#da8548"))))
- '(org-document-title ((t (:foreground "#c678dd" :weight bold :height 1.2 :family "Iosevka"))))
- '(org-level-1 ((t (:inherit outline-1 :extend nil :height 1.3 :width normal :family "Iosevka"))))
- '(org-level-2 ((t (:inherit outline-2 :extend nil :height 1.2 :width normal :family "Iosevka"))))
- '(org-level-3 ((t (:inherit outline-3 :extend nil :height 1.1 :width normal :family "Iosevka"))))
- '(org-level-4 ((t (:inherit outline-4 :extend nil :height 1.05 :width normal :family "Iosevka"))))
- '(org-level-5 ((t (:inherit outline-5 :extend nil :height 1.0 :width normal :family "Iosevka"))))
- '(org-level-6 ((t (:inherit outline-6 :extend nil :height 1.0 :width normal :family "Iosevka"))))
- '(org-link ((t (:inherit link :foreground "#51afef" :family "Iosevka"))))
- '(org-remark-highlighter ((t (:background "#023047"))))
- '(org-verbatim ((t (:foreground "#98be65"))))
- '(paren-face-match ((t (:foreground "#ff6c6b" :weight ultra-bold))))
+ '(org-remark-highlighter ((t (:background "#023047" :underline nil))) t)
  '(tooltip ((t (:background "#21242b" :foreground "#bbc2cf" :height 1.0))))
  '(variable-pitch ((t (:family "ETBembo" :height 180 :weight regular)))))
 
-;;; init.el ends here
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(beacon-blink-when-buffer-changes t)
- '(beacon-blink-when-window-changes nil)
  '(comment-style 'indent)
- '(company-box-doc-delay 0.2)
- '(company-quickhelp-color-foreground nil)
- '(company-quickhelp-delay 0.01)
- '(company-quickhelp-mode t)
- '(company-quickhelp-use-propertized-text t)
- '(dired-create-destination-dirs 'always)
- '(dirvish-header-style 'normal)
- '(dirvish-preview-width 0.4)
  '(display-line-numbers-width nil)
  '(eldoc-echo-area-prefer-doc-buffer t)
+ '(eldoc-echo-area-use-multiline-p 'truncate-sym-name-if-fit)
  '(eldoc-idle-delay 0.2)
- '(elfeed-feeds
-   '("https://www.reddit.com/r/emacs.rss"
-     ("https://news.ycombinator.com/rss" hacker)))
- '(helm-minibuffer-history-key "M-p")
- '(highlight-indent-guides-auto-character-face-perc 20)
- '(highlight-indent-guides-auto-top-character-face-perc 50)
- '(highlight-indent-guides-delay 0)
- '(highlight-indent-guides-responsive 'top)
- '(lsp-bridge-completion-popup-predicates
-   '(lsp-bridge-not-only-blank-before-cursor lsp-bridge-not-match-hide-characters lsp-bridge-not-match-stop-commands lsp-bridge-not-in-string lsp-bridge-not-in-comment lsp-bridge-not-follow-complete lsp-bridge-multiple-cursors-disable lsp-bridge-not-complete-manually))
- '(lsp-clients-lua-lsp-server-install-dir "/usr/local/bin/lua-language-server")
- '(lsp-elm-only-update-diagnostics-on-save t)
- '(lsp-go-library-directories '("~/go/src/goroot" "/usr"))
- '(lsp-ui-doc-max-height 120)
- '(lsp-ui-doc-max-width 80)
- '(lsp-ui-doc-webkit-max-width-px 800)
- '(org-agenda-files
-   '("/Users/zino/Notes/Roam/20220816100518-gtd.org" "/Users/zino/Notes/Roam/Journal/2022-12-05-W49.org" "/Users/zino/Notes/Roam/Journal/2022-12-12-W50.org" "/Users/zino/Notes/Roam/Journal/2022-12-19-W51.org" "/Users/zino/Notes/Roam/Journal/2022-12-26-W52.org" "/Users/zino/Notes/Roam/Journal/2023-01-02-W01.org"))
- '(org-modules
-   '(ol-bbdb ol-bibtex ol-docview ol-doi ol-eww ol-gnus ol-info ol-irc ol-mhe ol-rmail ol-w3m))
- '(org-remark-notes-file-name 'org-remark-notes-file-name-function)
- '(org-tags-column -120 nil nil "Customized with use-package org")
+ '(fill-column 80)
+ '(flycheck-checkers
+   '(rustic-clippy eglot-check golangci-lint vale rustic-clippy ada-gnat asciidoctor asciidoc awk-gawk bazel-build-buildifier bazel-module-buildifier bazel-starlark-buildifier bazel-workspace-buildifier c/c++-clang c/c++-gcc c/c++-cppcheck cfengine chef-foodcritic coffee coffee-coffeelint coq css-csslint css-stylelint cuda-nvcc cwl d-dmd dockerfile-hadolint elixir-credo emacs-lisp emacs-lisp-checkdoc ember-template erlang-rebar3 erlang eruby-erubis eruby-ruumba fortran-gfortran go-gofmt go-golint go-vet go-build go-test go-errcheck go-unconvert go-staticcheck groovy haml handlebars haskell-stack-ghc haskell-ghc haskell-hlint html-tidy javascript-eslint javascript-jshint javascript-standard json-jsonlint json-python-json json-jq jsonnet less less-stylelint llvm-llc lua-luacheck lua markdown-markdownlint-cli markdown-mdl nix nix-linter opam perl perl-perlcritic php php-phpmd php-phpcs processing proselint protobuf-protoc protobuf-prototool pug puppet-parser puppet-lint python-flake8 python-pylint python-pycompile python-pyright python-mypy r-lintr racket rpm-rpmlint rst-sphinx rst ruby-rubocop ruby-standard ruby-reek ruby-rubylint ruby ruby-jruby rust-cargo rust rust-clippy scala scala-scalastyle scheme-chicken scss-lint scss-stylelint sass/scss-sass-lint sass scss sh-bash sh-posix-dash sh-posix-bash sh-zsh sh-shellcheck slim slim-lint sql-sqlint systemd-analyze tcl-nagelfar terraform terraform-tflint tex-chktex tex-lacheck texinfo textlint typescript-tslint verilog-verilator vhdl-ghdl xml-xmlstarlet xml-xmllint yaml-jsyaml yaml-ruby yaml-yamllint))
+ '(flycheck-go-golint-executable "golangci-lint")
+ '(magit-todos-insert-after '(bottom) nil nil "Changed by setter of obsolete option `magit-todos-insert-at'")
+ '(max-mini-window-height 0.3)
  '(package-selected-packages
-   '(go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-quickhelp company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
- '(paren-display-message 'always)
- '(pdf-view-continuous t)
- '(pdf-view-display-size 'fit-page)
- '(pdf-view-resize-factor 1.1)
+   '(god-mode magit-todos org-present flycheck-eglot company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(popper-group-function 'popper-group-by-projectile)
- '(rime-cursor "˰")
- '(rime-posframe-style 'vertical)
- '(rime-show-candidate 'posframe)
- '(tab-always-indent nil)
- '(tab-bar-close-button-show nil)
- '(tab-bar-show nil)
- '(tab-width 2)
- '(tramp-default-proxies-alist nil)
- '(warning-suppress-types '((lsp-mode))))
+ '(safe-local-variable-values '((comment-style quote box)))
+ '(tab-always-indent nil))
 
-(winner-mode)
+(use-package winner
+  :config
+  (winner-mode))
 
 ;; the original keybinding is set-goal-column
 (global-unset-key (kbd "C-x C-n"))
@@ -1890,9 +1976,6 @@ Do not increase cloze number"
 
 (global-set-key (kbd "<RET>") #'newline)
 
-(global-set-key (kbd "C-M-k") #'sp-kill-sexp)
-(global-set-key (kbd "C-s-k") #'sp-change-enclosing)
-
 ;; trying lsp-bridge
 (use-package lsp-bridge
   :load-path "~/.config/emacs/manually_installed/lsp-bridge"
@@ -1918,19 +2001,20 @@ Do not increase cloze number"
         ("C-c C-v" . acm-doc-scroll-down)
         ("C-c C-M-v" . acm-doc-scroll-up))
   :custom
-  (acm-doc-frame-max-lines 100))
+  (acm-doc-frame-max-lines 100)
+  (lsp-bridge-completion-popup-predicates
+   '(lsp-bridge-not-only-blank-before-cursor
+     lsp-bridge-not-match-hide-characters
+     lsp-bridge-not-match-stop-commands
+     lsp-bridge-not-in-string
+     lsp-bridge-not-in-comment
+     lsp-bridge-not-follow-complete
+     lsp-bridge-multiple-cursors-disable
+     lsp-bridge-not-complete-manually)))
 
 (use-package clipetty
   :ensure t
   :hook (after-init . global-clipetty-mode))
-
-(defun zino/no-op (&rest args))
-(advice-add 'org-noter--set-notes-scroll :override 'zino/no-op)
-
-;; this only undoes remapping instead of remapping to nil
-;; (define-key global-map [remap ns-print-buffer] nil)
-
-(global-unset-key (kbd "s-p"))
 
 (use-package flymake
   :bind
@@ -1940,9 +2024,14 @@ Do not increase cloze number"
   :config
   (eval-after-load 'flymake '(require 'flymake-cursor))
   ;; :hook
-  ;; (lsp-mode . flymake-mode)
+  ;; (eglot-managed-mode . flymake-mode))
   )
+
 (use-package flymake-cursor)
+
+(use-package flycheck-eglot
+  :config
+  (global-flycheck-eglot-mode 1))
 
 ;; git-modes
 (use-package git-modes)
@@ -1956,17 +2045,6 @@ Do not increase cloze number"
   :config
   (bind-key "C-c C-r" 'dired-rsync dired-mode-map))
 
-(org-babel-do-load-languages
- 'org-babel-load-languages
- '((C . t)
-   (emacs-lisp . t)
-   (shell . t)
-   (lua . t)
-   (dot . t)
-   (js . t)))
-
-(setq org-confirm-babel-evaluate nil)
-
 (use-package yaml-mode
   :config
   (add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-mode)))
@@ -1979,7 +2057,6 @@ Do not increase cloze number"
 ;; set limit for prompt opening large files higher, 100 M
 (setq large-file-warning-threshold 100000000)
 
-;;; begin_helpers
 (defun zino/save-buffer-and-exit()
   "Simple convenience function.
 Save the buffer of the current window and kill it"
@@ -1987,7 +2064,6 @@ Save the buffer of the current window and kill it"
   (save-buffer)
   (delete-window))
 (global-set-key (kbd "C-x s-s") #'zino/save-buffer-and-exit)
-;;; end_helpers
 
 ;; (add-hook 'eglot-managed-mode-hook (lambda ()
 ;;                                      (add-to-list 'company-backends
@@ -2005,18 +2081,13 @@ Save the buffer of the current window and kill it"
 ;;(use-package cape)
 ;;(add-hook 'eglot-managed-mode-hook #'my/eglot-capf)
 
-;;; begin_comment
-(global-set-key (kbd "C-;") #'comment-line)
-;;; end_comment
-
 (use-package format-all
   :hook
   (prog-mode . format-all-ensure-formatter)
-  (prog-mode-hook . format-all-mode))
+  (prog-mode . format-all-mode)
+  :custom
+  (format-all-show-errors 'never))
 
-(setq read-process-output-max (* 1024 1024)) ;; 1MB
-
-;;; begin_better_jumper
 (use-package better-jumper
   :config
   (better-jumper-mode 1)
@@ -2030,44 +2101,49 @@ Save the buffer of the current window and kill it"
   ;; (define-key org-journal-mode-map (kbd "C-c C-x H-i") 'org-clock-in)
 
   ;; terminal emacs cannot differenciate C-i from tab
-  (global-set-key (kbd "C-j") #'better-jumper-jump-forward))
+  (global-set-key (kbd "C-j") #'better-jumper-jump-forward)
+  (defun zino/set-jump-for-one-arg-fn (arg)
+    "Set jump for functions with one ARG."
+    (call-interactively #'better-jumper-set-jump))
 
-(defun zino/set-jump-for-one-arg-fn (arg)
-  "Set jump for functions with one ARG."
-  (call-interactively #'better-jumper-set-jump))
+  (defun zino/set-jump-for-one-arg-one-opt-arg-fn (arg &optional OPT)
+    "Set jump for functions with one ARG and one optional OPT."
+    (call-interactively #'better-jumper-set-jump))
 
-(defun zino/set-jump-for-one-arg-one-opt-arg-fn (arg &optional OPT)
-  "Set jump for functions with one ARG and one optional OPT."
-  (call-interactively #'better-jumper-set-jump))
+  (defun zino/set-jump-for-one-option-arg (&optional ARG)
+    "Set jump for functions with one optional ARG."
+    (call-interactively #'better-jumper-set-jump))
 
-(defun zino/set-jump-for-one-option-arg (&optional ARG)
-  "Set jump for functions with one optional ARG."
-  (call-interactively #'better-jumper-set-jump))
+  (advice-add 'xref-find-definitions :before 'zino/set-jump-for-one-arg-fn)
+  (advice-add 'zino/switch-other-buffer :before 'better-jumper-set-jump)
+  (advice-add 'helm-imenu :before 'better-jumper-set-jump)
+  (advice-add 'widget-button-press :before 'zino/set-jump-for-one-arg-one-opt-arg-fn)
+  (advice-add 'org-open-at-point :before 'zino/set-jump-for-one-option-arg)
+  (advice-add 'beginning-of-buffer :before 'zino/set-jump-for-one-option-arg)
+  (advice-add 'end-of-buffer :before 'zino/set-jump-for-one-option-arg)
+  (advice-add 'c-beginning-of-defun :before 'zino/set-jump-for-one-option-arg)
+  (advice-add 'c-end-of-defun :before 'zino/set-jump-for-one-option-arg)
+  (advice-add 'lua-beginning-of-proc :before 'zino/set-jump-for-one-option-arg)
+  (advice-add 'lua-end-of-proc :before 'zino/set-jump-for-one-option-arg)
+  (advice-add 'org-open-at-point :before 'zino/set-jump-for-one-option-arg)
 
-(advice-add #'xref-find-definitions :before #'zino/set-jump-for-one-arg-fn)
-(advice-add #'zino/switch-other-buffer :before #'better-jumper-set-jump)
-(advice-add #'helm-imenu :before #'better-jumper-set-jump)
-(advice-add #'widget-button-press :before #'zino/set-jump-for-one-arg-one-opt-arg-fn)
-(advice-add #'org-open-at-point :before #'zino/set-jump-for-one-option-arg)
-(advice-add #'beginning-of-buffer :before #'zino/set-jump-for-one-option-arg)
-(advice-add #'end-of-buffer :before #'zino/set-jump-for-one-option-arg)
-(advice-add #'c-beginning-of-defun :before #'zino/set-jump-for-one-option-arg)
-(advice-add #'c-end-of-defun :before #'zino/set-jump-for-one-option-arg)
-
-;; unable to set advice for `lsp-find-definition' for now
-;; (advice-add #'lsp-find-definition :before #'zino/set-jump-for-lsp-find-def)
-;; (advice-remove #'lsp-find-definition #'zino/set-jump-for-lsp-find-def)
-;;; end_better_jumpter
+  ;; unable to set advice for `lsp-find-definition' for now
+  ;; (advice-add #'lsp-find-definition :before #'zino/set-jump-for-lsp-find-def)
+  ;; (advice-remove #'lsp-find-definition #'zino/set-jump-for-lsp-find-def)
+  )
 
 (use-package org-remark
   :config
   ;; turn on `org-remark' highlights on startup
   (require 'org-remark-global-tracking)
   (org-remark-global-tracking-mode +1)
-    ;;; `org-remark' builtin function redefinition and helper function
+
+  ;;; `org-remark' builtin function redefinition and helper function
   (defun org-remark-open (point &optional view-only)
     "Open remark note buffer if there is notes from `point' to the beginning of
-the line."
+the line.
+
+This is the modified version of the function in `org-remark'."
     (interactive "d\nP")
     (when-let ((id
                   ;;; #+begin_modified
@@ -2103,6 +2179,11 @@ I find myself often do this workflow"
     (org-remark-mark (region-beginning) (region-end))
     (org-remark-open (point)))
 
+  ;;; advices
+  (advice-add 'org-remark-open :after (lambda (point &optional view-only)
+                                        "Show subtree after open notes buffer."
+                                        (org-show-subtree)))
+
   :bind
   ;; (keyboard-translate ?\C-m ?\H-m)
   (("C-x C-n m" . org-remark-mark)
@@ -2114,7 +2195,26 @@ I find myself often do this workflow"
    ("C-x C-n d" . org-remark-delete)
    ("C-x C-n y" . org-remark-mark-yellow)
    ("C-x C-n l" . org-remark-mark-red-line)
-   ("C-x C-n e" . zino/org-remark-mark-and-open)))
+   ("C-x C-n e" . zino/org-remark-mark-and-open)
+   ("C-x C-n t" . org-remark-toggle))
+  :custom
+  (org-remark-notes-display-buffer-action
+   '((display-buffer-in-side-window)
+     (side . left)
+     (slot . 1)
+     (window-width . 45)))
+
+  :init
+  (defun zino/org-remark-notes-file-name-function ()
+    "Customize notes file."
+    (let ((notes-dir (concat "~/Documents/org-remark" (file-name-directory (buffer-file-name)))))
+      (make-directory notes-dir t)
+      (concat notes-dir (file-name-base (buffer-file-name)) "-notes.org")))
+  :custom
+  (org-remark-notes-file-name 'zino/org-remark-notes-file-name-function)
+
+  :custom-face
+  (org-remark-highlighter ((t (:background "#023047" :underline nil)))))
 
 (use-package graphviz-dot-mode
   :ensure t
@@ -2122,18 +2222,26 @@ I find myself often do this workflow"
   (setq graphviz-dot-indent-width 4))
 
 ;; one tab for one workspace
-(tab-bar-mode +1)
+(use-package tab-bar
+  :config
+  (tab-bar-mode +1)
+  ;; it is not common to mis-type this
+  (global-unset-key (kbd "C-<tab>"))
+  :bind
+  ("M-<tab>" . tab-next)
+  ("M-S-<tab>" . tab-previous)
+  ("C-s-<tab>" . tab-bar-select-tab-by-name)
+  :custom
+  (tab-bar-close-button-show nil)
+  (tab-bar-show nil)
+  (tab-width 2))
 
-;; it is not common to mis-type this
-(global-unset-key (kbd "C-<tab>"))
-(global-set-key (kbd "M-<tab>") 'tab-next)
-(global-set-key (kbd "M-S-<tab>") 'tab-previous)
-(global-set-key (kbd "C-s-<tab>") 'tab-bar-select-tab-by-name)
-
-(with-eval-after-load 'python-mode
-  (setq python-shell-interpreter "jupyter"
-        python-shell-interpreter-args "console --simple-prompt"
-        python-shell-prompt-detect-failure-warning nil))
+(use-package python
+  :config
+  (with-eval-after-load 'python-mode
+    (setq python-shell-interpreter "jupyter"
+          python-shell-interpreter-args "console --simple-prompt"
+          python-shell-prompt-detect-failure-warning nil)))
 
 ;;; Google's gn meta build system
 (use-package gn-mode
@@ -2166,13 +2274,6 @@ I find myself often do this workflow"
 (use-package nasm-mode
   :config
   (add-to-list 'auto-mode-alist '("\\.asm\\'" . nasm-mode)))
-
-(add-hook 'prog-mode-hook
-          (lambda ()
-            "Set `auto-fill-mode' for comments."
-            (auto-fill-mode 1)
-            (setq-local comment-auto-fill-only-commnts t
-                        fill-column 80)))
 
 ;; (setq ba/org-adjust-tags-column t)
 
@@ -2235,13 +2336,10 @@ I find myself often do this workflow"
 (use-package json-mode)
 
 (use-package elfeed
-  :config
-  (setq elfeed-feeds
-        '(
-          ("https://news.ycombinator.com/rss" hacker)
-          )))
-
-(setenv "clang-format" "~/.local/bin/clang-format")
+  :custom
+  (elfeed-feeds
+   '("https://www.reddit.com/r/emacs.rss"
+     ("https://news.ycombinator.com/rss" hacker))))
 
 (defconst zino/cc-style
   '("cc-mode"
@@ -2249,9 +2347,32 @@ I find myself often do this workflow"
 
 (c-add-style "my-cc-mode" zino/cc-style)
 
+(defun zino/toggle-window-dedication ()
+  "Toggles window dedication in the selected window."
+  (interactive)
+  (set-window-dedicated-p (selected-window)
+                          (not (window-dedicated-p (selected-window))))
+  (if (window-dedicated-p (selected-window))
+      (message "The current window is dedicated")
+    (message "The current window is not dedicated")))
+
+(use-package flycheck-golangci-lint
+  :hook
+  (flycheck-mode . flycheck-golangci-lint-setup)
+  :custom
+  (flycheck-golangci-lint-config "~/gitlab/er-scheduler/.golangci.yml")
+  (flycheck-golangci-lint-enable-all t))
+
+(use-package org-present)
+
+(use-package visual-fill-column)
+
+(use-package god-mode
+  :bind
+  ("<escape>" . god-mode-all))
+
 ;; run as daemon
 (server-start)
 
 ;; Put this at the end otherwise `pcache' will still register itself
 (remove-hook 'kill-emacs-hook 'pcache-kill-emacs-hook)
-(put 'narrow-to-region 'disabled nil)

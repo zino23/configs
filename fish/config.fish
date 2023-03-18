@@ -15,11 +15,6 @@ set -gx HOMEBREW_NO_AUTO_UPDATE 1
 set -gx HOMEBREW_AUTO_UPDATING 0
 set -gx HOMEBREW_UPDATE_PREINSTALL 0 
 
-# install lazycat-emacs
-# for compiler to find libxml2
-# set -gx LDFLAGS "-L/usr/local/opt/libxml2/lib"
-# set -gx CPPFLAGS "-I/usr/local/opt/libxml2/include"
-
 # for pkg-config to find libxml2 
 set -gx PKG_CONFIG_PATH "/usr/local/opt/libxml2/lib/pkgconfig"
 
@@ -36,8 +31,6 @@ abbr -aU gcb git checkout -b
 abbr -aU gs git status
 
 abbr -aU gr grep -n
-
-alias Remote="tujiayu.tjy@11.166.91.15:/home/tujiayu.tjy"
 
 # alias
 alias gm="~/gitlab/edgeworker/v8_build/v8/tools/dev/gm.py"
@@ -97,7 +90,6 @@ set -gx PKG_CONFIG_PATH "/usr/local/opt/libffi/lib/pkgconfig"
 
 #     /Users/zino/gitlab/edgeworker/deps/boost-1.68.0/stage/lib
 
-# don't automatically for now
 # To install symlinks for compilers that will automatically use
 # ccache, prepend this directory to your PATH:
 #   /usr/local/opt/ccache/libexec
@@ -107,9 +99,7 @@ function display_fish_user_paths -d 'Display contents $fish_user_paths with inde
     echo $fish_user_paths | tr " " "\n" | nl
 end
 
-##
 ## remove fish $PATH
-##
 function erase_fish_user_paths -a idx
     set --erase --universal fish_user_paths[$idx]
     display_fish_user_paths
@@ -138,8 +128,6 @@ end
 #      1	/home/explosic4/.fzf/bin
 
 # openssl
-
-
 # For compilers to find openssl@3 you may need to set:
 set -gx LDFLAGS "-L/usr/local/opt/openssl@3/lib"
 set -gx CPPFLAGS "-I/usr/local/opt/openssl@3/include"

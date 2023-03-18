@@ -1,9 +1,9 @@
 # MacOS
-**/.DS_Store
+.DS_Store
 
 # Emacs
-**/\#*
-**/.\#*
+\#*\#
+.\#*\#
 emacs/.cache
 emacs/.emacs.desktop
 emacs/.lsp-session-v1
@@ -16,7 +16,7 @@ emacs/eln-cache
 emacs/rime
 emacs/elpa
 emacs/history
-**/*-notes.org
+*-notes.org
 emacs/manually_installed
 emacs/nov-places
 emacs/places
@@ -34,10 +34,15 @@ emacs/.emacs.desktop
 emacs/.emacs.desktop.lock
 emacs/forge-database.sqlite
 emacs/org-roam.db
+emacs/.dap-breakpoints
+abbrev_defs
 
 clash
 base16-shell
-fish
+
+# fish
+fish/*
+!fish/config.fish
 
 # karabiner
 karabiner/automatic_backups
@@ -50,3 +55,9 @@ flameshot.ini
 
 # remove it until I figure out a way to unsave `:count` property
 .abbrev_defs
+
+# dlv
+dlv
+
+# raycast
+raycast/extensions

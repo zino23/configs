@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: source code block for dot
+# key: <sd
+# --
+
+#+begin_src dot :file ${1:file}.png :cmdline -Kdot -Tpng :output-dir dots
+digraph {
+    $0
+}
+#+end_src
