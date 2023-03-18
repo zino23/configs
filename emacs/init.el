@@ -1121,10 +1121,8 @@ Similar to `org-capture' like behavior"
 
 ;; begin_move_and_edit
 
-
-
-(defun my-increment-number-decimal (&optional arg)
-  "Increment the number forward from point by ARG . "
+(defun zino/increment-number-decimal (&optional arg)
+  "Increment the number forward from point by ARG."
   (interactive "p*")
   (save-excursion
     (save-match-data
@@ -1139,20 +1137,21 @@ Similar to `org-capture' like behavior"
           (replace-match (format (concat "%0" (int-to-string field-width) "d")
                                  answer)))))))
 
-(defun my-decrement-number-decimal (&optional arg)
+(defun zino/decrement-number-decimal (&optional arg)
   "Decrement the number forward from point by ARG."
   (interactive "p*")
-  (my-increment-number-decimal (if arg (- arg) -1)))
+  (zino/increment-number-decimal (if arg (- arg) -1)))
 
-(global-set-key (kbd "C-c +") 'my-increment-number-decimal)
+(global-set-key (kbd "C-c +") 'zino/increment-number-decimal)
 
 (use-package company
   :config
   (setq company-backends (mapcar #'company-mode/backend-with-yas company-backends))
   :bind
-  (:map company-active-map
-        ("<return>"   . company-complete-selection)
-        ("<tab>"      . company-complete-common))
+  (("M-." . 'company-show-doc-buffer)
+   :map company-active-map
+   ("<return>"   . company-complete-selection)
+   ("<tab>"      . company-complete-common))
   :custom
   (company-minimum-prefix-length 2)
   (company-idle-delay 0.05)
@@ -1162,41 +1161,13 @@ Similar to `org-capture' like behavior"
   :hook
   (add-hook 'after-init-hook 'global-company-mode))
 
-(defun makefile-mode-setup ()
-  (setq-local company-dabbrev-ignore-case t)
-  ;; (setq-local company-dabbrev-other-buffers nil)
-  (setq-local company-dabbrev-code-ignore-case t)
-  (setq-local company-backends '((company-dabbrev-code
-                                  company-keywords
-                                  company-yasnippet
-                                  company-dabbrev
-                                  :separate)))
-  (setf (alist-get major-mode company-keywords-alist)
-        (-uniq
-         (append makefile-statements
-                 makefile-special-targets-list
-                 (->> (pcase major-mode
-                        ('makefile-automake-mode makefile-automake-statements)
-                        ('makefile-gmake-mode makefile-gmake-statements)
-                        ('makefile-makepp-mode makefile-makepp-statements)
-                        ('makefile-bsdmake-mode makefile-bsdmake-statements)
-                        ('makefile-imake-mode makefile-imake-s))
-                      (-filter #'stringp)
-                      (-map #'split-string)
-                      (-flatten))))))
-
-(with-eval-after-load 'company
-  (dolist (hook '(makefile-gmake-mode-hook
-                  makefile-makepp-mode-hook
-                  makefile-bsdmake-mode-hook
-                  makefile-imake-mode-hook))
-    (add-hook hook #'makefile-mode-setup)))
-
-(global-set-key (kbd "M-.") #'company-show-doc-buffer)
+;; Add yasnippet support for all company backends
+;; https://github.com/syl20bnr/spacemacs/pull/179
 (defvar company-mode/enable-yas nil
   "Enable yasnippet for all backends.")
 
 (defun company-mode/backend-with-yas (backend)
+  "Configure company-mode with BACKEND."
   (if (or (not company-mode/enable-yas) (and (listp backend) (member 'company-yasnippet backend)))
       backend
     (append (if (consp backend) backend (list backend))
@@ -1235,7 +1206,7 @@ Similar to `org-capture' like behavior"
 (setq
  auto-save-dir "~/.config/emacs/autosave/"
  auto-save-file-name-transforms
- `((" . *" "~/.config/emacs/autosave" t)))
+ `((".*" "~/.config/emacs/autosave" t)))
 ;;; end_autosave
 
 ;;; begin_backup
@@ -1589,6 +1560,10 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (lsp-rust-analyzer-display-parameter-hints nil)
   (lsp-rust-analyzer-display-reborrow-hints nil))
 
+;; [use]
+;; reset lsp session in lsp mode
+;; (setq lsp--session nil)
+
 (use-package rustic
   :custom
   (rustic-lsp-client 'eglot))
@@ -1609,18 +1584,14 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   ;; :global/:workspace/:file
   (setq lsp-modeline-diagnostics-scope :workspace))
 
-;; reset lsp session in lsp mode
-;; (setq lsp--session nil)
-
-(setq lsp-clients-clangd-args
-      '("--header-insertion=iwyu"))
+(setq lsp-clients-clangd-args '("--header-insertion=iwyu"))
 
 (with-eval-after-load 'c-or-c++-mode
   (define-key c-mode-base-map [remap c-toggle-comment-style] 'copy-line)
   (define-key c-mode-base-map [remap beginning-of-defun] 'c-beginning-of-defun)
   (define-key c-mode-base-map [remap end-of-defun] 'c-end-of-defun)
-  (define-key c-mode-base-map (kbd ("C-M-a") 'sp-backward-up-sexp))
-  (define-key c-mode-base-map (kbd ("C-M-e") 'sp-up-sexp)))
+  (define-key c-mode-base-map (kbd ("C-M-a")) 'sp-backward-up-sexp)
+  (define-key c-mode-base-map (kbd ("C-M-e")) 'sp-up-sexp))
 
 (setq lsp-intelephense-multi-root nil)
 
@@ -1830,18 +1801,6 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (shell-command-on-region (region-beginning)
                            (region-end) "boxes -r -d c-cmt2" nil 1 nil))
 
-;; Add yasnippet support for all company backends
-;; https://github.com/syl20bnr/spacemacs/pull/179
-(defvar company-mode/enable-yas t
-  "Enable yasnippet for all backends.")
-
-(defun company-mode/backend-with-yas (backend)
-  "Configure company-mode with BACKEND."
-  (if (or (not company-mode/enable-yas) (and (listp backend) (member 'company-yasnippet backend)))
-      backend
-    (append (if (consp backend) backend (list backend))
-            '(:with company-yasnippet))))
-
 (use-package button-lock)
 
 (use-package anki-editor
@@ -1889,11 +1848,11 @@ Do not increase cloze number"
 
   (general-define-key
    :prefix "C-c m"
-   "i" #'anki-editor-insert-note
-   "r" #'zino/anki-editor-reset-cloze-num
-   "c" #'zino/anki-editor-cloze-region-auto-incr
-   "p" #'zino/anki-editor-push-tree
-   "b" #'zino/anki-editor-push-buffer))
+   "i" 'anki-editor-insert-note
+   "r" 'zino/anki-editor-reset-cloze-num
+   "c" 'zino/anki-editor-cloze-region-auto-incr
+   "p" 'zino/anki-editor-push-tree
+   "b" 'zino/anki-editor-push-buffer))
 ;; check https://github.com/louietan/anki-editor/issues/76
 ;; end_anki_editor
 
@@ -1904,7 +1863,7 @@ Do not increase cloze number"
  ;; If there is more than one, they won't work right.
  '(cursor ((t (:background "#51afef"))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
- '(org-remark-highlighter ((t (:background "#023047" :underline nil))) t)
+ '(org-remark-highlighter ((t (:background "#023047" :underline nil))))
  '(tooltip ((t (:background "#21242b" :foreground "#bbc2cf" :height 1.0))))
  '(variable-pitch ((t (:family "ETBembo" :height 180 :weight regular)))))
 
@@ -1925,10 +1884,21 @@ Do not increase cloze number"
  '(magit-todos-insert-after '(bottom) nil nil "Changed by setter of obsolete option `magit-todos-insert-at'")
  '(max-mini-window-height 0.3)
  '(package-selected-packages
-   '(god-mode magit-todos org-present flycheck-eglot company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
+   '(realgud god-mode magit-todos org-present flycheck-eglot company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(popper-group-function 'popper-group-by-projectile)
  '(safe-local-variable-values '((comment-style quote box)))
- '(tab-always-indent nil))
+ '(tab-always-indent nil)
+ '(warning-suppress-types
+   '(((flymake flymake\.el))
+     ((flymake flymake\.el))
+     ((flymake flymake\.el))
+     ((flymake flymake\.el))
+     ((flymake flymake\.el))
+     ((flymake flymake\.el))
+     ((flymake flymake\.el))
+     ((flymake flymake\.el))
+     ((flymake flymake\.el))
+     (lsp-mode)) nil nil "Customized with use-package lsp-mode"))
 
 (use-package winner
   :config
@@ -1952,6 +1922,36 @@ Do not increase cloze number"
 (add-to-list 'auto-mode-alist '("\\.t$" . perl-mode))
 (add-to-list 'interpreter-mode-alist '("lua" . lua-mode))
 (add-to-list 'auto-mode-alist '(".*Makefile" . makefile-gmake-mode))
+
+(defun makefile-mode-setup ()
+  (setq-local company-dabbrev-ignore-case t)
+  ;; (setq-local company-dabbrev-other-buffers nil)
+  (setq-local company-dabbrev-code-ignore-case t)
+  (setq-local company-backends '((company-dabbrev-code
+                                  company-keywords
+                                  company-yasnippet
+                                  company-dabbrev
+                                  :separate)))
+  (setf (alist-get major-mode company-keywords-alist)
+        (-uniq
+         (append makefile-statements
+                 makefile-special-targets-list
+                 (->> (pcase major-mode
+                        ('makefile-automake-mode makefile-automake-statements)
+                        ('makefile-gmake-mode makefile-gmake-statements)
+                        ('makefile-makepp-mode makefile-makepp-statements)
+                        ('makefile-bsdmake-mode makefile-bsdmake-statements)
+                        ('makefile-imake-mode makefile-imake-s))
+                      (-filter #'stringp)
+                      (-map #'split-string)
+                      (-flatten))))))
+
+(with-eval-after-load 'company
+  (dolist (hook '(makefile-gmake-mode-hook
+                  makefile-makepp-mode-hook
+                  makefile-bsdmake-mode-hook
+                  makefile-imake-mode-hook))
+    (add-hook hook #'makefile-mode-setup)))
 
 ;; \` matches beginning of string
 ;; \' matches end of string
@@ -2102,30 +2102,50 @@ Save the buffer of the current window and kill it"
 
   ;; terminal emacs cannot differenciate C-i from tab
   (global-set-key (kbd "C-j") #'better-jumper-jump-forward)
-  (defun zino/set-jump-for-one-arg-fn (arg)
-    "Set jump for functions with one ARG."
-    (call-interactively #'better-jumper-set-jump))
+  ;; (defun zino/set-jump-for-one-arg-fn (arg)
+  ;;   "Set jump for functions with one ARG."
+  ;;   (call-interactively #'better-jumper-set-jump))
 
-  (defun zino/set-jump-for-one-arg-one-opt-arg-fn (arg &optional OPT)
-    "Set jump for functions with one ARG and one optional OPT."
-    (call-interactively #'better-jumper-set-jump))
+  ;; (defun zino/set-jump-for-one-arg-one-opt-arg-fn (arg &optional OPT)
+  ;;   "Set jump for functions with one ARG and one optional OPT."
+  ;;   (call-interactively #'better-jumper-set-jump))
 
-  (defun zino/set-jump-for-one-option-arg (&optional ARG)
-    "Set jump for functions with one optional ARG."
-    (call-interactively #'better-jumper-set-jump))
+  ;; (defun zino/set-jump-for-one-option-arg (&optional ARG)
+  ;;   "Set jump for functions with one optional ARG."
+  ;;   (call-interactively #'better-jumper-set-jump))
 
-  (advice-add 'xref-find-definitions :before 'zino/set-jump-for-one-arg-fn)
-  (advice-add 'zino/switch-other-buffer :before 'better-jumper-set-jump)
-  (advice-add 'helm-imenu :before 'better-jumper-set-jump)
-  (advice-add 'widget-button-press :before 'zino/set-jump-for-one-arg-one-opt-arg-fn)
-  (advice-add 'org-open-at-point :before 'zino/set-jump-for-one-option-arg)
-  (advice-add 'beginning-of-buffer :before 'zino/set-jump-for-one-option-arg)
-  (advice-add 'end-of-buffer :before 'zino/set-jump-for-one-option-arg)
-  (advice-add 'c-beginning-of-defun :before 'zino/set-jump-for-one-option-arg)
-  (advice-add 'c-end-of-defun :before 'zino/set-jump-for-one-option-arg)
-  (advice-add 'lua-beginning-of-proc :before 'zino/set-jump-for-one-option-arg)
-  (advice-add 'lua-end-of-proc :before 'zino/set-jump-for-one-option-arg)
-  (advice-add 'org-open-at-point :before 'zino/set-jump-for-one-option-arg)
+  ;; (advice-add 'xref-find-definitions :before 'zino/set-jump-for-one-arg-fn)
+  ;; (advice-add 'zino/switch-other-buffer :before 'better-jumper-set-jump)
+  ;; (advice-add 'helm-imenu :before 'better-jumper-set-jump)
+  ;; (advice-add 'widget-button-press :before 'zino/set-jump-for-one-arg-one-opt-arg-fn)
+  ;; (advice-add 'org-open-at-point :before 'zino/set-jump-for-one-option-arg)
+  ;; (advice-add 'beginning-of-buffer :before 'zino/set-jump-for-one-option-arg)
+  ;; (advice-add 'end-of-buffer :before 'zino/set-jump-for-one-option-arg)
+  ;; (advice-add 'c-beginning-of-defun :before 'zino/set-jump-for-one-option-arg)
+  ;; (advice-add 'c-end-of-defun :before 'zino/set-jump-for-one-option-arg)
+  ;; (advice-add 'lua-beginning-of-proc :before 'zino/set-jump-for-one-option-arg)
+  ;; (advice-add 'lua-end-of-proc :before 'zino/set-jump-for-one-option-arg)
+  ;; (advice-add 'org-open-at-point :before 'zino/set-jump-for-one-option-arg)
+
+  (defun zino/better-jumper-advice (oldfun &rest args)
+    "Call OLDFUN with ARGS, then set a jump point with `better-jumper-set-jump' if the movement is more than one line."
+    (let ((old-pos (point)))
+      (apply oldfun args)
+      (when (> (abs (- (line-number-at-pos old-pos) (line-number-at-pos (point)))) 1)
+        (better-jumper-set-jump old-pos))))
+
+  (advice-add 'xref-find-definitions :around 'zino/better-jumper-advice)
+  (advice-add 'zino/switch-other-buffer :around 'zino/better-jumper-advice)
+  (advice-add 'helm-imenu :around 'zino/better-jumper-advice)
+  (advice-add 'widget-button-press :around 'zino/better-jumper-advice)
+  (advice-add 'org-open-at-point :around 'zino/better-jumper-advice)
+  (advice-add 'beginning-of-buffer :around 'zino/better-jumper-advice)
+  (advice-add 'end-of-buffer :around 'zino/better-jumper-advice)
+  (advice-add 'c-beginning-of-defun :around 'zino/better-jumper-advice)
+  (advice-add 'c-end-of-defun :around 'zino/better-jumper-advice)
+  (advice-add 'lua-beginning-of-proc :around 'zino/better-jumper-advice)
+  (advice-add 'lua-end-of-proc :around 'zino/better-jumper-advice)
+  (advice-add 'org-open-at-point :around 'zino/better-jumper-advice)
 
   ;; unable to set advice for `lsp-find-definition' for now
   ;; (advice-add #'lsp-find-definition :before #'zino/set-jump-for-lsp-find-def)
@@ -2253,7 +2273,7 @@ I find myself often do this workflow"
   (global-set-key (kbd "C-=") 'er/expand-region))
 
 (defun zino/isearch-region-or-forward ()
-  "isearch thing in region if region is active, otherwise perform normal isearch."
+  "Isearch thing in region if region is active, otherwise perform normal isearch."
   (interactive)
   (if (use-region-p)
       (isearch-forward-thing-at-point)
@@ -2348,7 +2368,7 @@ I find myself often do this workflow"
 (c-add-style "my-cc-mode" zino/cc-style)
 
 (defun zino/toggle-window-dedication ()
-  "Toggles window dedication in the selected window."
+  "Toggle window dedication in the selected window."
   (interactive)
   (set-window-dedicated-p (selected-window)
                           (not (window-dedicated-p (selected-window))))
@@ -2370,6 +2390,8 @@ I find myself often do this workflow"
 (use-package god-mode
   :bind
   ("<escape>" . god-mode-all))
+
+(use-package realgud)
 
 ;; run as daemon
 (server-start)
