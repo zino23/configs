@@ -149,6 +149,8 @@
   ("\"" . self-insert-no-abbrev)
   (";" . self-insert-no-abbrev)
   (":" . self-insert-no-abbrev)
+  ("(" . self-insert-no-abbrev)
+
   :custom
   (abbrev-file-name "~/.config/emacs/abbrev_defs")
   (save-abbrevs 'silently)
@@ -175,7 +177,8 @@
                               ("hte" "the")
                               ("wiat" "wait")
                               ("smae" "same")
-                              ("accordign" "according")))
+                              ("accordign" "according")
+                              ("lgo" "log")))
     (dolist (pair zino/abbrev-table)
       (let ((from (car pair))
             (to (car (cdr pair))))
@@ -295,7 +298,9 @@
 
 (use-package doom-modeline
   :init (doom-modeline-mode 1)
-  :custom ((doom-modeline-height 10)))
+  :custom
+  (doom-modeline-height 10)
+  (doom-modeline-buffer-modified ((t (:background unspecified :inherit (warning bold))))))
 
 (use-package doom-themes
   :init
@@ -1240,7 +1245,7 @@ Similar to `org-capture' like behavior"
 (use-package super-save
   :ensure t
   :config
-  (super-save-mode +1))
+  (super-save-mode nil))
 
 (setq ivy-dynamic-exhibit-delay-ms 0)
 (setq ivy-re-builders-alist '((t . ivy--regex-fuzzy)))
@@ -2102,37 +2107,15 @@ Save the buffer of the current window and kill it"
 
   ;; terminal emacs cannot differenciate C-i from tab
   (global-set-key (kbd "C-j") #'better-jumper-jump-forward)
-  ;; (defun zino/set-jump-for-one-arg-fn (arg)
-  ;;   "Set jump for functions with one ARG."
-  ;;   (call-interactively #'better-jumper-set-jump))
-
-  ;; (defun zino/set-jump-for-one-arg-one-opt-arg-fn (arg &optional OPT)
-  ;;   "Set jump for functions with one ARG and one optional OPT."
-  ;;   (call-interactively #'better-jumper-set-jump))
-
-  ;; (defun zino/set-jump-for-one-option-arg (&optional ARG)
-  ;;   "Set jump for functions with one optional ARG."
-  ;;   (call-interactively #'better-jumper-set-jump))
-
-  ;; (advice-add 'xref-find-definitions :before 'zino/set-jump-for-one-arg-fn)
-  ;; (advice-add 'zino/switch-other-buffer :before 'better-jumper-set-jump)
-  ;; (advice-add 'helm-imenu :before 'better-jumper-set-jump)
-  ;; (advice-add 'widget-button-press :before 'zino/set-jump-for-one-arg-one-opt-arg-fn)
-  ;; (advice-add 'org-open-at-point :before 'zino/set-jump-for-one-option-arg)
-  ;; (advice-add 'beginning-of-buffer :before 'zino/set-jump-for-one-option-arg)
-  ;; (advice-add 'end-of-buffer :before 'zino/set-jump-for-one-option-arg)
-  ;; (advice-add 'c-beginning-of-defun :before 'zino/set-jump-for-one-option-arg)
-  ;; (advice-add 'c-end-of-defun :before 'zino/set-jump-for-one-option-arg)
-  ;; (advice-add 'lua-beginning-of-proc :before 'zino/set-jump-for-one-option-arg)
-  ;; (advice-add 'lua-end-of-proc :before 'zino/set-jump-for-one-option-arg)
-  ;; (advice-add 'org-open-at-point :before 'zino/set-jump-for-one-option-arg)
 
   (defun zino/better-jumper-advice (oldfun &rest args)
     "Call OLDFUN with ARGS, then set a jump point with `better-jumper-set-jump' if the movement is more than one line."
     (let ((old-pos (point)))
+      (better-jumper-set-jump old-pos)
       (apply oldfun args)
-      (when (> (abs (- (line-number-at-pos old-pos) (line-number-at-pos (point)))) 1)
-        (better-jumper-set-jump old-pos))))
+      ;; (when (> (abs (- (line-number-at-pos old-pos) (line-number-at-pos (point)))) 1)
+      ;;   (better-jumper-set-jump old-pos))
+      ))
 
   (advice-add 'xref-find-definitions :around 'zino/better-jumper-advice)
   (advice-add 'zino/switch-other-buffer :around 'zino/better-jumper-advice)
@@ -2145,12 +2128,7 @@ Save the buffer of the current window and kill it"
   (advice-add 'c-end-of-defun :around 'zino/better-jumper-advice)
   (advice-add 'lua-beginning-of-proc :around 'zino/better-jumper-advice)
   (advice-add 'lua-end-of-proc :around 'zino/better-jumper-advice)
-  (advice-add 'org-open-at-point :around 'zino/better-jumper-advice)
-
-  ;; unable to set advice for `lsp-find-definition' for now
-  ;; (advice-add #'lsp-find-definition :before #'zino/set-jump-for-lsp-find-def)
-  ;; (advice-remove #'lsp-find-definition #'zino/set-jump-for-lsp-find-def)
-  )
+  (advice-add 'org-open-at-point :around 'zino/better-jumper-advice))
 
 (use-package org-remark
   :config
@@ -2160,8 +2138,8 @@ Save the buffer of the current window and kill it"
 
   ;;; `org-remark' builtin function redefinition and helper function
   (defun org-remark-open (point &optional view-only)
-    "Open remark note buffer if there is notes from `point' to the beginning of
-the line.
+    "Open remark note buffer if there is notes from `point' to the beginning
+of the line.
 
 This is the modified version of the function in `org-remark'."
     (interactive "d\nP")
@@ -2336,7 +2314,7 @@ I find myself often do this workflow"
 ;;   (ba/org-adjust-tags-column-maybe)
 ;;   (set-buffer-modified-p nil))
 
-;;                                         ; automatically align tags on right-hand side
+;; automatically align tags on right-hand side
 ;; (add-hook 'window-configuration-change-hook
 ;;           'ba/org-adjust-tags-column-maybe)
 ;; (add-hook 'before-save-hook 'ba/org-adjust-tags-column-before-save)
