@@ -127,6 +127,7 @@
                   fill-column 80))))
 
 (global-visual-line-mode t)
+(global-hl-line-mode 1)
 
 ;; Make ESC quit prompts
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
@@ -1083,11 +1084,11 @@ Similar to `org-capture' like behavior"
 
 (use-package beacon
   :config
-  (beacon-mode)
+  (beacon-mode -1)
   :custom
   (beacon-blink-delay 0.2)
   (beacon-color "#a8dadc")
-  (beacon-size 50)
+  (beacon-size 20)
   (beacon-blink-when-buffer-changes t)
   (beacon-blink-when-window-changes nil))
 
@@ -1201,7 +1202,6 @@ Similar to `org-capture' like behavior"
 
 (pixel-scroll-mode 1)
 
-;;; begin_autosave
 ;; autosave file-visiting buffer but not non-file-visiting e.g. *scratch*
 (setq-default auto-save-default t)
 (setq auto-save-timeout 15)
@@ -1209,26 +1209,23 @@ Similar to `org-capture' like behavior"
 (setq-default auto-save-no-message t)
 
 (setq
- auto-save-dir "~/.config/emacs/autosave/"
  auto-save-file-name-transforms
- `((".*" "~/.config/emacs/autosave" t)))
-;;; end_autosave
+ `(("\\`/[^/]*:\\([^/]*/\\)*\\([^/]*\\)\\'" "~/.config/emacs/autosave/\\2" t)))
 
-;;; begin_backup
 (setq
  ;; turn on backup functionality
  make-backup-files t
  ;; also backup files that are version controlled
  vc-make-backup-files t
- ;; backup by renaming will make the existing file the backup,
- ;; and cause all links to link to the backup which probably is not what we wanted
+ ;; backup by renaming will make the existing file the backup, and so all old
+ ;; links to the original file now links to the backup and not the edited file
  backup-by-copying t
  ;; control the naming of different versions ourselves
  version-control nil
+ ;; don't ask to delete old version
  delete-old-versions t
  kept-new-versions 20
  kept-old-versions 20)
-;;; end_backup
 
 ;; by default emacs create backup on first buffer save since the file is visited
 ;; C-u to save backup in second save (test above)
@@ -1240,7 +1237,15 @@ Similar to `org-capture' like behavior"
                          (format-time-string "%Y-%m-%d/"))))
     (unless (file-exists-p dirname)
       (make-directory dirname t))
+    ;; new backups in the same minute will overwrite the old backups. Append
+    ;; second infomation if needed
     (concat dirname (concat (replace-regexp-in-string "/" "!" (buffer-file-name)) (format-time-string "T%H:%M~")))))
+
+(defun force-backup-of-buffer ()
+  "Utilize the standard backup system to make a backup everytime a buffer is saved."
+  (setq buffer-backed-up nil))
+
+(add-hook 'before-save-hook 'force-backup-of-buffer)
 
 (use-package super-save
   :ensure t
@@ -1439,8 +1444,8 @@ point reaches the beginning or end of the buffer, stop there."
   (dired-mode . hl-line-mode)
   :config
   ;; original region face #42444a
-  (set-face-attribute 'hl-line nil :inherit nil :background "#42444a")
-  (set-face-attribute 'region nil :inherit nil :background "#3a3c42"))
+  (set-face-attribute 'hl-line nil :inherit nil :background "#2e3b49") ;; #42444a")
+  (set-face-attribute 'region nil :inherit nil :background "#42444a")) ;; 3a3c42"))
 
 (use-package move-text
   :config
@@ -1655,9 +1660,9 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (setq completion-ignore-case  t)
 
   :config
-  (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--header-insertion=iwyu")))
+  (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--clang-tidy --header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(perl-mode . ("/usr/local/Cellar/perl/5.34.0/lib/perl5/site_perl/5.34.0/Perl/LanguageServer.pm")))
-  (add-to-list 'eglot-server-programs '(c-mode . ("clangd" "--header-insertion=iwyu")))
+  (add-to-list 'eglot-server-programs '(c-mode . ("clangd" "--clang-tidy --header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(cmake-mode . ("/home/cs144/.local/bin/cmake-language-server")))
   (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp")))
   (add-to-list 'eglot-server-programs '(lua-mode . ("/usr/local/Cellar/lua-language-server/3.5.2/libexec/bin/lua-language-server")))
@@ -1867,6 +1872,7 @@ Do not increase cloze number"
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(cursor ((t (:background "#51afef"))))
+ '(doom-modeline-buffer-modified ((t (:background unspecified :inherit (warning bold)))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
  '(org-remark-highlighter ((t (:background "#023047" :underline nil))))
  '(tooltip ((t (:background "#21242b" :foreground "#bbc2cf" :height 1.0))))
@@ -1889,7 +1895,7 @@ Do not increase cloze number"
  '(magit-todos-insert-after '(bottom) nil nil "Changed by setter of obsolete option `magit-todos-insert-at'")
  '(max-mini-window-height 0.3)
  '(package-selected-packages
-   '(realgud god-mode magit-todos org-present flycheck-eglot company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
+   '(tree-sitter realgud god-mode magit-todos org-present flycheck-eglot company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(popper-group-function 'popper-group-by-projectile)
  '(safe-local-variable-values '((comment-style quote box)))
  '(tab-always-indent nil)
