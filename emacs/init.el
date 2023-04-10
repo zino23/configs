@@ -151,6 +151,8 @@
   (";" . self-insert-no-abbrev)
   (":" . self-insert-no-abbrev)
   ("(" . self-insert-no-abbrev)
+  (")" . self-insert-no-abbrev)
+  ("/" . self-insert-no-abbrev)
 
   :custom
   (abbrev-file-name "~/.config/emacs/abbrev_defs")
@@ -227,7 +229,7 @@
       (set-fontset-font t charset cn))
     (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
 
-(zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 17 1)
+(zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 15 1)
 
 ;; Automatically trim white spaces at the end of line
 (use-package ws-butler
@@ -548,12 +550,16 @@ respectively."
   :config
   (projectile-mode)
   :custom
+  ;; `alien' indexing method ignores patterns listed in .gitignore, but does not
+  ;; respect .projectile
   (projectile-indexing-method 'alien)
   (projectile-enable-caching t)
   (projectile-completion-system 'ivy)
-  (projectile-globally-ignored-directories . nil) ; quick fix for bbatsov/projectile#1777
+  (projectile-globally-ignored-directories nil) ; quick fix for bbatsov/projectile#1777
+
   :bind-keymap
   ("C-c p" . projectile-command-map)
+  ("s-p" . projectile-command-map)
   :init
   ;; NOTE: Set this to the folder where you keep your Git repos!
   (when (file-directory-p "~/dev")
@@ -1165,7 +1171,7 @@ Similar to `org-capture' like behavior"
   :custom-face
   (company-tooltip-quick-access ((t (:inherit company-tooltip-annotation :height 2.0))))
   :hook
-  (add-hook 'after-init-hook 'global-company-mode))
+  (after-init . global-company-mode))
 
 ;; Add yasnippet support for all company backends
 ;; https://github.com/syl20bnr/spacemacs/pull/179
@@ -1410,9 +1416,6 @@ point reaches the beginning or end of the buffer, stop there."
 ;; Vim like return to last mark location
 ;; use better-jumper for now
 ;; (global-set-key (kbd "C-o") #'pop-global-mark)
-
-(global-set-key (kbd "M-z") #'zap-up-to-char)
-(global-set-key (kbd "M-Z") #'zap-to-char)
 
 (use-package helm
   :custom
@@ -1870,9 +1873,12 @@ Do not increase cloze number"
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(beacon-fallback-background ((t (:background "#a8dadc"))))
  '(cursor ((t (:background "#51afef"))))
  '(doom-modeline-buffer-modified ((t (:background unspecified :inherit (warning bold)))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
+ '(font-lock-comment-face ((t (:foreground "#83898d"))))
+ '(next-error ((t (:inherit (bold region)))))
  '(org-remark-highlighter ((t (:background "#023047" :underline nil))))
  '(tooltip ((t (:background "#21242b" :foreground "#bbc2cf" :height 1.0))))
  '(variable-pitch ((t (:family "ETBembo" :height 180 :weight regular)))))
@@ -1893,9 +1899,15 @@ Do not increase cloze number"
  '(flycheck-go-golint-executable "golangci-lint")
  '(magit-todos-insert-after '(bottom) nil nil "Changed by setter of obsolete option `magit-todos-insert-at'")
  '(max-mini-window-height 0.3)
+ '(next-error-highlight 3)
+ '(next-error-highlight-no-select 3)
+ '(next-error-message-highlight t)
  '(package-selected-packages
-   '(tree-sitter realgud god-mode magit-todos org-present flycheck-eglot company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
+   '(pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present flycheck-eglot company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(popper-group-function 'popper-group-by-projectile)
+ '(pulsar-delay 0.05)
+ '(pulsar-face 'beacon-fallback-background)
+ '(pulsar-iterations 3)
  '(safe-local-variable-values '((comment-style quote box)))
  '(tab-always-indent nil)
  '(warning-suppress-types
@@ -2348,7 +2360,7 @@ I find myself often do this workflow"
   '("cc-mode"
     (c-offsets-alist . ((innamespace . [0])))))
 
-(c-add-style "my-cc-mode" zino/cc-style)
+(c-add-style "cc-mode" zino/cc-style)
 
 (defun zino/toggle-window-dedication ()
   "Toggle window dedication in the selected window."
@@ -2375,6 +2387,48 @@ I find myself often do this workflow"
   ("<escape>" . god-mode-all))
 
 (use-package realgud)
+
+;; deal with terminal escape characters correctly in compilation buffer
+(require 'ansi-color)
+(defun zino/ansi-colorize-buffer ()
+  (let ((buffer-read-only nil))
+    (ansi-color-apply-on-region (point-min) (point-max))))
+(add-hook 'compilation-filter-hook 'zino/ansi-colorize-buffer)
+
+(use-package avy-zap
+  :bind
+  ("M-z" . avy-zap-up-to-char-dwim)
+  ("M-Z" . avy-zap-to-char-dwim))
+
+(use-package helm-swoop
+  :bind
+  ("s-f" . helm-swoop))
+
+(use-package crux
+  :bind
+  ("s-o" . crux-smart-open-line-above)
+  ("s-d" . crux-duplicate-current-line-or-region)
+  ("C-<backspace>" . crux-kill-line-backwards)
+  ("s-r" . crux-recentf-find-file)
+  ("C-c I" . crux-find-user-init-file)
+  ("C-c D" . crux-delete-file-and-buffer))
+
+(use-package pulsar
+  :config
+  (pulsar-global-mode 1)
+  :config
+  (add-hook 'next-error-hook #'pulsar-pulse-line))
+
+(defun xref-pulse-momentarily ()
+  "Control the highlight in source buffer after executing `xref-next-line'"
+  (save-excursion
+    ;; (beginning-of-line)
+    ;; (beacon-blink)
+    (beginning-of-line)
+    (setq beg (point))
+    (end-of-line)
+    (setq end (point))
+    (pulsar-pulse-line)))
 
 ;; run as daemon
 (server-start)
