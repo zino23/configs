@@ -1660,9 +1660,9 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (setq completion-ignore-case  t)
 
   :config
-  (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--clang-tidy --header-insertion=iwyu")))
+  (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(perl-mode . ("/usr/local/Cellar/perl/5.34.0/lib/perl5/site_perl/5.34.0/Perl/LanguageServer.pm")))
-  (add-to-list 'eglot-server-programs '(c-mode . ("clangd" "--clang-tidy --header-insertion=iwyu")))
+  (add-to-list 'eglot-server-programs '(c-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(cmake-mode . ("/home/cs144/.local/bin/cmake-language-server")))
   (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp")))
   (add-to-list 'eglot-server-programs '(lua-mode . ("/usr/local/Cellar/lua-language-server/3.5.2/libexec/bin/lua-language-server")))
@@ -1683,7 +1683,6 @@ TODO: optimize this to use `display-buffer-in-side-window'."
         ("C-c C-r" . xref-find-references)
         ("C-c C-a" . eglot-code-actions)
         ("C-c C-e" . flycheck-list-errors))
-  ;; ("C-c C-e" . flymake-show-buffer-diagnostics))
   :hook
   (rust-mode . eglot-ensure)
   (c-mode . eglot-ensure)
