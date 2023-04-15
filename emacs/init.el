@@ -661,7 +661,18 @@ respectively."
      (shell . t)
      (lua . t)
      (dot . t)
-     (js . t)))
+     (js . t)
+     (python . t)))
+  (setq org-babel-python-command "py3")
+  (setq zino/org-babel-tangle-dir "~/dev/org-babel-tangle/")
+  (defun zino/org-babel-tangle-rename ()
+    (let ((tangle-file (buffer-file-name)))
+      (rename-file tangle-file zino/org-babel-tangle-dir t)))
+  (add-hook 'org-babel-post-tangle-hook 'zino/org-babel-tangle-rename)
+  ;; use absolute links to make `org-babel-detangle' work when the filename of
+  ;; the tangled file is transform in `org-babel-post-tangle-hook', namely
+  ;; `zino/org-babel-tangle-dir'.
+  (setq org-babel-tangle-use-relative-file-links nil)
 
   :config
   (push zino/GTD-file org-agenda-files)
@@ -713,11 +724,8 @@ respectively."
   :bind
   (("C-c c" . org-capture)
    ("C-c a" . org-agenda)
-   ("C-c C-l" . org-store-link)
-   ("C-c C-i" . org-insert-link)
-   ("C-c t" . org-cycle-list-bullet)
-   :map org-mode-map
-   ("C-c H-i" . counsel-org-goto)))
+   ("C-c l" . org-store-link)
+   ("C-c H-i" . org-insert-link)))
 
 (use-package org-agenda
   :ensure nil
@@ -1450,7 +1458,7 @@ point reaches the beginning or end of the buffer, stop there."
   :config
   ;; original region face #42444a
   (set-face-attribute 'hl-line nil :inherit nil :background "#2e3b49") ;; #42444a")
-  (set-face-attribute 'region nil :inherit nil :background "#42444a")) ;; 3a3c42"))
+  (set-face-attribute 'region nil :inherit nil :background "dark slate gray")) ;;"#406389")) ;; "#42444a")) ;; 3a3c42"))
 
 (use-package move-text
   :config
@@ -1464,8 +1472,9 @@ point reaches the beginning or end of the buffer, stop there."
   (add-hook 'before-save-hook #'lsp-organize-imports t t))
 
 (use-package go-mode
-  :hook
-  (go-mode . lsp-go-install-save-hooks))
+  ;; :hook
+  ;; (go-mode . lsp-go-install-save-hooks)
+  )
 
 (use-package tramp
   :custom
@@ -1506,24 +1515,25 @@ point reaches the beginning or end of the buffer, stop there."
   :init
   (setq lsp-clangd-binary-path "/Library/Developer/CommandLineTools/usr/bin/clangd") ;; "/usr/local/opt/llvm/bin/clangd")
   (setq lsp-clients-lua-language-server-bin "/usr/local/bin/lua-language-server")
-  :hook
-  ((python-mode . lsp)
-   (lua-mode . lsp)
-   ;;; bug with company and template compeltion, use eglot
-   ;; (c-mode . lsp)
-   ;; (c++-mode . lsp)
-   ;; (remove-hook 'go-mode-hook 'lsp)
+  ;; :hook
+  ;; (
+  ;;; bug with company and template completion, use eglot
+  ;; (python-mode . lsp)
+  ;; (lua-mode . lsp)
+  ;; (c-mode . lsp)
+  ;; (c++-mode . lsp)
 
-   (cmake-mode . lsp)
-   ;; (go-mode . lsp)
-   ;; (rust-mode . lsp)
-   (jsonc-mode . lsp)
-   (sh-mode . lsp)
-   (html-mode . lsp)
-   (css-mode . lsp)
-   (js-mode . lsp)
+  ;; (cmake-mode . lsp)
+  ;; (go-mode . lsp)
+  ;; (rust-mode . lsp)
+  ;; (jsonc-mode . lsp)
+  ;; (sh-mode . lsp)
+  ;; (html-mode . lsp)
+  ;; (css-mode . lsp)
+  ;; (js-mode . lsp)
    ;;; miscs
-   (nginx-mode . lsp))
+  ;; (nginx-mode . lsp)
+  ;; )
   :config
   (setq lsp-keymap-prefix "C-c l")
   (setq lsp-signature-auto-activate t
@@ -1693,11 +1703,13 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (c-mode . eglot-ensure)
   (c++-mode . eglot-ensure)
   (go-mode . eglot-ensure)
-  ;; (cmake-mode   . eglot-ensure)
-  ;; (sh-mode         . eglot-ensure)
-  ;; (js-mode         . eglot-ensure)
-  ;; (typescript-mode . eglot-ensure)
-  )
+  (lua-mode . eglot-ensure)
+  (cmake-mode . eglot-ensure)
+  (sh-mode . eglot-ensure)
+  (js-mode . eglot-ensure)
+  (typescript-mode . eglot-ensure)
+  (css-mode . eglot-ensure)
+  (python-mode . eglot-ensure))
 
 ;; (require 'golint)
 ;; end_lsp
@@ -1881,16 +1893,20 @@ Do not increase cloze number"
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
  '(font-lock-comment-face ((t (:foreground "#83898d"))))
  '(next-error ((t (:inherit (bold region)))))
- '(org-remark-highlighter ((t (:background "#023047" :underline nil))))
+ '(org-remark-highlighter ((t (:background "#023047" :underline nil))) t)
+ '(region ((t (:inherit nil :extend t :background "dark slate gray"))))
  '(tooltip ((t (:background "#21242b" :foreground "#bbc2cf" :height 1.0))))
- '(variable-pitch ((t (:family "ETBembo" :height 180 :weight regular)))))
+ '(variable-pitch ((t (:family "ETBembo" :height 180 :weight regular))))
+ '(xref-file-header ((t (:inherit (success org-level-2))))))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(auto-revert-interval 10)
  '(comment-style 'indent)
+ '(company-idle-delay 0.2)
  '(display-line-numbers-width nil)
  '(eldoc-echo-area-prefer-doc-buffer t)
  '(eldoc-echo-area-use-multiline-p 'truncate-sym-name-if-fit)
@@ -1899,13 +1915,24 @@ Do not increase cloze number"
  '(flycheck-checkers
    '(rustic-clippy eglot-check golangci-lint vale rustic-clippy ada-gnat asciidoctor asciidoc awk-gawk bazel-build-buildifier bazel-module-buildifier bazel-starlark-buildifier bazel-workspace-buildifier c/c++-clang c/c++-gcc c/c++-cppcheck cfengine chef-foodcritic coffee coffee-coffeelint coq css-csslint css-stylelint cuda-nvcc cwl d-dmd dockerfile-hadolint elixir-credo emacs-lisp emacs-lisp-checkdoc ember-template erlang-rebar3 erlang eruby-erubis eruby-ruumba fortran-gfortran go-gofmt go-golint go-vet go-build go-test go-errcheck go-unconvert go-staticcheck groovy haml handlebars haskell-stack-ghc haskell-ghc haskell-hlint html-tidy javascript-eslint javascript-jshint javascript-standard json-jsonlint json-python-json json-jq jsonnet less less-stylelint llvm-llc lua-luacheck lua markdown-markdownlint-cli markdown-mdl nix nix-linter opam perl perl-perlcritic php php-phpmd php-phpcs processing proselint protobuf-protoc protobuf-prototool pug puppet-parser puppet-lint python-flake8 python-pylint python-pycompile python-pyright python-mypy r-lintr racket rpm-rpmlint rst-sphinx rst ruby-rubocop ruby-standard ruby-reek ruby-rubylint ruby ruby-jruby rust-cargo rust rust-clippy scala scala-scalastyle scheme-chicken scss-lint scss-stylelint sass/scss-sass-lint sass scss sh-bash sh-posix-dash sh-posix-bash sh-zsh sh-shellcheck slim slim-lint sql-sqlint systemd-analyze tcl-nagelfar terraform terraform-tflint tex-chktex tex-lacheck texinfo textlint typescript-tslint verilog-verilator vhdl-ghdl xml-xmlstarlet xml-xmllint yaml-jsyaml yaml-ruby yaml-yamllint))
  '(flycheck-go-golint-executable "golangci-lint")
+ '(ibuffer-formats
+   '((mark modified read-only locked " "
+           (name 64 64 :left :elide)
+           " "
+           (size 9 -1 :right)
+           " "
+           (mode 16 -1 :left :elide)
+           " " filename-and-process)
+     (mark " "
+           (name 64 -1)
+           " " filename)))
  '(magit-todos-insert-after '(bottom) nil nil "Changed by setter of obsolete option `magit-todos-insert-at'")
  '(max-mini-window-height 0.3)
  '(next-error-highlight 3)
  '(next-error-highlight-no-select 3)
  '(next-error-message-highlight t)
  '(package-selected-packages
-   '(pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present flycheck-eglot company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
+   '(corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present flycheck-eglot company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(popper-group-function 'popper-group-by-projectile)
  '(pulsar-delay 0.05)
  '(pulsar-face 'beacon-fallback-background)
@@ -1976,6 +2003,45 @@ Do not increase cloze number"
                   makefile-bsdmake-mode-hook
                   makefile-imake-mode-hook))
     (add-hook hook #'makefile-mode-setup)))
+
+;; (use-package corfu
+;;   ;; Optional customizations
+;;   ;; :custom
+;;   ;; (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
+;;   ;; (corfu-auto t)                 ;; Enable auto completion
+;;   ;; (corfu-separator ?\s)          ;; Orderless field separator
+;;   ;; (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
+;;   ;; (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
+;;   ;; (corfu-preview-current nil)    ;; Disable current candidate preview
+;;   ;; (corfu-preselect 'prompt)      ;; Preselect the prompt
+;;   ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
+;;   ;; (corfu-scroll-margin 5)        ;; Use scroll margin
+
+;;   ;; Enable Corfu only for certain modes.
+;;   ;; :hook ((prog-mode . corfu-mode)
+;;   ;;        (shell-mode . corfu-mode)
+;;   ;;        (eshell-mode . corfu-mode))
+
+;;   ;; Recommended: Enable Corfu globally.
+;;   ;; This is recommended since Dabbrev can be used globally (M-/).
+;;   ;; See also `corfu-exclude-modes'.
+;;   :init
+;;   (global-corfu-mode))
+
+;; A few more useful configurations...
+;; (use-package emacs
+;;   :init
+;;   ;; TAB cycle if there are only few candidates
+;;   (setq completion-cycle-threshold 3)
+
+;;   ;; Emacs 28: Hide commands in M-x which do not apply to the current mode.
+;;   ;; Corfu commands are hidden, since they are not supposed to be used via M-x.
+;;   ;; (setq read-extended-command-predicate
+;;   ;;       #'command-completion-default-include-p)
+
+;;   ;; Enable indentation+completion using the TAB key.
+;;   ;; `completion-at-point' is often bound to M-TAB.
+;;   (setq tab-always-indent 'complete))
 
 ;; \` matches beginning of string
 ;; \' matches end of string
@@ -2388,8 +2454,6 @@ I find myself often do this workflow"
   :bind
   ("<escape>" . god-mode-all))
 
-(use-package realgud)
-
 ;; deal with terminal escape characters correctly in compilation buffer
 (require 'ansi-color)
 (defun zino/ansi-colorize-buffer ()
@@ -2431,6 +2495,37 @@ I find myself often do this workflow"
     (end-of-line)
     (setq end (point))
     (pulsar-pulse-line)))
+
+(global-set-key (kbd "C-c M-d") 'xref-find-definitions-other-frame)
+
+(defun prev-window ()
+  (interactive)
+  (other-window -1))
+
+(global-set-key (kbd "s-i") 'prev-window)
+
+(windmove-default-keybindings)
+
+(use-package esh-autosuggest
+  :hook (eshell-mode . esh-autosuggest-mode)
+  ;; If you have use-package-hook-name-suffix set to nil, uncomment and use the
+  ;; line below instead:
+  ;; :hook (eshell-mode-hook . esh-autosuggest-mode)
+  :ensure t)
+
+(defun setup-eshell-ivy-completion ()
+  (define-key eshell-mode-map [remap eshell-pcomplete] 'completion-at-point)
+  ;; only if you want to use the minibuffer for completions instead of the
+  ;; in-buffer interface
+  (setq-local ivy-display-functions-alist
+              (remq (assoc 'ivy-completion-in-region ivy-display-functions-alist)
+                    ivy-display-functions-alist)))
+
+(add-hook 'eshell-mode-hook #'setup-eshell-ivy-completion)
+
+(use-package fish-completion
+  :hook
+  (after-init . global-fish-completion-mode))
 
 ;; run as daemon
 (server-start)
