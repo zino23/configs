@@ -229,7 +229,7 @@
       (set-fontset-font t charset cn))
     (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
 
-(zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 15 1)
+(zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 16 1)
 
 ;; Automatically trim white spaces at the end of line
 (use-package ws-butler
@@ -569,6 +569,8 @@ respectively."
   ;; [use] call `projectile-find-file' with prefix argument will invalidate cache first
   (setq projectile-switch-project-action #'projectile-find-file))
 
+(use-package emacsql)
+(use-package emacsql-sqlite)
 (use-package magit
   :bind
   ("C-x g" . magit-status)
@@ -585,6 +587,44 @@ respectively."
   ;; [use] magit-log-buffer-file: show a region or buffer's commit history
   )
 
+(cl-defun magit-section-cache-visibility
+    (&optional (section magit-insert-section--current))
+  ;; (setf (compat-call alist-get
+  ;;https://github.com/magit/magit/issues/4841
+  (compat-alist-get
+   (magit-section-ident section)
+   magit-section-visibility-cache
+   nil nil #'equal)
+  (if (oref section hidden) 'hide 'show))
+
+(use-package org-roam
+  :custom
+  (org-roam-directory "~/Notes/Roam")
+  (org-roam-dailies-directory "Journal/")
+  (org-roam-completion-everywhere nil)
+  (org-roam-capture-templates
+   '(("c" "Default" entry "* %?"
+      :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: folded")
+      :empty-lines-before 1
+      :unnarrowed nil)))
+  (org-roam-dailies-capture-templates
+   '(("c" "default" entry
+      #'org-roam-capture--get-point
+      "* %?"
+      :target "Journal/%<%Y-%m-%d>"
+      :head "#+title: %<%Y-%m-%d %a>\n\[[roam:%<%Y-%B>]]\n\n")
+     ("m" "meeting" entry
+      #'org-roam-capture--get-point
+      "* %<%I:%M %p> - %^{Meeting Title}  :meetings:\n\n%?\n\n"
+      :file-name "Journal/%<%Y-%m-%d>"
+      :olp ("Log")
+      :head "#+title: %<%Y-%m-%d %a>\n\n[[roam:%<%Y-%B>]]\n\n")))
+  (org-roam-node-display-template
+   (concat "${title:*} "
+           (propertize "${tags:40}" 'face 'org-tag)))
+  :config
+  (org-roam-db-autosync-mode))
+
 ;; (use-package magit-todos
 ;;   :hook
 ;;   (magit-mode . magit-todos-mode))
@@ -592,7 +632,7 @@ respectively."
 (use-package hl-todo)
 
 ;; code review
-(use-package forge)
+;; (use-package forge)
 
 (use-package git-gutter
   :bind
@@ -702,7 +742,7 @@ respectively."
   (org-level-4 ((t (:inherit outline-4 :extend nil :height 1.05 :width normal :family "Iosevka"))))
   (org-level-5 ((t (:inherit outline-5 :extend nil :height 1.0 :width normal :family "Iosevka"))))
   (org-level-6 ((t (:inherit outline-6 :extend nil :height 1.0 :width normal :family "Iosevka"))))
-  (org-block ((t (:inherit nil :extend t :background "#282c34"))))
+  (org-block ((t (:inherit nil :extend t :background "#353b45")))) ;;"#282c34"))))
   (org-block-begin-line ((t (:inherit all-faces :foreground "#83898d"))))  ;;"#5B6268"))))
   (org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
   (org-code ((t (:inherit nil :foreground "#da8548"))))
@@ -773,34 +813,6 @@ Return TEMPLATE as a string. "
       (setq ch (1+ ch)))
     (setq template (concat template "* General\n** Questions [/]\n** Notes\n** Summary"))
     template))
-
-(use-package org-roam
-  :custom
-  (org-roam-directory "~/Notes/Roam")
-  (org-roam-dailies-directory "Journal/")
-  (org-roam-completion-everywhere t)
-  (org-roam-capture-templates
-   '(("c" "Default" entry "* %?"
-      :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: folded")
-      :empty-lines-before 1
-      :unnarrowed nil)))
-  (org-roam-dailies-capture-templates
-   '(("c" "default" entry
-      #'org-roam-capture--get-point
-      "* %?"
-      :target "Journal/%<%Y-%m-%d>"
-      :head "#+title: %<%Y-%m-%d %a>\n\[[roam:%<%Y-%B>]]\n\n")
-     ("m" "meeting" entry
-      #'org-roam-capture--get-point
-      "* %<%I:%M %p> - %^{Meeting Title}  :meetings:\n\n%?\n\n"
-      :file-name "Journal/%<%Y-%m-%d>"
-      :olp ("Log")
-      :head "#+title: %<%Y-%m-%d %a>\n\n[[roam:%<%Y-%B>]]\n\n")))
-  (org-roam-node-display-template
-   (concat "${title:*} "
-           (propertize "${tags:40}" 'face 'org-tag)))
-  :config
-  (org-roam-db-autosync-mode))
 
 (defun org-journal-file-header-func (time)
   "Custom function to create journal header."
@@ -1167,21 +1179,23 @@ Similar to `org-capture' like behavior"
 (global-set-key (kbd "C-c +") 'zino/increment-number-decimal)
 
 (use-package company
-  :config
-  (setq company-backends (mapcar #'company-mode/backend-with-yas company-backends))
+  ;; :config
+  ;; (setq company-backends (mapcar #'company-mode/backend-with-yas company-backends))
   :bind
-  (("M-." . 'company-show-doc-buffer)
+  (("M-." . company-show-doc-buffer)
    :map company-active-map
-   ("<return>"   . company-complete-selection)
-   ("<tab>"      . company-complete-common))
+   ("<return>" . company-complete-selection)
+   ("<tab>" . company-complete-common))
   :custom
   (company-minimum-prefix-length 2)
   (company-idle-delay 0.05)
   (company-require-match nil)
   :custom-face
   (company-tooltip-quick-access ((t (:inherit company-tooltip-annotation :height 2.0))))
-  :hook
-  (after-init . global-company-mode))
+  ;; use corfu for now
+  ;; :init
+  ;; (global-company-mode)
+  )
 
 ;; Add yasnippet support for all company backends
 ;; https://github.com/syl20bnr/spacemacs/pull/179
@@ -1672,7 +1686,7 @@ TODO: optimize this to use `display-buffer-in-side-window'."
 (use-package eglot
   :init
   ;; eglot use this variable to determine if `company-mode' ignores case
-  (setq completion-ignore-case  t)
+  (setq completion-ignore-case t)
 
   :config
   (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
@@ -1892,6 +1906,7 @@ Do not increase cloze number"
  '(doom-modeline-buffer-modified ((t (:background unspecified :inherit (warning bold)))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
  '(font-lock-comment-face ((t (:foreground "#83898d"))))
+ '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
  '(next-error ((t (:inherit (bold region)))))
  '(org-remark-highlighter ((t (:background "#023047" :underline nil))) t)
  '(region ((t (:inherit nil :extend t :background "dark slate gray"))))
@@ -1906,7 +1921,15 @@ Do not increase cloze number"
  ;; If there is more than one, they won't work right.
  '(auto-revert-interval 10)
  '(comment-style 'indent)
- '(company-idle-delay 0.2)
+ '(connection-local-criteria-alist
+   '(((:application eshell)
+      eshell-connection-default-profile)
+     ((:application tramp :machine "localhost")
+      tramp-connection-local-darwin-ps-profile)
+     ((:application tramp :machine "192.168.0.104")
+      tramp-connection-local-darwin-ps-profile)
+     ((:application tramp)
+      tramp-connection-local-default-system-profile tramp-connection-local-default-shell-profile)))
  '(display-line-numbers-width nil)
  '(eldoc-echo-area-prefer-doc-buffer t)
  '(eldoc-echo-area-use-multiline-p 'truncate-sym-name-if-fit)
@@ -1932,7 +1955,7 @@ Do not increase cloze number"
  '(next-error-highlight-no-select 3)
  '(next-error-message-highlight t)
  '(package-selected-packages
-   '(corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present flycheck-eglot company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
+   '(orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present flycheck-eglot company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(popper-group-function 'popper-group-by-projectile)
  '(pulsar-delay 0.05)
  '(pulsar-face 'beacon-fallback-background)
@@ -1940,15 +1963,15 @@ Do not increase cloze number"
  '(safe-local-variable-values '((comment-style quote box)))
  '(tab-always-indent nil)
  '(warning-suppress-types
-   '(((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
+   '(((flymake flymake.el))
+     ((flymake flymake.el))
+     ((flymake flymake.el))
+     ((flymake flymake.el))
+     ((flymake flymake.el))
+     ((flymake flymake.el))
+     ((flymake flymake.el))
+     ((flymake flymake.el))
+     ((flymake flymake.el))
      (lsp-mode)) nil nil "Customized with use-package lsp-mode"))
 
 (use-package winner
@@ -2004,31 +2027,120 @@ Do not increase cloze number"
                   makefile-imake-mode-hook))
     (add-hook hook #'makefile-mode-setup)))
 
-;; (use-package corfu
-;;   ;; Optional customizations
-;;   ;; :custom
-;;   ;; (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
-;;   ;; (corfu-auto t)                 ;; Enable auto completion
-;;   ;; (corfu-separator ?\s)          ;; Orderless field separator
-;;   ;; (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
-;;   ;; (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
-;;   ;; (corfu-preview-current nil)    ;; Disable current candidate preview
-;;   ;; (corfu-preselect 'prompt)      ;; Preselect the prompt
-;;   ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
-;;   ;; (corfu-scroll-margin 5)        ;; Use scroll margin
 
-;;   ;; Enable Corfu only for certain modes.
-;;   ;; :hook ((prog-mode . corfu-mode)
-;;   ;;        (shell-mode . corfu-mode)
-;;   ;;        (eshell-mode . corfu-mode))
+;; Use Dabbrev with Corfu!
+(use-package dabbrev
+  ;; Swap M-/ and C-M-/
+  :bind (("M-/" . dabbrev-completion)
+         ("C-M-/" . dabbrev-expand))
+  ;; Other useful Dabbrev configurations.
+  :custom
+  (dabbrev-ignored-buffer-regexps '("\\.\\(?:pdf\\|jpe?g\\|png\\)\\'")))
 
-;;   ;; Recommended: Enable Corfu globally.
-;;   ;; This is recommended since Dabbrev can be used globally (M-/).
-;;   ;; See also `corfu-exclude-modes'.
-;;   :init
-;;   (global-corfu-mode))
+(use-package corfu
+  ;; Optional customizations
+  :custom
+  (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
+  (corfu-auto t)                 ;; Enable auto completion
+  (corfu-separator ?\s)          ;; Orderless field separator
+  (corfu-quit-at-boundary 'separator)   ;; Quit at separator
+  (corfu-quit-no-match 'separator)      ;; Never quit, even if there is no match
+  (corfu-preview-current 'insert)    ;; Disable current candidate preview
+  (corfu-preselect 'first)      ;; Preselect the prompt
+  (corfu-on-exact-match 'insert)     ;; Configure handling of exact matches
+  (corfu-scroll-margin 5)        ;; Use scroll margin
+  (corfu-auto-delay 0)
+  (corfu-auto-prefix 2)
+  (corfu-popupinfo-delay '(0.5 . 0.2)) ;; Initial and subsequent delay
+  :custom
+  (corfu-popupinfo-max-height 150)
+  (corfu-popupinfo-min-height 80)
+  (corfu-popupinfo-min-width 80)
+  (corfu-popupinfo-max-width 150)
 
-;; A few more useful configurations...
+  ;; Optionally use TAB for cycling, default is `corfu-complete'.
+  :bind (:map corfu-map
+              ("M-SPC"      . corfu-insert-separator)
+              ("<tab>"        . corfu-next)
+              ("S-TAB"      . corfu-previous)
+              ([backtab]    . corfu-previous)
+              ("<ret>" . corfu-insert))
+
+  ;; Enable Corfu only for certain modes.
+  ;; :hook ((prog-mode . corfu-mode)
+  ;;        (shell-mode . corfu-mode)
+  ;;        (eshell-mode . corfu-mode))
+
+  ;; Recommended: Enable Corfu globally.
+  ;; This is recommended since Dabbrev can be used globally (M-/s ).
+  ;; See also `corfu-exclude-modes'.
+  :init
+  (global-corfu-mode)
+  (corfu-history-mode)
+  (corfu-popupinfo-mode) ; Popup completion info
+  )
+
+
+;; Enable Corfu completion UI
+;; See the Corfu README for more configuration tips.
+(use-package corfu
+  :init
+  (global-corfu-mode))
+
+;; Add extensions
+(use-package cape
+  ;; Bind dedicated completion commands
+  ;; Alternative prefix keys: C-c p, M-p, M-+, ...
+  ;; :bind (("C-c p p" . completion-at-point) ;; capf
+  ;;        ("C-c p t" . complete-tag)        ;; etags
+  ;;        ("C-c p d" . cape-dabbrev)        ;; or dabbrev-completion
+  ;;        ("C-c p h" . cape-history)
+  ;;        ("C-c p f" . cape-file)
+  ;;        ("C-c p k" . cape-keyword)
+  ;;        ("C-c p s" . cape-symbol)
+  ;;        ("C-c p a" . cape-abbrev)
+  ;;        ("C-c p l" . cape-line)
+  ;;        ("C-c p w" . cape-dict)
+  ;;        ("C-c p \\" . cape-tex)
+  ;;        ("C-c p _" . cape-tex)
+  ;;        ("C-c p ^" . cape-tex)
+  ;;        ("C-c p &" . cape-sgml)
+  ;;        ("C-c p r" . cape-rfc1345))
+  :init
+  ;; Add `completion-at-point-functions', used by `completion-at-point'.
+  ;; NOTE: The order matters!
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
+  (add-to-list 'completion-at-point-functions #'cape-file)
+  (add-to-list 'completion-at-point-functions #'cape-elisp-block)
+  ;;(add-to-list 'completion-at-point-functions #'cape-history)
+  ;;(add-to-list 'completion-at-point-functions #'cape-keyword)
+  ;;(add-to-list 'completion-at-point-functions #'cape-tex)
+  ;;(add-to-list 'completion-at-point-functions #'cape-sgml)
+  ;;(add-to-list 'completion-at-point-functions #'cape-rfc1345)
+  (add-to-list 'completion-at-point-functions #'cape-abbrev)
+  ;;(add-to-list 'completion-at-point-functions #'cape-dict)
+  ;;(add-to-list 'completion-at-point-functions #'cape-symbol)
+  ;;(add-to-list 'completion-at-point-functions #'cape-line)
+  )
+
+;; Optionally use the `orderless' completion style.
+(use-package orderless
+  :init
+  ;; Configure a custom style dispatcher (see the Consult wiki)
+  ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
+  ;;       orderless-component-separator #'orderless-escapable-split-on-space)
+  (setq completion-styles '(orderless basic)
+        completion-category-defaults nil
+        completion-category-overrides '((file (styles . (partial-completion))))))
+
+(use-package kind-icon
+  :ensure t
+  :after corfu
+  :custom
+  (kind-icon-default-face 'corfu-default) ; to compute blended backgrounds correctly
+  :config
+  (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
+
 ;; (use-package emacs
 ;;   :init
 ;;   ;; TAB cycle if there are only few candidates
