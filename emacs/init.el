@@ -10,6 +10,8 @@
 ;; I don't know why this is not loaded
 (require 'ox)
 
+(setq native-comp-async-report-warnings-errors nil)
+
 ;; Initialize package sources
 (setq package-archives '(("melpa" . "https://melpa.org/packages/")
                          ("elpa" . "https://elpa.gnu.org/packages/")))
@@ -42,6 +44,12 @@
 (menu-bar-mode -1)
 (column-number-mode)
 (global-display-line-numbers-mode -1)
+
+;; Dynamically adjust width
+(setq display-line-numbers-width nil)
+
+;; Display line numbers in mode line
+(line-number-mode 1)
 (setq help-window-select t)
 (setq desktop-auto-save-timeout 60)
 (desktop-save-mode 1)
@@ -98,6 +106,27 @@
 (global-set-key "\C-x\C-b" 'ibuffer)
 (global-set-key (kbd "s-b") 'zino/switch-other-buffer)
 
+(use-package frame
+  :after ivy
+  :ensure nil
+  :config
+  (define-prefix-command 'frame-map)
+
+  (defun select-frame-by-name-advice (oldfun &rest args)
+    "By default select the second frame which is the most recent one."
+    (apply oldfun args)
+    (if (active-minibuffer-window)
+        (select-window (active-minibuffer-window)))
+    (call-interactively 'ivy-next-line))
+  ;; (advice-add 'select-frame-by-name :around 'select-frame-by-name-advice)
+  ;; (advice-remove 'select-frame-by-name 'select-frame-by-name-advice)
+
+  :bind
+  ("C-c f" . frame-map)
+  ("C-c f r" . set-frame-name)
+  ("C-c f s" . select-frame-by-name)
+  ("C-M-<tab>" . select-frame-by-name))
+
 ;; scroll one line at a time (less "jumpy" than defaults)
 (setq mouse-wheel-scroll-amount '(1 ((shift) . 1)))
 ;; don't accelerate scrolling
@@ -120,17 +149,32 @@
   :hook
   ;; to toggle automatic line breaking, M-x `auto-fill-mode'
   (prog-mode . (lambda ()
-                 "Set `auto-fill-mode' for comments."
+                 "Set/unset `auto-fill-mode' for comments."
                  (auto-fill-mode 1)
                  (setq-local
                   comment-auto-fill-only-comments t
                   fill-column 80))))
 
-(global-visual-line-mode t)
+(global-visual-line-mode 1)
 (global-hl-line-mode 1)
 
 ;; Make ESC quit prompts
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
+
+;; the original keybinding is set-goal-column
+(global-unset-key (kbd "C-x C-n"))
+
+(use-package general
+  :config
+  (general-define-key
+   :prefix
+   "C-c n"
+   "c" 'org-roam-capture
+   "f" 'org-roam-node-find
+   "i" 'org-roam-node-insert
+   "g" 'org-roam-graph)
+  (general-define-key
+   :prefix "C-c C-n"))
 
 ;; Word abbreviation
 (use-package abbrev
@@ -153,6 +197,7 @@
   ("(" . self-insert-no-abbrev)
   (")" . self-insert-no-abbrev)
   ("/" . self-insert-no-abbrev)
+  ("`" . self-insert-no-abbrev)
 
   :custom
   (abbrev-file-name "~/.config/emacs/abbrev_defs")
@@ -181,7 +226,9 @@
                               ("wiat" "wait")
                               ("smae" "same")
                               ("accordign" "according")
-                              ("lgo" "log")))
+                              ("lgo" "log")
+                              ("taht" "that")
+                              ("contorl" "control")))
     (dolist (pair zino/abbrev-table)
       (let ((from (car pair))
             (to (car (cdr pair))))
@@ -199,6 +246,9 @@
   :custom
   (dired-dwim-target t)
   (dired-create-destination-dirs 'always))
+
+(use-package eldoc
+  :ensure nil)
 
 ;; (use-package dirvish
 ;;   :custom
@@ -248,8 +298,8 @@
 
 ;; Indicate indent level
 (use-package highlight-indent-guides
-  :hook
-  (conf-mode . highlight-indent-guides-mode)
+  ;; :hook
+  ;; (conf-mode . highlight-indent-guides-mode)
   :custom
   (highlight-indent-guides-auto-character-face-perc 20)
   (highlight-indent-guides-auto-top-character-face-perc 50)
@@ -262,7 +312,7 @@
 
 (use-package rainbow-mode
   :hook
-  (prog-mode . rainbow-mode)
+  (emacs-lisp-mode . rainbow-mode)
   (lispy-data-mode . rainbow-mode))
 
 (use-package rainbow-delimiters
@@ -279,10 +329,12 @@
 
 (use-package paren
   :config
-  (set-face-attribute 'show-paren-match-expression nil :background "#363e4a")
   (show-paren-mode 1)
   :custom
-  (show-paren-delay 0))
+  (show-paren-delay 0)
+  (show-paren-style 'mixed)
+  :custom-face
+  (show-paren-match-expression ((t (:inherit nil :background "#282c34" :weight bold)))))
 
 (use-package all-the-icons
   :if
@@ -303,6 +355,7 @@
   :init (doom-modeline-mode 1)
   :custom
   (doom-modeline-height 10)
+  :custom-face
   (doom-modeline-buffer-modified ((t (:background unspecified :inherit (warning bold))))))
 
 (use-package doom-themes
@@ -390,10 +443,23 @@
   (global-set-key (kbd "C-c {")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "{")))
   (global-set-key (kbd "C-c \"")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "\"")))
   (global-set-key (kbd "C-c \'")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "\'")))
+  (global-set-key (kbd "C-c `")  (lambda (&optional arg) (interactive "P") (sp-wrap-with-pair "`")))
 
   (sp-pair "(" ")" :wrap "C-(")
   (sp-pair "{" "}" :wrap "C-{")
-  (sp-pair "{" nil :post-handlers '(("||\n[i]" "RET"))))
+  (sp-pair "{" nil :post-handlers '(("||\n[i]" "RET")))
+
+  :bind
+  (:repeat-map
+   smartparens-mode-repeat-map
+   ("b" . sp-forward-barf-sexp)
+   ("s" . sp-forward-slurp-sexp)
+   ("k" . sp-change-enclosing))
+  :config
+  (advice-add 'sp-copy-sexp :after (lambda (&optional arg)
+                                     "Print a message after applying `sp-copy-sexp'."
+                                     (let ((sexp (read (car kill-ring))))
+                                       (print (concat "sexp '" (format "%s" sexp) "' has been copied to the kill-ring"))))))
 
 (defmacro def-pairs (pairs)
   "Define functions for pairing. PAIRS is an alist of (NAME . STRING)
@@ -425,32 +491,32 @@ respectively."
             (star         . "*")
             (underscore   . "_")))
 
-(use-package evil
-  :init
-  (setq evil-want-integration t)
-  (setq evil-want-keybinding nil)
-  (setq evil-want-C-u-scroll t)
-  (setq evil-want-C-i-jump t)
-  (setq evil-respect-visual-line-mode nil)
-  (setq evil-cross-lines t)
-  (setq evil-undo-system 'undo-tree)
-  (setq evil-move-cursor-back nil)
-  (setq evil-auto-indent t)
-  (setq evil-undo-system 'undo-tree)
-  (setq-default evil-shift-width tab-width)
-  :config
-  ;; (evil-mode 1)
-  (define-key evil-insert-state-map (kbd "C-g") 'evil-normal-state)
-  (define-key evil-insert-state-map (kbd "C-n") nil)
-  (define-key evil-insert-state-map (kbd "C-p") nil)
-  (define-key evil-insert-state-map (kbd "C-a") nil)
-  (define-key evil-insert-state-map (kbd "C-p") nil)
+;; (use-package evil
+;;   :init
+;;   (setq evil-want-integration t)
+;;   (setq evil-want-keybinding nil)
+;;   (setq evil-want-C-u-scroll t)
+;;   (setq evil-want-C-i-jump t)
+;;   (setq evil-respect-visual-line-mode nil)
+;;   (setq evil-cross-lines t)
+;;   (setq evil-undo-system 'undo-tree)
+;;   (setq evil-move-cursor-back nil)
+;;   (setq evil-auto-indent t)
+;;   (setq evil-undo-system 'undo-tree)
+;;   (setq-default evil-shift-width tab-width)
+;;   :config
+;;   ;; (evil-mode 1)
+;;   (define-key evil-insert-state-map (kbd "C-g") 'evil-normal-state)
+;;   (define-key evil-insert-state-map (kbd "C-n") nil)
+;;   (define-key evil-insert-state-map (kbd "C-p") nil)
+;;   (define-key evil-insert-state-map (kbd "C-a") nil)
+;;   (define-key evil-insert-state-map (kbd "C-p") nil)
 
-  ;; Use visual line motions even outside of visual-line-mode buffers
-  (evil-global-set-key 'motion "j" 'evil-next-visual-line)
-  (evil-global-set-key 'motion "k" 'evil-previous-visual-line)
-  (evil-set-initial-state 'messages-buffer-mode 'normal)
-  (evil-set-initial-state 'dashboard-mode 'normal))
+;;   ;; Use visual line motions even outside of visual-line-mode buffers
+;;   (evil-global-set-key 'motion "j" 'evil-next-visual-line)
+;;   (evil-global-set-key 'motion "k" 'evil-previous-visual-line)
+;;   (evil-set-initial-state 'messages-buffer-mode 'normal)
+;;   (evil-set-initial-state 'dashboard-mode 'normal))
 
 (use-package hydra
   :config
@@ -499,6 +565,7 @@ respectively."
   (which-key-popup-type 'minibuffer))
 
 (use-package ivy-rich
+  :after counsel
   :init
   (ivy-rich-mode 1))
 
@@ -523,7 +590,9 @@ respectively."
   ;; Also this will not affect swiper's regex-plus method
   (setq prescient-filter-method '(literal regexp fuzzy)))
 
-(prescient-persist-mode 1)
+(use-package prescient
+  :config
+  (prescient-persist-mode 1))
 
 (use-package helpful
   :custom
@@ -535,18 +604,6 @@ respectively."
   ([remap describe-variable] . counsel-describe-variable)
   ([remap describe-key] . helpful-key)
   ("\C-c\C-d" . helpful-at-point))
-
-(use-package general
-  :config
-  (general-define-key
-   :prefix
-   "C-c n"
-   "c" 'org-roam-capture
-   "f" 'org-roam-node-find
-   "i" 'org-roam-node-insert
-   "g" 'org-roam-graph)
-  (general-define-key
-   :prefix "C-c C-n"))
 
 (use-package projectile
   :config
@@ -569,8 +626,6 @@ respectively."
   ;; [use] call `projectile-find-file' with prefix argument will invalidate cache first
   (setq projectile-switch-project-action #'projectile-find-file))
 
-(use-package emacsql)
-(use-package emacsql-sqlite)
 (use-package magit
   :bind
   ("C-x g" . magit-status)
@@ -586,16 +641,6 @@ respectively."
   (magit-display-buffer-function 'magit-display-buffer-same-window-except-diff-v1)
   ;; [use] magit-log-buffer-file: show a region or buffer's commit history
   )
-
-(cl-defun magit-section-cache-visibility
-    (&optional (section magit-insert-section--current))
-  ;; (setf (compat-call alist-get
-  ;;https://github.com/magit/magit/issues/4841
-  (compat-alist-get
-   (magit-section-ident section)
-   magit-section-visibility-cache
-   nil nil #'equal)
-  (if (oref section hidden) 'hide 'show))
 
 (use-package org-roam
   :custom
@@ -656,7 +701,8 @@ respectively."
   "Run after `org-mode' is initiated."
   (org-indent-mode)
   (set-face-attribute 'org-table nil :font (font-spec :name "Sarasa Mono SC Nerd" :size 18))
-  (set-fontset-font t nil "Sarasa Mono SC Nerd" nil 'append))
+  (set-fontset-font t nil "Sarasa Mono SC Nerd" nil 'append)
+  (setq-local corfu-auto-delay 0.2))
 
 (use-package org
   :hook
@@ -708,9 +754,13 @@ respectively."
   (defun zino/org-babel-tangle-rename ()
     (let ((tangle-file (buffer-file-name)))
       (rename-file tangle-file zino/org-babel-tangle-dir t)))
-  (add-hook 'org-babel-post-tangle-hook 'zino/org-babel-tangle-rename)
-  ;; use absolute links to make `org-babel-detangle' work when the filename of
-  ;; the tangled file is transform in `org-babel-post-tangle-hook', namely
+  ;;; Enable it when we want to tangle a file, edit the file with lsp enabled,
+  ;;; and detangle it back to the org source block
+  ;; (add-hook 'org-babel-post-tangle-hook 'zino/org-babel-tangle-rename)
+  ;; (remove-hook 'org-babel-post-tangle-hook 'zino/org-babel-tangle-rename)
+
+  ;; use absolute links to make `org-babel-detangle' work when the filename mof
+  ;; the tangled file is transformed in `org-babel-post-tangle-hook', namely
   ;; `zino/org-babel-tangle-dir'.
   (setq org-babel-tangle-use-relative-file-links nil)
 
@@ -738,11 +788,11 @@ respectively."
   :custom-face
   (org-level-1 ((t (:inherit outline-1 :extend nil :height 1.3 :width normal :family "Iosevka"))))
   (org-level-2 ((t (:inherit outline-2 :extend nil :height 1.2 :width normal :family "Iosevka"))))
-  (org-level-3 ((t (:inherit outline-3 :extend nil :height 1.1 :width normal :family "Iosevka"))))
-  (org-level-4 ((t (:inherit outline-4 :extend nil :height 1.05 :width normal :family "Iosevka"))))
-  (org-level-5 ((t (:inherit outline-5 :extend nil :height 1.0 :width normal :family "Iosevka"))))
-  (org-level-6 ((t (:inherit outline-6 :extend nil :height 1.0 :width normal :family "Iosevka"))))
-  (org-block ((t (:inherit nil :extend t :background "#353b45")))) ;;"#282c34"))))
+  (org-level-3 ((t (:inherit outline-3 :extend nil :height 1.1 :width normal :weight normal :family "Iosevka"))))
+  (org-level-4 ((t (:inherit outline-4 :extend nil :height 1.05 :width normal :weight normal :family "Iosevka"))))
+  (org-level-5 ((t (:inherit outline-5 :extend nil :height 1.0 :width normal :weight normal :family "Iosevka"))))
+  (org-level-6 ((t (:inherit outline-6 :extend nil :height 1.0 :width normal :weight normal :family "Iosevka"))))
+  (org-block ((t (:inherit nil :extend t :background "#282c34"))));; "#353b45"
   (org-block-begin-line ((t (:inherit all-faces :foreground "#83898d"))))  ;;"#5B6268"))))
   (org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
   (org-code ((t (:inherit nil :foreground "#da8548"))))
@@ -760,12 +810,14 @@ respectively."
   (org-tags-column -85 nil nil "Customized with use-package org")
   (org-confirm-babel-evaluate nil)
   (org-deadline-warning-days 5)
-
+  (org-imenu-depth 4)
   :bind
   (("C-c c" . org-capture)
    ("C-c a" . org-agenda)
    ("C-c l" . org-store-link)
-   ("C-c H-i" . org-insert-link)))
+   ("C-c H-i" . org-insert-link)
+   ("s-<up>" . org-priority-up)
+   ("s-<down>" . org-priority-down)))
 
 (use-package org-agenda
   :ensure nil
@@ -780,7 +832,8 @@ respectively."
   :hook
   (org-mode . org-bullets-mode)
   :custom
-  (org-bullets-bullet-list '("⊛" "◎" "◉" "⊚" "○" "●")))
+  ;; (org-bullets-bullet-list '("⊛" "◎" "◉" "⊚" "○" "●"))
+  (org-bullets-bullet-list '("⊛""◇" "✳" "⊚" "○" "●")))
 
 ;; Make sure org-indent face is available
 (require 'org-indent)
@@ -794,10 +847,7 @@ respectively."
   (org-download-heading-lvl nil)
   (org-image-actual-width t)
   :bind
-  ("C-s-y" . org-download-clipboard)
-  ;; :config
-  ;; (require 'org-download)
-  )
+  ("C-s-y" . org-download-clipboard))
 
 (defun org-roam-book-template ()
   "Create a Cornell-style book notes template for org-roam node.
@@ -862,6 +912,7 @@ Similar to `org-capture' like behavior"
   (org-journal-after-entry-create . org-narrow-to-element))
 
 (use-package org-noter
+  :after pdf-tools
   :custom
   (org-noter-auto-save-last-location t)
   (org-noter-closest-tipping-point 1e-05)
@@ -878,7 +929,8 @@ Similar to `org-capture' like behavior"
 (advice-add 'org-journal-open-current-journal-file :after 'zino/org-journal-cycle-after-open-current-journal-file)
 
 (use-package org-fragtog
-  :hook (org-mode . org-fragtog-mode))
+  ;; :hook (org-mode . org-fragtog-mode)
+  )
 
 (setq zino/roam-dir "~/Notes/Roam"
       zino/anki-file "~/Notes/Roam/20220517104105-anki.org"
@@ -958,8 +1010,6 @@ Similar to `org-capture' like behavior"
 (use-package all-the-icons)
 
 (global-set-key (kbd "C-x C-c") #'save-buffers-kill-terminal)
-
-(setq native-comp-async-report-warnings-errors nil)
 
 ;; temporary workaround
 ;; REVIEW See Wilfred/elisp-refs#35. Remove once fixed upstream.
@@ -1114,11 +1164,16 @@ Similar to `org-capture' like behavior"
   :config
   (beacon-mode -1)
   :custom
-  (beacon-blink-delay 0.2)
+  (beacon-blink-delay 0.05)
   (beacon-color "#a8dadc")
-  (beacon-size 20)
+  (beacon-size 30)
   (beacon-blink-when-buffer-changes t)
-  (beacon-blink-when-window-changes nil))
+  (beacon-blink-when-window-changes nil)
+  (beacon-blink-when-window-scrolls nil)
+  (beacon-blink-when-focused t)
+  (beacon-blink-when-point-moves-vertically 50)
+  :custom-face
+  (beacon-fallback-background ((t (:background "#a8dadc")))))
 
 (setq custom-safe-themes t)
 
@@ -1134,7 +1189,7 @@ Similar to `org-capture' like behavior"
 (use-package ace-window
   :config
   (global-set-key (kbd "M-o") 'ace-window)
-  (global-set-key (kbd "<f5> k") 'ace-delete-window)
+  (global-set-key (kbd "s-q") 'ace-delete-window)
   (setq aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l)
         aw-scope 'frame)
   (setq aw-ignored-buffers '("*Calc Trail*" " *LV*")))
@@ -1223,8 +1278,9 @@ Similar to `org-capture' like behavior"
         ;; If nil, the fzf buffer will appear at the top of the window
         fzf/position-bottom t
         fzf/window-height 15)
-  (global-set-key (kbd "C-c f") #'fzf)
-  (global-set-key (kbd "C-c d") #'fzf-directory))
+  ;; (global-set-key (kbd "C-c f") #'fzf)
+  ;; (global-set-key (kbd "C-c d") #'fzf-directory)
+  )
 
 (repeat-mode)
 
@@ -1277,10 +1333,7 @@ Similar to `org-capture' like behavior"
 
 (add-hook 'before-save-hook 'force-backup-of-buffer)
 
-(use-package super-save
-  :ensure t
-  :config
-  (super-save-mode nil))
+(use-package super-save)
 
 (setq ivy-dynamic-exhibit-delay-ms 0)
 (setq ivy-re-builders-alist '((t . ivy--regex-fuzzy)))
@@ -1347,7 +1400,6 @@ Do not prompt me to create parent directory"
   (interactive)
   (end-of-line)
   (newline-and-indent))
-(global-set-key (kbd "<C-return>") 'newline-below)
 
 (defun newline-above ()
   "Newline like vim's O."
@@ -1356,6 +1408,10 @@ Do not prompt me to create parent directory"
   (open-line 1)
   (indent-for-tab-command))
 (global-set-key (kbd "C-S-<return>") 'newline-above)
+(global-set-key (kbd "S-s-<return>") 'newline-above)
+(global-set-key (kbd "s-<return>") 'newline-below)
+(global-set-key (kbd "<C-return>") 'newline-below)
+
 
 (defun zino/next-k-lines ()
   "Move cursor down k lines."
@@ -1393,7 +1449,7 @@ If point is already there, move to the beginning of the line.
 Effectively toggle between the first non-whitespace character and
 the beginning of the line.
 
-If ARG is not nil or 1, move forward ARG - 1 lines first. If
+If ARG is not nil or 1, move forward ARG - 1 lines first.  If
 point reaches the beginning or end of the buffer, stop there."
   (interactive "^p")
   (setq arg (or arg 1))
@@ -1472,7 +1528,11 @@ point reaches the beginning or end of the buffer, stop there."
   :config
   ;; original region face #42444a
   (set-face-attribute 'hl-line nil :inherit nil :background "#2e3b49") ;; #42444a")
-  (set-face-attribute 'region nil :inherit nil :background "dark slate gray")) ;;"#406389")) ;; "#42444a")) ;; 3a3c42"))
+  (set-face-attribute 'region nil :inherit nil :background "dark slate gray"));;"#113d69"));;"#2e4a54")) ;;"#406389")) ;; "#42444a")) ;; 3a3c42"))
+
+(add-hook 'pdf-view-mode-hook (lambda ()
+                                "More readable `region' highlight in `pdf-view-mode'."
+                                (face-remap-add-relative 'region '(:background "#42444a"))))
 
 (use-package move-text
   :config
@@ -1506,11 +1566,11 @@ point reaches the beginning or end of the buffer, stop there."
 ;; begin_lsp
 (use-package rust-mode)
 
-(use-package lsp-treemacs
-  :custom
-  (lsp-treemacs-error-list-current-project-only t)
-  :config
-  (setq lsp-treemacs-generic-root '()))
+;; (use-package lsp-treemacs
+;;   :custom
+;;   (lsp-treemacs-error-list-current-project-only t)
+;;   :config
+;;   (setq lsp-treemacs-generic-root '()))
 
 (defun zino/format-if-lsp-mode ()
   "Format on save if `lsp-mode' is present."
@@ -1580,7 +1640,6 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (lsp-modeline-diagnostics-enable nil)
   (lsp-signature-render-documentation t)
   (lsp-diagnostics-provider :flycheck)
-  (lsp-eldoc-render-all t)
   (lsp-clients-lua-lsp-server-install-dir "/usr/local/bin/lua-language-server")
   (lsp-elm-only-update-diagnostics-on-save t)
   (lsp-go-library-directories '("~/go/src/goroot" "/usr"))
@@ -1607,16 +1666,17 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   :custom
   (rustic-lsp-client 'eglot))
 
-(use-package dap-mode
-  :config
-  (dap-mode 1)
-  (dap-ui-mode 1)
-  (require 'dap-dlv-go))
+;; (use-package dap-mode
+;;   :config
+;;   (dap-mode 1)
+;;   (dap-ui-mode 1)
+;;   (require 'dap-dlv-go))
 
-(advice-add 'xref-find-references :before
-            (lambda (identifier)
-              "Advice function for `xref-find-references'."
-              (windmove-display-left)))
+;; (advice-add 'xref-find-references :before
+;;             (lambda (identifier)
+;;               "Advice function for `xref-find-references'."
+;;               (windmove-display-left)))
+
 (advice-remove 'xref-find-references 'windmove-display-left)
 
 (with-eval-after-load 'lsp-mode
@@ -1692,7 +1752,9 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(perl-mode . ("/usr/local/Cellar/perl/5.34.0/lib/perl5/site_perl/5.34.0/Perl/LanguageServer.pm")))
   (add-to-list 'eglot-server-programs '(c-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
-  (add-to-list 'eglot-server-programs '(cmake-mode . ("/home/cs144/.local/bin/cmake-language-server")))
+  ;; (add-to-list 'eglot-server-programs '(cmake-mode
+  ;; . ("/home/cs144/.local/bin/cmake-language-server"))) ;; cs144's virtual machine
+  (add-to-list 'eglot-server-programs '(cmake-mode . ("cmake-language-server")))
   (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp")))
   (add-to-list 'eglot-server-programs '(lua-mode . ("/usr/local/Cellar/lua-language-server/3.5.2/libexec/bin/lua-language-server")))
   (add-to-list 'eglot-server-programs '(rust-mode . ("/usr/local/bin/rust-analyzer")))
@@ -1724,6 +1786,10 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (typescript-mode . eglot-ensure)
   (css-mode . eglot-ensure)
   (python-mode . eglot-ensure))
+
+(use-package eldoc-box
+  :bind
+  ("M-." . eldoc-box-help-at-point))
 
 ;; (require 'golint)
 ;; end_lsp
@@ -1821,7 +1887,7 @@ TODO: optimize this to use `display-buffer-in-side-window'."
 ;; Show matching parenthesis
 (use-package mic-paren
   :custom-face
-  (paren-face-match ((t (:foreground "#ff6c6b" :weight ultra-bold))))
+  (paren-face-match ((t (:foreground "#7bb6e2" :background "#2c3946" :weight ultra-bold))))
   :config
   (paren-activate)
   :custom
@@ -1901,25 +1967,23 @@ Do not increase cloze number"
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(beacon-fallback-background ((t (:background "#a8dadc"))))
- '(cursor ((t (:background "#51afef"))))
- '(doom-modeline-buffer-modified ((t (:background unspecified :inherit (warning bold)))))
+ '(completions-common-part ((t (:background "#2c3946" :foreground "#7bb6e2" :weight bold))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
  '(font-lock-comment-face ((t (:foreground "#83898d"))))
+ '(font-lock-doc-face ((t (:foreground "#9FC59F"))))
+ '(font-lock-keyword-face ((t (:foreground "#51afef" :weight normal))))
  '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
  '(next-error ((t (:inherit (bold region)))))
- '(org-remark-highlighter ((t (:background "#023047" :underline nil))) t)
- '(region ((t (:inherit nil :extend t :background "dark slate gray"))))
- '(tooltip ((t (:background "#21242b" :foreground "#bbc2cf" :height 1.0))))
+ '(org-remark-highlighter ((t (:background "#023047" :underline nil))))
  '(variable-pitch ((t (:family "ETBembo" :height 180 :weight regular))))
- '(xref-file-header ((t (:inherit (success org-level-2))))))
+ '(xref-file-header ((t (:inherit orderless-match-face-0)))))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(auto-revert-interval 10)
+ '(auto-revert-interval 5)
  '(comment-style 'indent)
  '(connection-local-criteria-alist
    '(((:application eshell)
@@ -1930,10 +1994,86 @@ Do not increase cloze number"
       tramp-connection-local-darwin-ps-profile)
      ((:application tramp)
       tramp-connection-local-default-system-profile tramp-connection-local-default-shell-profile)))
- '(display-line-numbers-width nil)
- '(eldoc-echo-area-prefer-doc-buffer t)
- '(eldoc-echo-area-use-multiline-p 'truncate-sym-name-if-fit)
- '(eldoc-idle-delay 0.2)
+ '(connection-local-profile-alist
+   '((eshell-connection-default-profile
+      (eshell-path-env-list))
+     (tramp-connection-local-darwin-ps-profile
+      (tramp-process-attributes-ps-args "-acxww" "-o" "pid,uid,user,gid,comm=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" "-o" "state=abcde" "-o" "ppid,pgid,sess,tty,tpgid,minflt,majflt,time,pri,nice,vsz,rss,etime,pcpu,pmem,args")
+      (tramp-process-attributes-ps-format
+       (pid . number)
+       (euid . number)
+       (user . string)
+       (egid . number)
+       (comm . 52)
+       (state . 5)
+       (ppid . number)
+       (pgrp . number)
+       (sess . number)
+       (ttname . string)
+       (tpgid . number)
+       (minflt . number)
+       (majflt . number)
+       (time . tramp-ps-time)
+       (pri . number)
+       (nice . number)
+       (vsize . number)
+       (rss . number)
+       (etime . tramp-ps-time)
+       (pcpu . number)
+       (pmem . number)
+       (args)))
+     (tramp-connection-local-busybox-ps-profile
+      (tramp-process-attributes-ps-args "-o" "pid,user,group,comm=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" "-o" "stat=abcde" "-o" "ppid,pgid,tty,time,nice,etime,args")
+      (tramp-process-attributes-ps-format
+       (pid . number)
+       (user . string)
+       (group . string)
+       (comm . 52)
+       (state . 5)
+       (ppid . number)
+       (pgrp . number)
+       (ttname . string)
+       (time . tramp-ps-time)
+       (nice . number)
+       (etime . tramp-ps-time)
+       (args)))
+     (tramp-connection-local-bsd-ps-profile
+      (tramp-process-attributes-ps-args "-acxww" "-o" "pid,euid,user,egid,egroup,comm=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" "-o" "state,ppid,pgid,sid,tty,tpgid,minflt,majflt,time,pri,nice,vsz,rss,etimes,pcpu,pmem,args")
+      (tramp-process-attributes-ps-format
+       (pid . number)
+       (euid . number)
+       (user . string)
+       (egid . number)
+       (group . string)
+       (comm . 52)
+       (state . string)
+       (ppid . number)
+       (pgrp . number)
+       (sess . number)
+       (ttname . string)
+       (tpgid . number)
+       (minflt . number)
+       (majflt . number)
+       (time . tramp-ps-time)
+       (pri . number)
+       (nice . number)
+       (vsize . number)
+       (rss . number)
+       (etime . number)
+       (pcpu . number)
+       (pmem . number)
+       (args)))
+     (tramp-connection-local-default-shell-profile
+      (shell-file-name . "/bin/sh")
+      (shell-command-switch . "-c"))
+     (tramp-connection-local-default-system-profile
+      (path-separator . ":")
+      (null-device . "/dev/null"))))
+ '(dabbrev-case-fold-search t)
+ '(dabbrev-case-replace nil)
+ '(display-line-numbers-width-start nil)
+ '(eldoc-echo-area-use-multiline-p 10)
+ '(eldoc-idle-delay 0.05)
  '(fill-column 80)
  '(flycheck-checkers
    '(rustic-clippy eglot-check golangci-lint vale rustic-clippy ada-gnat asciidoctor asciidoc awk-gawk bazel-build-buildifier bazel-module-buildifier bazel-starlark-buildifier bazel-workspace-buildifier c/c++-clang c/c++-gcc c/c++-cppcheck cfengine chef-foodcritic coffee coffee-coffeelint coq css-csslint css-stylelint cuda-nvcc cwl d-dmd dockerfile-hadolint elixir-credo emacs-lisp emacs-lisp-checkdoc ember-template erlang-rebar3 erlang eruby-erubis eruby-ruumba fortran-gfortran go-gofmt go-golint go-vet go-build go-test go-errcheck go-unconvert go-staticcheck groovy haml handlebars haskell-stack-ghc haskell-ghc haskell-hlint html-tidy javascript-eslint javascript-jshint javascript-standard json-jsonlint json-python-json json-jq jsonnet less less-stylelint llvm-llc lua-luacheck lua markdown-markdownlint-cli markdown-mdl nix nix-linter opam perl perl-perlcritic php php-phpmd php-phpcs processing proselint protobuf-protoc protobuf-prototool pug puppet-parser puppet-lint python-flake8 python-pylint python-pycompile python-pyright python-mypy r-lintr racket rpm-rpmlint rst-sphinx rst ruby-rubocop ruby-standard ruby-reek ruby-rubylint ruby ruby-jruby rust-cargo rust rust-clippy scala scala-scalastyle scheme-chicken scss-lint scss-stylelint sass/scss-sass-lint sass scss sh-bash sh-posix-dash sh-posix-bash sh-zsh sh-shellcheck slim slim-lint sql-sqlint systemd-analyze tcl-nagelfar terraform terraform-tflint tex-chktex tex-lacheck texinfo textlint typescript-tslint verilog-verilator vhdl-ghdl xml-xmlstarlet xml-xmllint yaml-jsyaml yaml-ruby yaml-yamllint))
@@ -1954,14 +2094,13 @@ Do not increase cloze number"
  '(next-error-highlight 3)
  '(next-error-highlight-no-select 3)
  '(next-error-message-highlight t)
+ '(nyan-cat-face-number 1)
  '(package-selected-packages
-   '(orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present flycheck-eglot company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale forge anki-editor flycheck-rust flycheck lsp-treemacs fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode lsp-ui eglot cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren magit lsp-ivy keycast ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline dap-mode counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
+   '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(popper-group-function 'popper-group-by-projectile)
- '(pulsar-delay 0.05)
- '(pulsar-face 'beacon-fallback-background)
- '(pulsar-iterations 3)
+ '(recenter-positions '(top middle bottom))
  '(safe-local-variable-values '((comment-style quote box)))
- '(tab-always-indent nil)
+ '(screenshot-line-numbers-p t)
  '(warning-suppress-types
    '(((flymake flymake.el))
      ((flymake flymake.el))
@@ -1972,14 +2111,12 @@ Do not increase cloze number"
      ((flymake flymake.el))
      ((flymake flymake.el))
      ((flymake flymake.el))
-     (lsp-mode)) nil nil "Customized with use-package lsp-mode"))
+     (lsp-mode)) nil nil "Customized with use-package lsp-mode")
+ '(xref-history-storage 'xref-window-local-history))
 
 (use-package winner
   :config
   (winner-mode))
-
-;; the original keybinding is set-goal-column
-(global-unset-key (kbd "C-x C-n"))
 
 ;; lua mode
 (use-package lua-mode
@@ -1996,6 +2133,11 @@ Do not increase cloze number"
 (add-to-list 'auto-mode-alist '("\\.t$" . perl-mode))
 (add-to-list 'interpreter-mode-alist '("lua" . lua-mode))
 (add-to-list 'auto-mode-alist '(".*Makefile" . makefile-gmake-mode))
+
+(use-package cc-mode
+  :ensure nil
+  :config
+  (add-to-list 'auto-mode-alist '("\\.inl$" . c++-mode)))
 
 (defun makefile-mode-setup ()
   (setq-local company-dabbrev-ignore-case t)
@@ -2038,20 +2180,20 @@ Do not increase cloze number"
   (dabbrev-ignored-buffer-regexps '("\\.\\(?:pdf\\|jpe?g\\|png\\)\\'")))
 
 (use-package corfu
-  ;; Optional customizations
   :custom
-  (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
-  (corfu-auto t)                 ;; Enable auto completion
-  (corfu-separator ?\s)          ;; Orderless field separator
-  (corfu-quit-at-boundary 'separator)   ;; Quit at separator
-  (corfu-quit-no-match 'separator)      ;; Never quit, even if there is no match
-  (corfu-preview-current 'insert)    ;; Disable current candidate preview
-  (corfu-preselect 'first)      ;; Preselect the prompt
-  (corfu-on-exact-match 'insert)     ;; Configure handling of exact matches
-  (corfu-scroll-margin 5)        ;; Use scroll margin
-  (corfu-auto-delay 0)
-  (corfu-auto-prefix 2)
-  (corfu-popupinfo-delay '(0.5 . 0.2)) ;; Initial and subsequent delay
+  (corfu-cycle t)                      ;; Enable cycling for `corfu-next/previous'
+  (corfu-auto t)                       ;; Enable auto completion
+  (corfu-separator ?\s)                ;; Orderless field separator
+  (corfu-quit-at-boundary 'separator)  ;; Quit at separator
+  (corfu-quit-no-match 'separator)     ;; Never quit, even if there is no match
+  (corfu-preview-current 'insert)      ;; Disable current candidate preview
+  (corfu-preselect 'first)             ;; Preselect the prompt
+  (corfu-on-exact-match 'insert)       ;; Configure handling of exact matches
+  (corfu-scroll-margin 5)              ;; Use scroll margin
+  (corfu-auto-delay 0)                 ;; Auto-suggestion delay
+  (corfu-auto-prefix 2)                ;; Auto-suggestion minimum prefix
+  (corfu-popupinfo-delay '(0.2 . 0))   ;; Initial and subsequent delay
+  (tab-always-indent 'complete)
   :custom
   (corfu-popupinfo-max-height 150)
   (corfu-popupinfo-min-height 80)
@@ -2061,7 +2203,7 @@ Do not increase cloze number"
   ;; Optionally use TAB for cycling, default is `corfu-complete'.
   :bind (:map corfu-map
               ("M-SPC"      . corfu-insert-separator)
-              ("<tab>"        . corfu-next)
+              ("<tab>"      . corfu-next)
               ("S-TAB"      . corfu-previous)
               ([backtab]    . corfu-previous)
               ("<ret>" . corfu-insert))
@@ -2078,14 +2220,18 @@ Do not increase cloze number"
   (global-corfu-mode)
   (corfu-history-mode)
   (corfu-popupinfo-mode) ; Popup completion info
-  )
+  :custom-face
+  (corfu-bar ((t (:background "#a8a8a8" :weight bold))))
+  (corfu-border ((t (:weight bold :width extra-expanded)))))
 
-
-;; Enable Corfu completion UI
-;; See the Corfu README for more configuration tips.
-(use-package corfu
-  :init
-  (global-corfu-mode))
+(defun corfu-enable-in-minibuffer ()
+  "Enable Corfu in the minibuffer if `completion-at-point' is bound."
+  (when (where-is-internal #'completion-at-point (list (current-local-map)))
+    ;; (setq-local corfu-auto nil) ;; Enable/disable auto completion
+    (setq-local corfu-echo-delay nil ;; Disable automatic echo and popup
+                corfu-popupinfo-delay nil)
+    (corfu-mode 1)))
+(add-hook 'minibuffer-setup-hook #'corfu-enable-in-minibuffer)
 
 ;; Add extensions
 (use-package cape
@@ -2095,7 +2241,7 @@ Do not increase cloze number"
   ;;        ("C-c p t" . complete-tag)        ;; etags
   ;;        ("C-c p d" . cape-dabbrev)        ;; or dabbrev-completion
   ;;        ("C-c p h" . cape-history)
-  ;;        ("C-c p f" . cape-file)
+  ;; ("C-c p f" . cape-file)
   ;;        ("C-c p k" . cape-keyword)
   ;;        ("C-c p s" . cape-symbol)
   ;;        ("C-c p a" . cape-abbrev)
@@ -2111,17 +2257,21 @@ Do not increase cloze number"
   ;; NOTE: The order matters!
   (add-to-list 'completion-at-point-functions #'cape-dabbrev)
   (add-to-list 'completion-at-point-functions #'cape-file)
-  (add-to-list 'completion-at-point-functions #'cape-elisp-block)
-  ;;(add-to-list 'completion-at-point-functions #'cape-history)
+  ;; (add-to-list 'completion-at-point-functions #'cape-elisp-block)
+  (add-to-list 'completion-at-point-functions #'cape-history)
   ;;(add-to-list 'completion-at-point-functions #'cape-keyword)
   ;;(add-to-list 'completion-at-point-functions #'cape-tex)
   ;;(add-to-list 'completion-at-point-functions #'cape-sgml)
   ;;(add-to-list 'completion-at-point-functions #'cape-rfc1345)
-  (add-to-list 'completion-at-point-functions #'cape-abbrev)
+  ;;(add-to-list 'completion-at-point-functions #'cape-abbrev)
   ;;(add-to-list 'completion-at-point-functions #'cape-dict)
   ;;(add-to-list 'completion-at-point-functions #'cape-symbol)
   ;;(add-to-list 'completion-at-point-functions #'cape-line)
   )
+
+(add-hook 'minibuffer-setup-hook (lambda ()
+                                   "Enable autocompletion on files."
+                                   (add-to-list 'completion-at-point-functions #'cape-file)))
 
 ;; Optionally use the `orderless' completion style.
 (use-package orderless
@@ -2153,7 +2303,7 @@ Do not increase cloze number"
 
 ;;   ;; Enable indentation+completion using the TAB key.
 ;;   ;; `completion-at-point' is often bound to M-TAB.
-;;   (setq tab-always-indent 'complete))
+;; (setq tab-always-indent 'complete))
 
 ;; \` matches beginning of string
 ;; \' matches end of string
@@ -2218,6 +2368,8 @@ Do not increase cloze number"
   :ensure t
   :hook (after-init . global-clipetty-mode))
 
+(use-package flymake-cursor)
+
 (use-package flymake
   :bind
   (:map flymake-mode-map
@@ -2229,8 +2381,6 @@ Do not increase cloze number"
   ;; (eglot-managed-mode . flymake-mode))
   )
 
-(use-package flymake-cursor)
-
 (use-package flycheck-eglot
   :config
   (global-flycheck-eglot-mode 1))
@@ -2241,7 +2391,11 @@ Do not increase cloze number"
 ;; try ripgrep
 (use-package rg
   :custom
-  (rg-executable (executable-find "rg")))
+  (rg-executable (executable-find "rg"))
+  :config
+  (add-to-list
+   'display-buffer-alist
+   '("\\*rg\\*" . (nil . ((body-function . select-window))))))
 
 (use-package dired-rsync
   :config
@@ -2271,24 +2425,25 @@ Save the buffer of the current window and kill it"
 ;;                                      (add-to-list 'company-backends
 ;;                                                   '(company-capf :with company-yasnippet))))
 
-;; for corfu
-;;(straight-use-package 'cape)
-
 ;; (defun my/eglot-capf ()
 ;;   (setq-local completion-at-point-functions
 ;;               (list (cape-super-capf
 ;;                      #'eglot-completion-at-point
 ;;                      (cape-company-to-capf #'company-yasnippet)))))
 
-;;(use-package cape)
 ;;(add-hook 'eglot-managed-mode-hook #'my/eglot-capf)
 
 (use-package format-all
   :hook
   (prog-mode . format-all-ensure-formatter)
   (prog-mode . format-all-mode)
+
   :custom
-  (format-all-show-errors 'never))
+  (format-all-show-errors 'never)
+  :config
+  (setq-default format-all-formatters '(("Rust" (rustfmt "--edition" "2021"))))
+  :bind
+  ())
 
 (use-package better-jumper
   :config
@@ -2306,7 +2461,7 @@ Save the buffer of the current window and kill it"
   (global-set-key (kbd "C-j") #'better-jumper-jump-forward)
 
   (defun zino/better-jumper-advice (oldfun &rest args)
-    "Call OLDFUN with ARGS, then set a jump point with `better-jumper-set-jump' if the movement is more than one line."
+    "Call OLDFUN with ARGS, then set a jump point with `better-jumper-set-jump'."
     (let ((old-pos (point)))
       (better-jumper-set-jump old-pos)
       (apply oldfun args)
@@ -2460,7 +2615,7 @@ I find myself often do this workflow"
 (defun zino/inhibit-buffer-messages ()
   "Set `inhibit-message' buffer-locally."
   (setq-local inhibit-message t))
-(add-hook 'pdf-view-mode-hook 'zino/inhibit-buffer-messages)
+(remove-hook 'pdf-view-mode-hook 'zino/inhibit-buffer-messages)
 
 (use-package flycheck-vale
   :config
@@ -2534,13 +2689,15 @@ I find myself often do this workflow"
   :custom
   (elfeed-feeds
    '("https://www.reddit.com/r/emacs.rss"
-     ("https://news.ycombinator.com/rss" hacker))))
+     "https://news.ycombinator.com/rss"
+     "https://fasterthanli.me/index.xml")))
 
 (defconst zino/cc-style
   '("cc-mode"
     (c-offsets-alist . ((innamespace . [0])))))
 
 (c-add-style "cc-mode" zino/cc-style)
+(define-key c-mode-base-map [remap c-indent-line-or-region] 'indent-for-tab-command)
 
 (defun zino/toggle-window-dedication ()
   "Toggle window dedication in the selected window."
@@ -2564,7 +2721,8 @@ I find myself often do this workflow"
 
 (use-package god-mode
   :bind
-  ("<escape>" . god-mode-all))
+  ("S-<escape>" . god-mode-all)
+  ("C-c g" . god-local-mode))
 
 ;; deal with terminal escape characters correctly in compilation buffer
 (require 'ansi-color)
@@ -2593,28 +2751,26 @@ I find myself often do this workflow"
 
 (use-package pulsar
   :config
-  (pulsar-global-mode 1)
+  (pulsar-global-mode -1)
   :config
-  (add-hook 'next-error-hook #'pulsar-pulse-line))
+  (add-hook 'next-error-hook #'pulsar-pulse-line)
+  (setq pulsar-pulse-functions (delete 'recenter-top-bottom pulsar-pulse-functions))
+  :custom
+  (pulsar-delay 0.02)
+  (pulsar-face 'beacon-fallback-background)
+  (pulsar-iterations 3))
 
 (defun xref-pulse-momentarily ()
-  "Control the highlight in source buffer after executing `xref-next-line'"
+  "Control the highlight in source buffer after executing `xref-next-line'."
   (save-excursion
-    ;; (beginning-of-line)
-    ;; (beacon-blink)
-    (beginning-of-line)
-    (setq beg (point))
-    (end-of-line)
-    (setq end (point))
-    (pulsar-pulse-line)))
+    (let (beg end)
+      (beginning-of-line)
+      (setq beg (point))
+      (end-of-line)
+      (setq end (point))
+      (pulsar-pulse-line))))
 
 (global-set-key (kbd "C-c M-d") 'xref-find-definitions-other-frame)
-
-(defun prev-window ()
-  (interactive)
-  (other-window -1))
-
-(global-set-key (kbd "s-i") 'prev-window)
 
 (windmove-default-keybindings)
 
@@ -2636,11 +2792,123 @@ I find myself often do this workflow"
 (add-hook 'eshell-mode-hook #'setup-eshell-ivy-completion)
 
 (use-package fish-completion
-  :hook
-  (after-init . global-fish-completion-mode))
+  ;; This will cause org-mode to be extremely slow, may want to enable it only
+  ;; in `eshell' mode. But currently I am not dedicated to `eshell'
+  ;; :hook
+  ;; (after-init . global-fish-completion-mode)
+  )
+
+(use-package nyan-mode
+  :config
+  (nyan-mode -1))
+
+(use-package screenshot
+  :load-path "~/.config/emacs/manually_installed/screenshot/"
+  )
+
+
+(defun suppress-messages (old-fun &rest args)
+  (cl-flet ((silence (&rest args1) (ignore)))
+    (advice-add 'message :around #'silence)
+    (unwind-protect
+        (apply old-fun args)
+      (advice-remove 'message #'silence))))
+
+(advice-add 'pdf-view-mouse-set-region :around 'suppress-messages)
+(advice-add 'mouse-set-point :around 'suppress-messages)
+
+(global-set-key (kbd "s-3") (lambda ()
+                              "Quickly create 3 balanced vertically spit windows."
+                              (interactive)
+                              (split-window-right)
+                              (split-window-right)
+                              (balance-windows)))
+
+;; try `straight'
+(defvar bootstrap-version)
+(let ((bootstrap-file
+       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+      (bootstrap-version 6))
+  (unless (file-exists-p bootstrap-file)
+    (with-current-buffer
+        (url-retrieve-synchronously
+         "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
+         'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
+  (load bootstrap-file nil 'nomessage))
+
+(use-package explain-pause-mode
+  :straight (explain-pause-mode :type git :host github :repo "lastquestion/explain-pause-mode")
+  ;; :config
+  ;; (explain-pause-mode)
+  )
+
+(defun toggle-window-split ()
+  (interactive)
+  (if (= (count-windows) 2)
+      (let* ((this-win-buffer (window-buffer))
+	           (next-win-buffer (window-buffer (next-window)))
+	           (this-win-edges (window-edges (selected-window)))
+	           (next-win-edges (window-edges (next-window)))
+	           (this-win-2nd (not (and (<= (car this-win-edges)
+					                               (car next-win-edges))
+				                             (<= (cadr this-win-edges)
+					                               (cadr next-win-edges)))))
+	           (splitter
+	            (if (= (car this-win-edges)
+		                 (car (window-edges (next-window))))
+		              'split-window-horizontally
+		            'split-window-vertically)))
+	      (delete-other-windows)
+	      (let ((first-win (selected-window)))
+	        (funcall splitter)
+	        (if this-win-2nd (other-window 1))
+	        (set-window-buffer (selected-window) this-win-buffer)
+	        (set-window-buffer (next-window) next-win-buffer)
+	        (select-window first-win)
+	        (if this-win-2nd (other-window 1))))))
+
+(define-key ctl-x-4-map "t" 'toggle-window-split)
+
+(use-package breadcrumb
+  :load-path "~/.config/emacs/manually_installed/breadcrumb/")
+
+;;; This will mess up `org-ellipsis', don't use it for now.
+;; (use-package pp-c-l
+;;   :ensure nil
+;;   :load-path "~/.config/emacs/manually_installed"
+;;   :config
+;;   (pretty-control-l-mode)
+;;   )
+
+;; Restore frame name when read desktop file
+(push '(name . nil) frameset-filter-alist)
+
+(defun individual-visibility-source-blocks ()
+  "Fold some blocks in the current buffer."
+  (interactive)
+  (org-show-block-all)
+  (org-block-map
+   (lambda ()
+     (let ((case-fold-search t))
+       (when (and
+              (save-excursion
+                (beginning-of-line 1)
+                (looking-at org-block-regexp))
+              (cl-assoc
+               ':hidden
+               (cl-third
+                (org-babel-get-src-block-info))))
+         (org-hide-block-toggle))))))
+
+(add-hook
+ 'org-mode-hook
+ (function individual-visibility-source-blocks))
 
 ;; run as daemon
 (server-start)
 
 ;; Put this at the end otherwise `pcache' will still register itself
 (remove-hook 'kill-emacs-hook 'pcache-kill-emacs-hook)
+(put 'magit-diff-edit-hunk-commit 'disabled nil)
