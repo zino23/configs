@@ -80,20 +80,6 @@ set -gx CPPFLAGS "-I/usr/local/opt/libffi/include"
 # For pkg-config to find libffi you may need to set:
 set -gx PKG_CONFIG_PATH "/usr/local/opt/libffi/lib/pkgconfig"
 
-# The Boost C++ Libraries were successfully built!
-
-# The following directory should be added to compiler include paths:
-
-#     /Users/zino/gitlab/edgeworker/deps/boost-1.68.0
-
-# The following directory should be added to linker library paths:
-
-#     /Users/zino/gitlab/edgeworker/deps/boost-1.68.0/stage/lib
-
-# To install symlinks for compilers that will automatically use
-# ccache, prepend this directory to your PATH:
-#   /usr/local/opt/ccache/libexec
-
 ## let's fish
 function display_fish_user_paths -d 'Display contents $fish_user_paths with indexes'
     echo $fish_user_paths | tr " " "\n" | nl
@@ -139,3 +125,9 @@ set -gx PKG_CONFIG_PATH "/usr/local/opt/openssl@3/lib/pkgconfig"
 set -gx XDG_CONFIG_HOME $HOME/.config
 
 ## cmake
+
+## tmux
+if test ! -d '~/.tmux/plugins/tpm'
+    echo 'start to installing Tmux Plugin Manager tpm...'
+    git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+end
