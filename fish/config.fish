@@ -127,7 +127,8 @@ set -gx XDG_CONFIG_HOME $HOME/.config
 ## cmake
 
 ## tmux
-if test ! -d '~/.tmux/plugins/tpm'
+# it is sad that tilde `~` does not expand within quotes
+if test ! -d "$HOME/.tmux/plugins/tpm"
     echo 'start to installing Tmux Plugin Manager tpm...'
     git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 end
