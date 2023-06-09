@@ -1,6 +1,11 @@
 # Base16 Shell
+if test ! -f "$HOME/.config/base16-shell/profile_helper.fish"
+    echo "Download base16-shell ..."
+    git clone https://github.com/chriskempson/base16-shell.git ~/.config/base16-shell
+end
+
 if status --is-interactive
-    set BASE16_SHELL "$HOME/.config/base16-shell/"
+    set BASE16_SHELL "$HOME/.config/base16-shell"
     source "$BASE16_SHELL/profile_helper.fish"
 end
 
@@ -69,9 +74,11 @@ setenv LESS_TERMCAP_ZV $(tput rsubm)
 setenv LESS_TERMCAP_ZO $(tput ssupm)
 setenv LESS_TERMCAP_ZW $(tput rsupm)
 
-set -Ux PYENV_ROOT $HOME/.pyenv
-set -U fish_user_paths $PYENV_ROOT/bin $fish_user_paths
-pyenv init - | source
+if test -d "$HOME/.pyenv"
+    set -gx PYENV_ROOT $HOME/.pyenv
+    set -gx fish_user_paths $PYENV_ROOT/bin $fish_user_paths
+    pyenv init - | source
+end
 
 # For compilers to find libffi you may need to set:
 set -gx LDFLAGS "-L/usr/local/opt/libffi/lib"
@@ -129,6 +136,6 @@ set -gx XDG_CONFIG_HOME $HOME/.config
 ## tmux
 # it is sad that tilde `~` does not expand within quotes
 if test ! -d "$HOME/.tmux/plugins/tpm"
-    echo 'start to installing Tmux Plugin Manager tpm...'
+    echo 'Start to installing Tmux Plugin Manager tpm ...'
     git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 end
