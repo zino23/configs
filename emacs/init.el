@@ -1768,6 +1768,7 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp")))
   (add-to-list 'eglot-server-programs '(lua-mode . ("lua-language-server")))
   (add-to-list 'eglot-server-programs '(rust-mode . ("rust-analyzer")))
+  (add-to-list 'eglot-server-programs '(beancount-mode . ("beancount-language-server")))
 
   (defclass eglot-deno (eglot-lsp-server) ()
     :documentation "A custom class for deno lsp.")
@@ -1795,7 +1796,8 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (js-mode . eglot-ensure)
   (typescript-mode . eglot-ensure)
   (css-mode . eglot-ensure)
-  (python-mode . eglot-ensure))
+  (python-mode . eglot-ensure)
+  (beancount-mode . eglot-ensure))
 
 (use-package eldoc-box
   :bind
@@ -2967,6 +2969,12 @@ This is inserted into `xref-after-jump-hook'"
 (use-package modus-themes)
 
 (use-package org-ql)
+
+(use-package beancount
+  :ensure nil
+  :load-path "~/.config/emacs/manually_installed/beancount-mode/"
+  :config
+  (add-to-list 'auto-mode-alist '("\\.beancount\\'" . beancount-mode)))
 
 ;; run as daemon
 (server-start)
