@@ -118,6 +118,7 @@
     (if (active-minibuffer-window)
         (select-window (active-minibuffer-window)))
     (call-interactively 'ivy-next-line))
+  ;; this does not work, I dont' know why
   ;; (advice-add 'select-frame-by-name :around 'select-frame-by-name-advice)
   ;; (advice-remove 'select-frame-by-name 'select-frame-by-name-advice)
 
@@ -248,7 +249,10 @@
   (dired-create-destination-dirs 'always))
 
 (use-package eldoc
-  :ensure nil)
+  :ensure nil
+  :custom
+  (eldoc-echo-area-use-multiline-p 10)
+  (eldoc-idle-delay 0.05))
 
 ;; (use-package dirvish
 ;;   :custom
@@ -408,7 +412,7 @@
 
    ;;; unwrap
    ;; unwrap the enclosing sexp
-   ("M-D"   . sp-splice-sexp)
+   ("M-r"   . sp-splice-sexp)
 
    ;;; rewrap
    ("C-M-r" . sp-rewrap-sexp)
@@ -548,7 +552,8 @@ respectively."
                                                                    (interactive)))
   (setq counsel-fzf-cmd "fd -H -c never \"%s\"")
   :custom
-  (ivy-use-selectable-prompt t))
+  (ivy-use-selectable-prompt t)
+  (ivy-use-virtual-buffers nil))
 
 (define-key minibuffer-mode-map (kbd "S-SPC") nil)
 
@@ -792,8 +797,8 @@ respectively."
   (org-level-4 ((t (:inherit outline-4 :extend nil :height 1.05 :width normal :weight normal :family "Iosevka"))))
   (org-level-5 ((t (:inherit outline-5 :extend nil :height 1.0 :width normal :weight normal :family "Iosevka"))))
   (org-level-6 ((t (:inherit outline-6 :extend nil :height 1.0 :width normal :weight normal :family "Iosevka"))))
-  (org-block ((t (:inherit nil :extend t :background "#282c34"))));; "#353b45"
-  (org-block-begin-line ((t (:inherit all-faces :foreground "#83898d"))))  ;;"#5B6268"))))
+  ;; (org-block ((t (:inherit nil :extend t :background "#282c34")))) ;; the original: "#23272e"
+  (org-block-begin-line ((t (:inherit org-block :extend t :foreground "#83898d")))) ;; the original: "#5B6268"
   (org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
   (org-code ((t (:inherit nil :foreground "#da8548"))))
   (org-verbatim ((t (:foreground "#98be65"))))
@@ -811,13 +816,23 @@ respectively."
   (org-confirm-babel-evaluate nil)
   (org-deadline-warning-days 5)
   (org-imenu-depth 4)
+  (org-list-demote-modify-bullet nil)
   :bind
   (("C-c c" . org-capture)
    ("C-c a" . org-agenda)
    ("C-c l" . org-store-link)
    ("C-c H-i" . org-insert-link)
    ("s-<up>" . org-priority-up)
-   ("s-<down>" . org-priority-down)))
+   ("s-<down>" . org-priority-down))
+
+  :config
+  ;; Stop repositioning text when cycling visibility
+  ;; [reference](https://emacs.stackexchange.com/questions/31276/how-to-prevent-org-mode-from-repositioning-text-in-the-window-when-cycling-visib)
+  (remove-hook 'org-cycle-hook
+               'org-cycle-optimize-window-after-visibility-change)
+  :custom
+  (org-cycle-include-plain-lists t)
+  (org-list-indent-offset 2))
 
 (use-package org-agenda
   :ensure nil
@@ -833,7 +848,7 @@ respectively."
   (org-mode . org-bullets-mode)
   :custom
   ;; (org-bullets-bullet-list '("⊛" "◎" "◉" "⊚" "○" "●"))
-  (org-bullets-bullet-list '("⊛""◇" "✳" "⊚" "○" "●")))
+  (org-bullets-bullet-list '("⊛""◇" "✳" "○" "⊚" "●")))
 
 ;; Make sure org-indent face is available
 (require 'org-indent)
@@ -1076,7 +1091,13 @@ Similar to `org-capture' like behavior"
   (pdf-view-display-size 'fit-page)
   (pdf-view-resize-factor 1.1))
 
-;;(add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode))
+(use-package nov
+  :config
+  (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode))
+  (define-key nov-mode-map (kbd "n") 'next-line)
+  (define-key nov-mode-map (kbd "p") 'previous-line)
+  (define-key nov-mode-map (kbd "f") 'forward-char)
+  (define-key nov-mode-map (kbd "b") 'backward-char))
 ;;(defun my-nov-font-setup ()
 ;;  (variable-pitch-mode)
 ;;  (display-line-numbers-mode -1)
@@ -1199,14 +1220,22 @@ Similar to `org-capture' like behavior"
 (blink-cursor-mode)
 (setq blink-cursor-blinks 0)
 
-;; bookmarks
-(setq bookmark-default-file (concat user-emacs-directory "bookmarks"))
+(use-package bookmark
+  :ensure nil
+  :custom
+  (bookmark-default-file (concat user-emacs-directory "bookmarks"))
+  ;; Column width of bookmark name in `bookmark-menu' buffer
+  (bookmark-bmenu-file-column 80))
 
 ;; registers
-(setq register-preview-delay 0.2)
-;; end_mastering_emacs
+(use-package register
+  :ensure nil
+  :custom
+  (register-preview-delay 0.1)
+  :bind
+  ("C-]" . insert-register))
 
-(setq ivy-use-virtual-buffers nil)
+;; end_mastering_emacs
 
 ;; begin_move_and_edit
 
@@ -1387,10 +1416,10 @@ Do not prompt me to create parent directory"
   (swiper-isearch (car swiper-history)))
 (global-set-key (kbd "s-F") 'zino/swiper-isearch-again)
 
-(defun zino/delete-forward-char ()
-  "Delete the char under cursor and keep it in the `kill-ring'."
-  (interactive)
-  (delete-forward-char 1 t))
+(defun zino/delete-forward-char (n)
+  "Delete the following N chars and keep it in the `kill-ring'."
+  (interactive "p*")
+  (delete-char n t))
 
 (global-set-key (kbd "C-d") 'zino/delete-forward-char)
 
@@ -1403,7 +1432,7 @@ Do not prompt me to create parent directory"
 
 (defun newline-above ()
   "Newline like vim's O."
-  (interactive)
+  (interactive p)
   (beginning-of-line)
   (open-line 1)
   (indent-for-tab-command))
@@ -1526,13 +1555,9 @@ point reaches the beginning or end of the buffer, stop there."
   :hook
   (dired-mode . hl-line-mode)
   :config
+  (set-face-attribute 'hl-line nil :inherit nil :background "#21242b") ;;"#2e3b49")
   ;; original region face #42444a
-  (set-face-attribute 'hl-line nil :inherit nil :background "#2e3b49") ;; #42444a")
-  (set-face-attribute 'region nil :inherit nil :background "dark slate gray"));;"#113d69"));;"#2e4a54")) ;;"#406389")) ;; "#42444a")) ;; 3a3c42"))
-
-(add-hook 'pdf-view-mode-hook (lambda ()
-                                "More readable `region' highlight in `pdf-view-mode'."
-                                (face-remap-add-relative 'region '(:background "#42444a"))))
+  (set-face-attribute 'region nil :inherit nil :distant-foreground "#959ba5" :background "#42444a"));; "dark slate gray"));;"#113d69"));;"#2e4a54")) ;;"#406389")) ;; "#42444a")) ;; #4f5b66
 
 (use-package move-text
   :config
@@ -1587,16 +1612,15 @@ point reaches the beginning or end of the buffer, stop there."
 
 (use-package lsp-mode
   :init
-  (setq lsp-clangd-binary-path "/Library/Developer/CommandLineTools/usr/bin/clangd") ;; "/usr/local/opt/llvm/bin/clangd")
-  (setq lsp-clients-lua-language-server-bin "/usr/local/bin/lua-language-server")
+  (setq lsp-clangd-binary-path (executable-find "clangd"))
+  (setq lsp-clients-lua-language-server-bin (executable-find "lua-language-server"))
   ;; :hook
   ;; (
-  ;;; bug with company and template completion, use eglot
+  ;;; bug with company and template completion, switch to eglot
   ;; (python-mode . lsp)
   ;; (lua-mode . lsp)
   ;; (c-mode . lsp)
   ;; (c++-mode . lsp)
-
   ;; (cmake-mode . lsp)
   ;; (go-mode . lsp)
   ;; (rust-mode . lsp)
@@ -1605,7 +1629,6 @@ point reaches the beginning or end of the buffer, stop there."
   ;; (html-mode . lsp)
   ;; (css-mode . lsp)
   ;; (js-mode . lsp)
-   ;;; miscs
   ;; (nginx-mode . lsp)
   ;; )
   :config
@@ -1666,31 +1689,21 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   :custom
   (rustic-lsp-client 'eglot))
 
+(use-package cargo
+  :hook
+  (rust-mode . cargo-minor-mode))
+
 ;; (use-package dap-mode
 ;;   :config
 ;;   (dap-mode 1)
 ;;   (dap-ui-mode 1)
 ;;   (require 'dap-dlv-go))
 
-;; (advice-add 'xref-find-references :before
-;;             (lambda (identifier)
-;;               "Advice function for `xref-find-references'."
-;;               (windmove-display-left)))
-
-(advice-remove 'xref-find-references 'windmove-display-left)
-
 (with-eval-after-load 'lsp-mode
   ;; :global/:workspace/:file
   (setq lsp-modeline-diagnostics-scope :workspace))
 
 (setq lsp-clients-clangd-args '("--header-insertion=iwyu"))
-
-(with-eval-after-load 'c-or-c++-mode
-  (define-key c-mode-base-map [remap c-toggle-comment-style] 'copy-line)
-  (define-key c-mode-base-map [remap beginning-of-defun] 'c-beginning-of-defun)
-  (define-key c-mode-base-map [remap end-of-defun] 'c-end-of-defun)
-  (define-key c-mode-base-map (kbd ("C-M-a")) 'sp-backward-up-sexp)
-  (define-key c-mode-base-map (kbd ("C-M-e")) 'sp-up-sexp))
 
 (setq lsp-intelephense-multi-root nil)
 
@@ -1750,14 +1763,11 @@ TODO: optimize this to use `display-buffer-in-side-window'."
 
   :config
   (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
-  (add-to-list 'eglot-server-programs '(perl-mode . ("/usr/local/Cellar/perl/5.34.0/lib/perl5/site_perl/5.34.0/Perl/LanguageServer.pm")))
   (add-to-list 'eglot-server-programs '(c-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
-  ;; (add-to-list 'eglot-server-programs '(cmake-mode
-  ;; . ("/home/cs144/.local/bin/cmake-language-server"))) ;; cs144's virtual machine
   (add-to-list 'eglot-server-programs '(cmake-mode . ("cmake-language-server")))
   (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp")))
-  (add-to-list 'eglot-server-programs '(lua-mode . ("/usr/local/Cellar/lua-language-server/3.5.2/libexec/bin/lua-language-server")))
-  (add-to-list 'eglot-server-programs '(rust-mode . ("/usr/local/bin/rust-analyzer")))
+  (add-to-list 'eglot-server-programs '(lua-mode . ("lua-language-server")))
+  (add-to-list 'eglot-server-programs '(rust-mode . ("rust-analyzer")))
 
   (defclass eglot-deno (eglot-lsp-server) ()
     :documentation "A custom class for deno lsp.")
@@ -1910,6 +1920,7 @@ TODO: optimize this to use `display-buffer-in-side-window'."
 (use-package button-lock)
 
 (use-package anki-editor
+  ;; check https://github.com/louietan/anki-editor/issues/76
   :hook
   (org-capture-after-finalize . zino/anki-editor-reset-cloze-num)
   (org-capture . anki-editor-mode)
@@ -1959,8 +1970,13 @@ Do not increase cloze number"
    "c" 'zino/anki-editor-cloze-region-auto-incr
    "p" 'zino/anki-editor-push-tree
    "b" 'zino/anki-editor-push-buffer))
-;; check https://github.com/louietan/anki-editor/issues/76
-;; end_anki_editor
+
+(use-package font-lock
+  :ensure nil
+  :custom-face
+  (font-lock-comment-face ((t (:foreground "#83898d")))) ;; the original: "#5B6268"
+  ;; (font-lock-doc-face ((t (:foreground "#7F9F7F"))));;"#9FC59F")))) ;;"#8CA276")))) ;; the original: "#83898d"
+  )
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
@@ -1969,9 +1985,6 @@ Do not increase cloze number"
  ;; If there is more than one, they won't work right.
  '(completions-common-part ((t (:background "#2c3946" :foreground "#7bb6e2" :weight bold))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
- '(font-lock-comment-face ((t (:foreground "#83898d"))))
- '(font-lock-doc-face ((t (:foreground "#9FC59F"))))
- '(font-lock-keyword-face ((t (:foreground "#51afef" :weight normal))))
  '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
  '(next-error ((t (:inherit (bold region)))))
  '(org-remark-highlighter ((t (:background "#023047" :underline nil))))
@@ -1984,6 +1997,7 @@ Do not increase cloze number"
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(auto-revert-interval 5)
+ '(bmkp-last-as-first-bookmark-file "/Users/zino/.config/emacs/bookmarks")
  '(comment-style 'indent)
  '(connection-local-criteria-alist
    '(((:application eshell)
@@ -2069,15 +2083,14 @@ Do not increase cloze number"
      (tramp-connection-local-default-system-profile
       (path-separator . ":")
       (null-device . "/dev/null"))))
- '(dabbrev-case-fold-search t)
- '(dabbrev-case-replace nil)
  '(display-line-numbers-width-start nil)
  '(eldoc-echo-area-use-multiline-p 10)
  '(eldoc-idle-delay 0.05)
  '(fill-column 80)
  '(flycheck-checkers
-   '(rustic-clippy eglot-check golangci-lint vale rustic-clippy ada-gnat asciidoctor asciidoc awk-gawk bazel-build-buildifier bazel-module-buildifier bazel-starlark-buildifier bazel-workspace-buildifier c/c++-clang c/c++-gcc c/c++-cppcheck cfengine chef-foodcritic coffee coffee-coffeelint coq css-csslint css-stylelint cuda-nvcc cwl d-dmd dockerfile-hadolint elixir-credo emacs-lisp emacs-lisp-checkdoc ember-template erlang-rebar3 erlang eruby-erubis eruby-ruumba fortran-gfortran go-gofmt go-golint go-vet go-build go-test go-errcheck go-unconvert go-staticcheck groovy haml handlebars haskell-stack-ghc haskell-ghc haskell-hlint html-tidy javascript-eslint javascript-jshint javascript-standard json-jsonlint json-python-json json-jq jsonnet less less-stylelint llvm-llc lua-luacheck lua markdown-markdownlint-cli markdown-mdl nix nix-linter opam perl perl-perlcritic php php-phpmd php-phpcs processing proselint protobuf-protoc protobuf-prototool pug puppet-parser puppet-lint python-flake8 python-pylint python-pycompile python-pyright python-mypy r-lintr racket rpm-rpmlint rst-sphinx rst ruby-rubocop ruby-standard ruby-reek ruby-rubylint ruby ruby-jruby rust-cargo rust rust-clippy scala scala-scalastyle scheme-chicken scss-lint scss-stylelint sass/scss-sass-lint sass scss sh-bash sh-posix-dash sh-posix-bash sh-zsh sh-shellcheck slim slim-lint sql-sqlint systemd-analyze tcl-nagelfar terraform terraform-tflint tex-chktex tex-lacheck texinfo textlint typescript-tslint verilog-verilator vhdl-ghdl xml-xmlstarlet xml-xmllint yaml-jsyaml yaml-ruby yaml-yamllint))
+   '(rustic-clippy eglot-check vale rustic-clippy ada-gnat asciidoctor asciidoc awk-gawk bazel-build-buildifier bazel-module-buildifier bazel-starlark-buildifier bazel-workspace-buildifier c/c++-clang c/c++-gcc c/c++-cppcheck cfengine chef-foodcritic coffee coffee-coffeelint coq css-csslint css-stylelint cuda-nvcc cwl d-dmd dockerfile-hadolint elixir-credo emacs-lisp emacs-lisp-checkdoc ember-template erlang-rebar3 erlang eruby-erubis eruby-ruumba fortran-gfortran go-gofmt go-golint go-vet go-build go-test go-errcheck go-unconvert go-staticcheck groovy haml handlebars haskell-stack-ghc haskell-ghc haskell-hlint html-tidy javascript-eslint javascript-jshint javascript-standard json-jsonlint json-python-json json-jq jsonnet less less-stylelint llvm-llc lua-luacheck lua markdown-markdownlint-cli markdown-mdl nix nix-linter opam perl perl-perlcritic php php-phpmd php-phpcs processing proselint protobuf-protoc protobuf-prototool pug puppet-parser puppet-lint python-flake8 python-pylint python-pycompile python-pyright python-mypy r-lintr racket rpm-rpmlint rst-sphinx rst ruby-rubocop ruby-standard ruby-reek ruby-rubylint ruby ruby-jruby rust-cargo rust rust-clippy scala scala-scalastyle scheme-chicken scss-lint scss-stylelint sass/scss-sass-lint sass scss sh-bash sh-posix-dash sh-posix-bash sh-zsh sh-shellcheck slim slim-lint sql-sqlint systemd-analyze tcl-nagelfar terraform terraform-tflint tex-chktex tex-lacheck texinfo textlint typescript-tslint verilog-verilator vhdl-ghdl xml-xmlstarlet xml-xmllint yaml-jsyaml yaml-ruby yaml-yamllint))
  '(flycheck-go-golint-executable "golangci-lint")
+ '(helm-split-window-default-side 'right)
  '(ibuffer-formats
    '((mark modified read-only locked " "
            (name 64 64 :left :elide)
@@ -2091,10 +2104,12 @@ Do not increase cloze number"
            " " filename)))
  '(magit-todos-insert-after '(bottom) nil nil "Changed by setter of obsolete option `magit-todos-insert-at'")
  '(max-mini-window-height 0.3)
- '(next-error-highlight 3)
- '(next-error-highlight-no-select 3)
+ '(next-error-highlight t)
+ '(next-error-highlight-no-select t)
  '(next-error-message-highlight t)
  '(nyan-cat-face-number 1)
+ '(org-cycle-include-plain-lists t nil nil "Customized with use-package org")
+ '(org-list-indent-offset 2 nil nil "Customized with use-package org")
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(popper-group-function 'popper-group-by-projectile)
@@ -2112,11 +2127,13 @@ Do not increase cloze number"
      ((flymake flymake.el))
      ((flymake flymake.el))
      (lsp-mode)) nil nil "Customized with use-package lsp-mode")
- '(xref-history-storage 'xref-window-local-history))
+ '(windmove-wrap-around t)
+ '(xref-history-storage 'xref-window-local-history)
+ '(xref-search-program 'ripgrep))
 
 (use-package winner
-  :config
-  (winner-mode))
+  :hook
+  (after-init . winner-mode))
 
 ;; lua mode
 (use-package lua-mode
@@ -2138,6 +2155,13 @@ Do not increase cloze number"
   :ensure nil
   :config
   (add-to-list 'auto-mode-alist '("\\.inl$" . c++-mode)))
+
+(with-eval-after-load 'c-or-c++-mode
+  (define-key c-mode-base-map [remap c-toggle-comment-style] 'copy-line)
+  (define-key c-mode-base-map [remap beginning-of-defun] 'c-beginning-of-defun)
+  (define-key c-mode-base-map [remap end-of-defun] 'c-end-of-defun)
+  (define-key c-mode-base-map (kbd ("C-M-a")) 'sp-backward-up-sexp)
+  (define-key c-mode-base-map (kbd ("C-M-e")) 'sp-up-sexp))
 
 (defun makefile-mode-setup ()
   (setq-local company-dabbrev-ignore-case t)
@@ -2177,7 +2201,9 @@ Do not increase cloze number"
          ("C-M-/" . dabbrev-expand))
   ;; Other useful Dabbrev configurations.
   :custom
-  (dabbrev-ignored-buffer-regexps '("\\.\\(?:pdf\\|jpe?g\\|png\\)\\'")))
+  (dabbrev-ignored-buffer-regexps '("\\.\\(?:pdf\\|jpe?g\\|png\\)\\'"))
+  (dabbrev-case-fold-search t)
+  (dabbrev-case-replace nil))
 
 (use-package corfu
   :custom
@@ -2241,7 +2267,7 @@ Do not increase cloze number"
   ;;        ("C-c p t" . complete-tag)        ;; etags
   ;;        ("C-c p d" . cape-dabbrev)        ;; or dabbrev-completion
   ;;        ("C-c p h" . cape-history)
-  ;; ("C-c p f" . cape-file)
+  ;;        ("C-c p f" . cape-file)
   ;;        ("C-c p k" . cape-keyword)
   ;;        ("C-c p s" . cape-symbol)
   ;;        ("C-c p a" . cape-abbrev)
@@ -2316,15 +2342,6 @@ Do not increase cloze number"
                             (setq tab-width 4)))
 (setq tab-stop-list '(4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64 68 72 76 80))
 ;; end_work_computer
-
-;; begin_tramp
-(setq remote-file-name-inhibit-cache nil)
-(setq vc-ignore-dir-regexp
-      (format "%s\\|%s"
-              vc-ignore-dir-regexp
-              tramp-file-name-regexp))
-(setq tramp-verbose 1)
-;; end_tramp
 
 (global-set-key (kbd "<RET>") #'newline)
 
@@ -2480,7 +2497,11 @@ Save the buffer of the current window and kill it"
   (advice-add 'c-end-of-defun :around 'zino/better-jumper-advice)
   (advice-add 'lua-beginning-of-proc :around 'zino/better-jumper-advice)
   (advice-add 'lua-end-of-proc :around 'zino/better-jumper-advice)
-  (advice-add 'org-open-at-point :around 'zino/better-jumper-advice))
+  (advice-add 'org-open-at-point :around 'zino/better-jumper-advice)
+  (advice-add 'counsel-bookmark :around 'zino/better-jumper-advice)
+  (advice-add 'mark-whole-buffer :around 'zino/better-jumper-advice)
+  (advice-add 'beginning-of-defun :around 'zino/better-jumper-advice)
+  (advice-add 'end-of-defun :around 'zino/better-jumper-advice))
 
 (use-package org-remark
   :config
@@ -2488,7 +2509,41 @@ Save the buffer of the current window and kill it"
   (require 'org-remark-global-tracking)
   (org-remark-global-tracking-mode +1)
 
-  ;;; `org-remark' builtin function redefinition and helper function
+  :bind
+  ;; (keyboard-translate ?\C-m ?\H-m)
+  (("C-x C-n m" . org-remark-mark)
+   ("C-x C-n o" . org-remark-open)
+   ("C-x C-n v" . org-remark-view)
+   ("C-x C-n ]" . org-remark-view-next)
+   ("C-x C-n [" . org-remark-view-prev)
+   ("C-x C-n r" . org-remark-remove)
+   ("C-x C-n d" . org-remark-delete)
+   ("C-x C-n y" . org-remark-mark-yellow)
+   ("C-x C-n l" . org-remark-mark-red-line)
+   ("C-x C-n e" . zino/org-remark-mark-and-open)
+   ("C-x C-n t" . org-remark-toggle))
+  :custom
+  (org-remark-notes-display-buffer-action
+   '((display-buffer-in-side-window)
+     (side . left)
+     (slot . 1)
+     (window-width . 45)))
+
+  :init
+  (defun zino/org-remark-notes-file-name-function ()
+    "Customize notes file."
+    (let ((notes-dir (concat "~/Documents/org-remark" (file-name-directory (buffer-file-name)))))
+      (make-directory notes-dir t)
+      (concat notes-dir (file-name-base (buffer-file-name)) "-notes.org")))
+  :custom
+  (org-remark-notes-file-name 'zino/org-remark-notes-file-name-function)
+
+  :custom-face
+  (org-remark-highlighter ((t (:background "#023047" :underline nil)))))
+
+(use-package org-remark
+  :config
+    ;;; `org-remark' builtin function redefinition and helper function
   (defun org-remark-open (point &optional view-only)
     "Open remark note buffer if there is notes from `point' to the beginning
 of the line.
@@ -2529,42 +2584,15 @@ I find myself often do this workflow"
     (org-remark-mark (region-beginning) (region-end))
     (org-remark-open (point)))
 
-  ;;; advices
   (advice-add 'org-remark-open :after (lambda (point &optional view-only)
                                         "Show subtree after open notes buffer."
-                                        (org-show-subtree)))
+                                        (org-show-subtree))))
 
-  :bind
-  ;; (keyboard-translate ?\C-m ?\H-m)
-  (("C-x C-n m" . org-remark-mark)
-   ("C-x C-n o" . org-remark-open)
-   ("C-x C-n v" . org-remark-view)
-   ("C-x C-n ]" . org-remark-view-next)
-   ("C-x C-n [" . org-remark-view-prev)
-   ("C-x C-n r" . org-remark-remove)
-   ("C-x C-n d" . org-remark-delete)
-   ("C-x C-n y" . org-remark-mark-yellow)
-   ("C-x C-n l" . org-remark-mark-red-line)
-   ("C-x C-n e" . zino/org-remark-mark-and-open)
-   ("C-x C-n t" . org-remark-toggle))
+(use-package org-bulletproof
+  :config
+  (global-org-bulletproof-mode +1)
   :custom
-  (org-remark-notes-display-buffer-action
-   '((display-buffer-in-side-window)
-     (side . left)
-     (slot . 1)
-     (window-width . 45)))
-
-  :init
-  (defun zino/org-remark-notes-file-name-function ()
-    "Customize notes file."
-    (let ((notes-dir (concat "~/Documents/org-remark" (file-name-directory (buffer-file-name)))))
-      (make-directory notes-dir t)
-      (concat notes-dir (file-name-base (buffer-file-name)) "-notes.org")))
-  :custom
-  (org-remark-notes-file-name 'zino/org-remark-notes-file-name-function)
-
-  :custom-face
-  (org-remark-highlighter ((t (:background "#023047" :underline nil)))))
+  (org-bulletproof-default-ordered-bullet "1."))
 
 (use-package graphviz-dot-mode
   :ensure t
@@ -2602,15 +2630,22 @@ I find myself often do this workflow"
   :config
   (global-set-key (kbd "C-=") 'er/expand-region))
 
-(defun zino/isearch-region-or-forward ()
-  "Isearch thing in region if region is active, otherwise perform normal isearch."
-  (interactive)
-  (if (use-region-p)
-      (isearch-forward-thing-at-point)
-    (isearch-forward)))
+(use-package isearch
+  :ensure nil
+  :custom
+  (isearch-lazy-count t)
+  (lazy-count-prefix-format nil)
+  (lazy-count-suffix-format "  (%s/%s)")
+  :config
+  (defun zino/isearch-region-or-forward ()
+    "Isearch thing in region if region is active, otherwise perform normal isearch."
+    (interactive)
+    (if (use-region-p)
+        (isearch-forward-thing-at-point)
+      (isearch-forward)))
 
-(global-set-key (kbd "C-s-s") #'zino/isearch-region-or-forward)
-(put 'zino/isearch-region-or-forward 'repeat-map isearch-repeat-map)
+  (global-set-key (kbd "C-s-s") #'zino/isearch-region-or-forward)
+  (put 'zino/isearch-region-or-forward 'repeat-map isearch-repeat-map))
 
 (defun zino/inhibit-buffer-messages ()
   "Set `inhibit-message' buffer-locally."
@@ -2709,10 +2744,10 @@ I find myself often do this workflow"
     (message "The current window is not dedicated")))
 
 (use-package flycheck-golangci-lint
-  :hook
-  (flycheck-mode . flycheck-golangci-lint-setup)
+  ;; :hook
+  ;; (flycheck-mode . flycheck-golangci-lint-setup)
   :custom
-  (flycheck-golangci-lint-config "~/gitlab/er-scheduler/.golangci.yml")
+  (flycheck-golangci-lint-config nil)
   (flycheck-golangci-lint-enable-all t))
 
 (use-package org-present)
@@ -2756,12 +2791,14 @@ I find myself often do this workflow"
   (add-hook 'next-error-hook #'pulsar-pulse-line)
   (setq pulsar-pulse-functions (delete 'recenter-top-bottom pulsar-pulse-functions))
   :custom
-  (pulsar-delay 0.02)
+  (pulsar-delay 0.05)
   (pulsar-face 'beacon-fallback-background)
   (pulsar-iterations 3))
 
 (defun xref-pulse-momentarily ()
-  "Control the highlight in source buffer after executing `xref-next-line'."
+  "Control the highlight in source buffer after executing `xref-next-line'.
+
+This is inserted into `xref-after-jump-hook'"
   (save-excursion
     (let (beg end)
       (beginning-of-line)
@@ -2803,9 +2840,7 @@ I find myself often do this workflow"
   (nyan-mode -1))
 
 (use-package screenshot
-  :load-path "~/.config/emacs/manually_installed/screenshot/"
-  )
-
+  :load-path "~/.config/emacs/manually_installed/screenshot/")
 
 (defun suppress-messages (old-fun &rest args)
   (cl-flet ((silence (&rest args1) (ignore)))
@@ -2905,6 +2940,33 @@ I find myself often do this workflow"
 (add-hook
  'org-mode-hook
  (function individual-visibility-source-blocks))
+
+(use-package prism)
+
+(use-package bookmark+
+  :load-path "~/.config/emacs/manually_installed/bookmark-plus")
+
+(use-package tla-mode
+  :load-path "~/.config/emacs/manually_installed/tla-mode")
+
+(use-package tla-tools
+  :load-path "~/.config/emacs/manually_installed/tla-tools")
+
+(use-package tree-sitter-langs)
+
+(use-package tree-sitter
+  :after tree-sitter-langs
+  :config
+  ;; (global-tree-sitter-mode)
+  (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode))
+
+(use-package separedit
+  :bind
+  ("C-c C-'" . separedit))
+
+(use-package modus-themes)
+
+(use-package org-ql)
 
 ;; run as daemon
 (server-start)
