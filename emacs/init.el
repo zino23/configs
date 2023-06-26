@@ -712,7 +712,7 @@ respectively."
 ;; `ivy-xref' cannot easily show xref hit in a window. Don't use it for now
 (use-package ivy-xref
   :ensure t
-  :init
+  ;; :init
   ;; xref initialization is different in Emacs 27 - there are two different
   ;; variables which can be set rather than just one
   ;; (when (>= emacs-major-version 27)
