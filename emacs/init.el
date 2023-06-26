@@ -1,5 +1,9 @@
 ;; init.el --- Startup file for emacs -*- lexical-binding: t -*-
+;;
+;;; Commentary:
+;; Here is some magic that can grow hands on your mind, and vice versa.
 
+;;; Code:
 (setq load-prefer-newer t)
 
 ;; take the full control, don't load `default.el'
@@ -27,8 +31,6 @@
 (setq use-package-always-ensure t)
 
 (setenv "PATH" (concat "/Library/TeX/texbin" (getenv "PATH")))
-(setenv "clang-format" "~/.local/bin/clang-format")
-
 (setq exec-path (append '("/Library/TeX/texbin") exec-path))
 
 (setq confirm-kill-emacs #'yes-or-no-p)
@@ -36,7 +38,7 @@
 
 (set-default-coding-systems 'utf-8)
 (setq inhibit-startup-screen t)
-(size-indication-mode 1)
+(size-indication-mode -1)
 (scroll-bar-mode -1)
 (tool-bar-mode -1)
 (tooltip-mode nil)
@@ -51,8 +53,15 @@
 ;; Display line numbers in mode line
 (line-number-mode 1)
 (setq help-window-select t)
-(setq desktop-auto-save-timeout 60)
-(desktop-save-mode 1)
+
+(use-package desktop
+  :ensure nil
+  :config
+  (setq desktop-auto-save-timeout 60)
+  (desktop-save-mode 1)
+
+  ;; Restore frame name when read desktop file
+  (push '(name . nil) frameset-filter-alist))
 
 (setq save-silently t)
 
@@ -243,10 +252,63 @@
   :commands
   (dired dired-jump)
   :bind
-  (("C-x C-j" . dired-jump))
+  (("C-x C-j" . dired-jump)
+   :map dired-mode-map
+   ("(" . dired-hide-details-mode))
+  :hook
+  (dired-mode . auto-revert-mode)
+  ;; Drag-and-drop to `dired'
+  (dired-mode . org-download-enable)
   :custom
   (dired-dwim-target t)
-  (dired-create-destination-dirs 'always))
+  (dired-create-destination-dirs 'always)
+  (dired-listing-switches "-alGuh --group-directories-first")
+  (auto-revert-verbose nil)
+  :config
+  (setq ls-lisp-use-insert-directory-program t)
+  ;; `ls' does not have `--group-directories-first' option, use `gls'.
+  (setq insert-directory-program "/usr/local/bin/gls"))
+
+(use-package dirvish
+  :init
+  (dirvish-override-dired-mode)
+  :custom
+  (dirvish-quick-access-entries ; It's a custom option, `setq' won't work
+   '(("h" "~/"                          "Home")
+     ("d" "~/Downloads/"                "Downloads")
+     ("m" "/mnt/"                       "Drives")
+     ("t" "~/.local/share/Trash/files/" "TrashCan")))
+  :config
+  ;; (dirvish-peek-mode) ; Preview files in minibuffer
+  ;; (dirvish-side-follow-mode) ; similar to `treemacs-follow-mode'
+  (setq dirvish-mode-line-format
+        '(:left (sort symlink) :right (omit yank index)))
+  (setq dirvish-attributes
+        '(all-the-icons file-time file-size collapse subtree-state vc-state git-msg))
+  (setq delete-by-moving-to-trash t)
+  (setq dired-listing-switches
+        "-l --almost-all --human-readable --group-directories-first --no-group")
+  :bind ; Bind `dirvish|dirvish-side|dirvish-dwim' as you see fit
+  (("C-c f" . dirvish-fd)
+   :map dirvish-mode-map ; Dirvish inherits `dired-mode-map'
+   ("a"   . dirvish-quick-access)
+   ("f"   . dirvish-file-info-menu)
+   ("y"   . dirvish-yank-menu)
+   ("N"   . dirvish-narrow)
+   ("^"   . dired-up-directory)
+   ("l"   . dirvish-history-last)
+   ("h"   . dirvish-history-jump) ; remapped `describe-mode'
+   ("s"   . dirvish-quicksort)    ; remapped `dired-sort-toggle-or-edit'
+   ("v"   . dirvish-vc-menu)      ; remapped `dired-view-file'
+   ("TAB" . dirvish-subtree-toggle)
+   ("M-f" . dirvish-history-go-forward)
+   ("M-b" . dirvish-history-go-backward)
+   ("M-l" . dirvish-ls-switches-menu)
+   ("M-m" . dirvish-mark-menu)
+   ("M-t" . dirvish-layout-toggle)
+   ("M-s" . dirvish-setup-menu)
+   ("M-e" . dirvish-emerge-menu)
+   ("M-j" . dirvish-fd-jump)))
 
 (use-package eldoc
   :ensure nil
@@ -267,6 +329,12 @@
 
 ;; Full screen
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
+(add-to-list 'default-frame-alist '(ns-appearance . dark))
+
+;; Natual Title Bar is disabled by default. Enable it by setting:
+;; defaults write org.gnu.Emacs TransparentTitleBar DARK
+;; Reference: https://github.com/railwaycat/homebrew-emacsmacport/wiki/Natural-Title-Bar
+(add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
 
 ;; check if a font exist
 ;; (member "Sarasa Mono SC Nerd" (font-family-list))
@@ -347,13 +415,10 @@
 (use-package all-the-icons-dired
   :if
   (display-graphic-p)
-  :hook
-  (dired-mode . all-the-icons-dired-mode)
-  (dired-mode . auto-revert-mode)
-  ;; Drag-and-drop to `dired'
-  (dired-mode . org-download-enable)
-  :custom
-  (auto-revert-verbose nil))
+  ;;; This will show two columns of icons in `dirvish' mode
+  ;; :hook
+  ;; (dired-mode . all-the-icons-dired-mode)
+  )
 
 (use-package doom-modeline
   :init (doom-modeline-mode 1)
@@ -636,16 +701,47 @@ respectively."
   ("C-x g" . magit-status)
   :custom
   (magit-git-executable "/usr/local/bin/git")
+  (magit-display-buffer-function 'magit-display-buffer-same-window-except-diff-v1)
+  ;; `ediff' on a hunk only shows two window. Hide the one displaying common parts.
+  (magit-ediff-dwim-show-on-hunks t)
+  (ediff-split-window-function 'split-window-horizontally)
+  ;; [use] magit-log-buffer-file: show a region or buffer's commit history
+  (magit-diff-refine-hunk 'all)
+  (magit-completing-read-function 'ivy-completing-read))
+
+;; `ivy-xref' cannot easily show xref hit in a window. Don't use it for now
+(use-package ivy-xref
+  :ensure t
+  :init
+  ;; xref initialization is different in Emacs 27 - there are two different
   ;; variables which can be set rather than just one
-  (when (>= emacs-major-version 27)
-    (setq xref-show-definitions-function #'ivy-xref-show-defs))
-  ;; Necessary in Emacs < 27. In Emacs 27 it will affect all xref-based
+  ;; (when (>= emacs-major-version 27)
+  ;;   (setq xref-show-definitions-function #'ivy-xref-show-defs))
+  ;; Necessary in Emacs <27. In Emacs 27 it will affect all xref-based
   ;; commands other than xref-find-definitions (e.g. project-find-regexp)
   ;; as well
-  (setq xref-show-xrefs-function 'ivy-xref-show-xrefs)
-  (magit-display-buffer-function 'magit-display-buffer-same-window-except-diff-v1)
-  ;; [use] magit-log-buffer-file: show a region or buffer's commit history
+  ;; (setq xref-show-xrefs-function #'ivy-xref-show-xrefs)
   )
+
+;; https://github.com/dandavison/magit-delta/issues/6
+;; (with-eval-after-load 'magit-delta
+;;   (set-face-attribute 'magit-diff-added-highlight nil
+;;                       :background "#3e493d") ;; #002800
+;;   (set-face-attribute 'magit-diff-added nil
+;;                       :background "#3e493d")
+;;   (set-face-attribute 'magit-diff-removed-highlight nil
+;;                       :background "#4f343a") ;; #3f0001
+;;   (set-face-attribute 'magit-diff-removed nil
+;;                       :background "#4f343a"))
+
+;; (add-hook 'magit-delta-mode-hook
+;;           (lambda ()
+;;             (setq face-remapping-alist
+;;                   (seq-difference face-remapping-alist
+;;                                   '((magit-diff-removed . default)
+;;                                     (magit-diff-removed-highlight . default)
+;;                                     (magit-diff-added . default)
+;;                                     (magit-diff-added-highlight . default))))))
 
 (use-package org-roam
   :custom
@@ -679,7 +775,34 @@ respectively."
 ;;   :hook
 ;;   (magit-mode . magit-todos-mode))
 
-(use-package hl-todo)
+(use-package magit-delta
+  :hook
+  (magit-mode . magit-delta-mode)
+  :custom
+  (magit-delta-default-dark-theme "Solarized (dark)")
+  (magit-delta-hide-plus-minus-markers nil))
+
+(use-package hl-todo
+  :custom
+  (hl-todo-keyword-faces
+   '(("HOLD" . "#d0bf8f")
+     ("TODO" . "#cc9393")
+     ("NEXT" . "#dca3a3")
+     ("THEM" . "#dc8cc3")
+     ("PROG" . "#7cb8bb")
+     ("OKAY" . "#7cb8bb")
+     ("MAYBE" . "#7cb8bb")
+     ("DONT" . "#5f7f5f")
+     ("FAIL" . "#8c5353")
+     ("DONE" . "#afd8af")
+     ("NOTE" . "#d0bf8f")
+     ("KLUDGE" . "#d0bf8f")
+     ("HACK" . "#d0bf8f")
+     ("TEMP" . "#d0bf8f")
+     ("FIXME" . "#cc9393")
+     ("XXXX*" . "#cc9393")))
+  :hook
+  (prog-mode . hl-todo-mode))
 
 ;; code review
 ;; (use-package forge)
@@ -753,7 +876,8 @@ respectively."
      (lua . t)
      (dot . t)
      (js . t)
-     (python . t)))
+     (python . t)
+     (plantuml . t)))
   (setq org-babel-python-command "py3")
   (setq zino/org-babel-tangle-dir "~/dev/org-babel-tangle/")
   (defun zino/org-babel-tangle-rename ()
@@ -821,7 +945,7 @@ respectively."
   (("C-c c" . org-capture)
    ("C-c a" . org-agenda)
    ("C-c l" . org-store-link)
-   ("C-c H-i" . org-insert-link)
+   ("C-c i" . org-insert-link)
    ("s-<up>" . org-priority-up)
    ("s-<down>" . org-priority-down))
 
@@ -954,6 +1078,7 @@ Similar to `org-capture' like behavior"
 
 (setq org-capture-templates
       `(
+        ;; a for "Anki"
         ("a" "Anki")
         ("ab" "Basic card with a front and a back"
          entry
@@ -996,6 +1121,12 @@ Similar to `org-capture' like behavior"
          (file+regexp zino/GTD-file "\\* Later")
          "** TODO %^{What TO DO later} %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n\n"
          :immediate-finish nil)
+        ("gr" "Reminders"
+         entry
+         (file+regexp zino/GTD-file "\\* Reminders \\[[0-9]*/[0-9]*\\]")
+         "** TODO %^{What is the REMINDER} %^g\n:PROPERTIES:\n:ID: %(shell-command-to-string \"uuidgen\"):CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
+         :immediate-finish nil)
+
 
         ;; w for "Weekly Plan"
         ("w" "Weekly Plan")
@@ -1091,6 +1222,10 @@ Similar to `org-capture' like behavior"
   (pdf-view-display-size 'fit-page)
   (pdf-view-resize-factor 1.1))
 
+(use-package doc-toc
+  :ensure nil
+  :load-path "~/.config/emacs/manually_installed/doc-tools-toc")
+
 (use-package nov
   :config
   (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode))
@@ -1098,6 +1233,7 @@ Similar to `org-capture' like behavior"
   (define-key nov-mode-map (kbd "p") 'previous-line)
   (define-key nov-mode-map (kbd "f") 'forward-char)
   (define-key nov-mode-map (kbd "b") 'backward-char))
+
 ;;(defun my-nov-font-setup ()
 ;;  (variable-pitch-mode)
 ;;  (display-line-numbers-mode -1)
@@ -1588,21 +1724,7 @@ point reaches the beginning or end of the buffer, stop there."
               vc-ignore-dir-regexp
               tramp-file-name-regexp))
 
-;; begin_lsp
 (use-package rust-mode)
-
-;; (use-package lsp-treemacs
-;;   :custom
-;;   (lsp-treemacs-error-list-current-project-only t)
-;;   :config
-;;   (setq lsp-treemacs-generic-root '()))
-
-(defun zino/format-if-lsp-mode ()
-  "Format on save if `lsp-mode' is present."
-  (interactive)
-  (if (and (bound-and-true-p lsp-mode)
-           (not bound-and-true-p nginx-mode))
-      (lsp-format-buffer)))
 
 (use-package cmake-mode)
 
@@ -1635,18 +1757,6 @@ point reaches the beginning or end of the buffer, stop there."
   (setq lsp-keymap-prefix "C-c l")
   (setq lsp-signature-auto-activate t
         lsp-signature-render-documentation t)
-
-  (defun zino/lsp-find-references ()
-    "Make xref use window at the left."
-    (interactive)
-    (windmove-display-left)
-    (lsp-find-references))
-
-  (advice-add 'lsp-find-references :before
-              (lambda (&optional exclude-declaration &key display-action)
-                "Display xref buffer at the left.
-TODO: optimize this to use `display-buffer-in-side-window'."
-                (windmove-display-left)))
 
   :bind
   (:map lsp-mode-map
@@ -1692,12 +1802,6 @@ TODO: optimize this to use `display-buffer-in-side-window'."
 (use-package cargo
   :hook
   (rust-mode . cargo-minor-mode))
-
-;; (use-package dap-mode
-;;   :config
-;;   (dap-mode 1)
-;;   (dap-ui-mode 1)
-;;   (require 'dap-dlv-go))
 
 (with-eval-after-load 'lsp-mode
   ;; :global/:workspace/:file
@@ -1747,15 +1851,6 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (define-key lsp-ui-imenu-mode-map (kbd "n") 'next-line)
   (define-key lsp-ui-imenu-mode-map (kbd "p") 'previous-line))
 
-;; https://github.com/joaotavora/eglot/issues/98
-(defun zino/project-try-cargo-toml (dir)
-  "Try to locate a Rust project above DIR."
-  (let ((found (locate-dominating-file dir "Cargo.toml")))
-    (if (stringp found) `(transient . ,found) nil)))
-
-;; Try rust projects before version-control (vc) projects
-(add-hook 'project-find-functions 'zino/project-try-cargo-toml nil nil)
-
 (use-package eglot
   :init
   ;; eglot use this variable to determine if `company-mode' ignores case
@@ -1783,6 +1878,7 @@ TODO: optimize this to use `display-buffer-in-side-window'."
         ("C-c d" . xref-find-definitions-other-window)
         ("C-c r"   . eglot-rename)
         ("C-c C-r" . xref-find-references)
+        ("C-c H-i" . eglot-find-implementation)
         ("C-c C-a" . eglot-code-actions)
         ("C-c C-e" . flycheck-list-errors))
   :hook
@@ -1799,12 +1895,110 @@ TODO: optimize this to use `display-buffer-in-side-window'."
   (python-mode . eglot-ensure)
   (beancount-mode . eglot-ensure))
 
+(use-package eglot
+  :config
+  ;; https://github.com/joaotavora/eglot/issues/98
+  (defun zino/project-try-cargo-toml (dir)
+    "Try to locate a Rust project above DIR."
+    (let ((found (locate-dominating-file dir "Cargo.toml")))
+      (if (stringp found) `(transient . ,found) nil)))
+
+  ;; Try rust projects before version-control (vc) projects
+  (add-hook 'project-find-functions 'zino/project-try-cargo-toml nil nil))
+
+;; How to translate LSP configuration examples into Eglot’s format:
+;;
+;; Usually LSP servers will say something like
+;;
+;; rust-analyzer.procMacro.attributes.enable (default: true)
+;;
+;; Translate that into a JSON LSP configuration, you get
+;;
+;; {
+;;   "rust-analyzer": {
+;;     "procMacro": {
+;;       "attributes": {
+;;         "enable": true
+;;       }
+;;     }
+;;   }
+;; }
+;;
+;; In general the key at the root level must be the LSP server’s name,
+;; so that one configuration can cover multiple servers. If the LSP
+;; server’s documentation omitted the name part, remember to add it
+;; yourself.
+;;
+;; Translate that into plist format that Eglot uses, you get
+;;
+;; (:rust-analyzer (:procMacro (:attributes (:enable t))))
+;;
+;; Keys translate to keywords (with the same spelling and case),
+;; dictionaries translate to plists, arrays translate to vectors, true
+;; translates to t, false translates to a special keyword :json-false,
+;; null translates to nil, empty directory {} translates to eglot-{}.
+
+;; Define a setup function that runs in the mode hook.
+(defun setup-rust ()
+  "Setup for ‘rust-mode’."
+  ;; Configuration taken from rust-analyzer’s manual:
+  ;; https://rust-analyzer.github.io/manual.html#configuration
+  (setq-local eglot-workspace-configuration
+              ;; Setting the workspace configuration for every
+              ;; rust-mode buffer, you can also set it with dir-local
+              ;; variables, should you want different configuration
+              ;; per project/directory.
+              '(:rust-analyzer
+                ( :procMacro ( :attributes (:enable t)
+                               :enable t)
+                  :autoImport (:enable t)
+                  :cargo (:buildScripts (:enable t))
+                  :diagnostics (:disabled ["unresolved-proc-macro"
+                                           "unresolved-macro-call"])))))
+
+;; Run our setup function in ‘rust-mode-hook’.
+(add-hook 'rust-mode-hook #'setup-rust)
+
+;; Define a custom eglot LSP server for rust-analyzer because it
+;; expects initializationOptions done a bit differently (see below).
+;; (defclass eglot-rust-analyzer (eglot-lsp-server) ()
+;;   :documentation "A custom class for rust-analyzer.")
+
+;; Rust-analyzer requires the workspaceConfiguration sent as
+;; initializationOptions at startup time. See
+;; https://github.com/joaotavora/eglot/discussions/845 and
+;; rust-analyzer’s manual page.
+;; (cl-defmethod eglot-initialization-options ((server eglot-rust-analyzer))
+;;   eglot-workspace-configuration)
+
+;; Use our custom ‘eglot-rust-analyzer’ for ‘rust-mode’.
+;; (add-to-list 'eglot-server-programs
+;;              '(rust-mode . (eglot-rust-analyzer "rust-analyzer")))
+
+;; Define a setup function that runs in the mode hook.
+(defun setup-rust ()
+  "Setup for ‘rust-mode’."
+  ;; Configuration taken from rust-analyzer’s manual:
+  ;; https://rust-analyzer.github.io/manual.html#configuration
+  (interactive)
+  (setq-local eglot-workspace-configuration
+              ;; Setting the workspace configuration for every
+              ;; rust-mode buffer, you can also set it with dir-local
+              ;; variables, should you want different configuration
+              ;; per project/directory.
+              '(:rust-analyzer
+                (:autoImport (:enable t)))))
+
+;; Run our setup function in ‘rust-mode-hook’.
+(add-hook 'rust-mode-hook #'setup-rust)
+
+(use-package eglot-x
+  :ensure nil
+  :load-path "~/.config/emacs/manually_installed/eglot-x")
+
 (use-package eldoc-box
   :bind
   ("M-." . eldoc-box-help-at-point))
-
-;; (require 'golint)
-;; end_lsp
 
 (use-package company-prescient
   :after company
@@ -1989,6 +2183,7 @@ Do not increase cloze number"
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
  '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
  '(next-error ((t (:inherit (bold region)))))
+ '(org-block-begin-line ((t (:inherit org-block :extend t :foreground "#83898d"))))
  '(org-remark-highlighter ((t (:background "#023047" :underline nil))))
  '(variable-pitch ((t (:family "ETBembo" :height 180 :weight regular))))
  '(xref-file-header ((t (:inherit orderless-match-face-0)))))
@@ -1999,7 +2194,7 @@ Do not increase cloze number"
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(auto-revert-interval 5)
- '(bmkp-last-as-first-bookmark-file "/Users/zino/.config/emacs/bookmarks")
+ '(bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks")
  '(comment-style 'indent)
  '(connection-local-criteria-alist
    '(((:application eshell)
@@ -2086,6 +2281,7 @@ Do not increase cloze number"
       (path-separator . ":")
       (null-device . "/dev/null"))))
  '(display-line-numbers-width-start nil)
+ '(eldoc-echo-area-prefer-doc-buffer t)
  '(eldoc-echo-area-use-multiline-p 10)
  '(eldoc-idle-delay 0.05)
  '(fill-column 80)
@@ -2110,8 +2306,6 @@ Do not increase cloze number"
  '(next-error-highlight-no-select t)
  '(next-error-message-highlight t)
  '(nyan-cat-face-number 1)
- '(org-cycle-include-plain-lists t nil nil "Customized with use-package org")
- '(org-list-indent-offset 2 nil nil "Customized with use-package org")
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(popper-group-function 'popper-group-by-projectile)
@@ -2503,7 +2697,8 @@ Save the buffer of the current window and kill it"
   (advice-add 'counsel-bookmark :around 'zino/better-jumper-advice)
   (advice-add 'mark-whole-buffer :around 'zino/better-jumper-advice)
   (advice-add 'beginning-of-defun :around 'zino/better-jumper-advice)
-  (advice-add 'end-of-defun :around 'zino/better-jumper-advice))
+  (advice-add 'end-of-defun :around 'zino/better-jumper-advice)
+  (advice-add 'org-roam-node-find :around 'zino/better-jumper-advice))
 
 (use-package org-remark
   :config
@@ -2615,6 +2810,10 @@ I find myself often do this workflow"
   (tab-bar-close-button-show nil)
   (tab-bar-show nil)
   (tab-width 2))
+
+(use-package tab-bookmark
+  :ensure nil
+  :load-path "~/.config/emacs/manually_installed/tab-bookmark")
 
 (use-package python
   :config
@@ -2919,9 +3118,6 @@ This is inserted into `xref-after-jump-hook'"
 ;;   (pretty-control-l-mode)
 ;;   )
 
-;; Restore frame name when read desktop file
-(push '(name . nil) frameset-filter-alist)
-
 (defun individual-visibility-source-blocks ()
   "Fold some blocks in the current buffer."
   (interactive)
@@ -2972,9 +3168,24 @@ This is inserted into `xref-after-jump-hook'"
 
 (use-package beancount
   :ensure nil
-  :load-path "~/.config/emacs/manually_installed/beancount-mode/"
+  :load-path "~/.config/emacs/manually_installed/beancount-mode"
   :config
-  (add-to-list 'auto-mode-alist '("\\.beancount\\'" . beancount-mode)))
+  (add-to-list 'auto-mode-alist '("\\.beancount\\'" . beancount-mode))
+  :bind
+  (:map beancount-mode-map
+        ("<tab>" . indent-for-tab-command)))
+
+(use-package hippie-exp
+  :config
+  (global-set-key [remap dabbrev-expand] 'hippie-expand))
+
+(use-package plantuml-mode
+  :custom
+  (plantuml-executable-path "plantuml")
+  (plantuml-default-exec-mode 'executable)
+  (org-plantuml-jar-path (car (directory-files-recursively "/usr/local/Cellar/plantuml" ".*\.jar")))
+  :config
+  (add-to-list 'auto-mode-alist '("\\.uml\\'" . plantuml-mode)))
 
 ;; run as daemon
 (server-start)
@@ -2982,3 +3193,5 @@ This is inserted into `xref-after-jump-hook'"
 ;; Put this at the end otherwise `pcache' will still register itself
 (remove-hook 'kill-emacs-hook 'pcache-kill-emacs-hook)
 (put 'magit-diff-edit-hunk-commit 'disabled nil)
+
+;;; init.el ends here
