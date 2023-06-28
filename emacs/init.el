@@ -392,13 +392,15 @@
 (use-package rainbow-mode
   :hook
   (emacs-lisp-mode . rainbow-mode)
-  (lispy-data-mode . rainbow-mode))
+  (lispy-data-mode . rainbow-mode)
+  (helpful-mode . rainbow-mode))
 
 (use-package rainbow-delimiters
   :hook
   (prog-mode . rainbow-delimiters-mode)
   (lispy-data-mode . rainbow-delimiters-mode)
-  (debugger-mode . rainbow-delimiters-mode))
+  (debugger-mode . rainbow-delimiters-mode)
+  (helpful-mode . rainbow-delimiters-mode))
 
 ;; Display keybindings in another buffer
 (use-package command-log-mode
@@ -611,6 +613,7 @@ respectively."
   :diminish
   :bind
   (("s-s" . swiper)
+   ("s-r" . counsel-register)
    ;; ("C-c f" . counsel-fzf)
    :map ivy-minibuffer-map
    ("TAB" . ivy-alt-done)
@@ -762,7 +765,7 @@ respectively."
   (org-roam-completion-everywhere nil)
   (org-roam-capture-templates
    '(("c" "Default" entry "* %?"
-      :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: folded")
+      :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: fold")
       :empty-lines-before 1
       :unnarrowed nil)))
   (org-roam-dailies-capture-templates
@@ -814,7 +817,10 @@ respectively."
      ("FIXME" . "#cc9393")
      ("XXXX*" . "#cc9393")))
   :hook
-  (prog-mode . hl-todo-mode))
+  (prog-mode . hl-todo-mode)
+  :bind
+  ("M-s-[" . hl-todo-previous)
+  ("M-s-]" . hl-todo-next))
 
 ;; code review
 ;; (use-package forge)
@@ -1094,7 +1100,9 @@ Similar to `org-capture' like behavior"
   (org-noter-notes-window-behavior '(scroll))
   :config
   (defun zino/no-op (&rest args))
-  (advice-add 'org-noter--set-notes-scroll :override 'zino/no-op))
+  (advice-add 'org-noter--set-notes-scroll :override 'zino/no-op)
+  :bind
+  ("M-s-." . org-noter))
 
 (defun zino/org-journal-cycle-after-open-current-journal-file ()
   "Toggle visibility according to buffer's setting."
@@ -1145,23 +1153,37 @@ Similar to `org-capture' like behavior"
          entry
          (file+regexp zino/GTD-file "\\* Questions \\[[0-9]*/[0-9]*\\]")
          "** TODO %^{What is the QUESTION} %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
-         :immediate-finish nil)
+         :immediate-finish nil
+         :after-finalize org-fold-hide-drawer-all)
         ("gt" "Tasks"
          entry
          (file+regexp zino/GTD-file "\\* Tasks \\[[0-9]*/[0-9]*\\]")
-         "** TODO %^{What is the TASK} %^g\n:PROPERTIES:\n:ID: %(shell-command-to-string \"uuidgen\"):CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
-         :immediate-finish nil)
+         "** TODO %^{What is the TASK} %^g\n:PROPERTIES:\n:ID: %(shell-command-to-string \"uuidgen\"):CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n%?"
+         :immediate-finish nil
+         ;; FIXME: I tried the following to fold the PROPERTY drawer in the
+         ;; narrowed org capture buffer. However, when the captured text gets
+         ;; inserted, the drawer is unfolded. With `:after-finalize', the
+         ;; nullary function is called in the buffer wherein captured text is
+         ;; inserted. Currently an relatively expensive
+         ;; `org-fold-hide-drawer-all' is called. Optimize it by only hiding the
+         ;; drawer we just inserted.
+         ;; :before-finalize (lambda ()
+         ;;                    (org-back-to-heading-or-point-min)
+         ;;                    (next-line)
+         ;;                    (org-fold-hide-drawer-toggle t))
+         :after-finalize org-fold-hide-drawer-all)
         ("gl" "Later"
          entry
          (file+regexp zino/GTD-file "\\* Later")
          "** TODO %^{What TO DO later} %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n\n"
-         :immediate-finish nil)
+         :immediate-finish nil
+         :after-finalize org-fold-hide-drawer-all)
         ("gr" "Reminders"
          entry
          (file+regexp zino/GTD-file "\\* Reminders \\[[0-9]*/[0-9]*\\]")
          "** TODO %^{What is the REMINDER} %^g\n:PROPERTIES:\n:ID: %(shell-command-to-string \"uuidgen\"):CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
-         :immediate-finish nil)
-
+         :immediate-finish nil
+         :after-finalize org-fold-hide-drawer-all)
 
         ;; w for "Weekly Plan"
         ("w" "Weekly Plan")
@@ -1186,7 +1208,8 @@ Similar to `org-capture' like behavior"
          (file+headline zino/meeting-file "Participated")
          "** %^{What is it about}  %^g\n:PROPERTIES:\n:ID: %(shell-command-to-string \"uuidgen\"):CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
          :immediate-finish nil
-         :jump-to-captured t)))
+         :jump-to-captured t
+         :after-finalize org-fold-hide-drawer-all)))
 
 (use-package all-the-icons)
 
@@ -2370,6 +2393,9 @@ Do not increase cloze number"
  '(next-error-highlight-no-select t)
  '(next-error-message-highlight t)
  '(nyan-cat-face-number 1)
+ '(org-safe-remote-resources
+   '("\\`https://fniessen\\.github\\.io/org-html-themes/org/theme-readtheorg\\.setup\\'"))
+ '(org-startup-folded 'fold)
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
  '(popper-group-function 'popper-group-by-projectile)
@@ -2387,8 +2413,7 @@ Do not increase cloze number"
      ((flymake flymake.el))
      ((flymake flymake.el))
      (lsp-mode)) nil nil "Customized with use-package lsp-mode")
- '(windmove-wrap-around t)
- )
+ '(windmove-wrap-around t))
 
 (use-package winner
   :hook
@@ -2960,7 +2985,7 @@ I find myself often do this workflow"
   ("s-o" . crux-smart-open-line-above)
   ("s-d" . crux-duplicate-current-line-or-region)
   ("C-<backspace>" . crux-kill-line-backwards)
-  ("s-r" . crux-recentf-find-file)
+  ;; ("s-r" . crux-recentf-find-file)
   ("C-c I" . crux-find-user-init-file)
   ("C-c D" . crux-delete-file-and-buffer))
 
