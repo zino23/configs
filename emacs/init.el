@@ -93,9 +93,10 @@
 (dir-locals-set-class-variables 'read-only '((nil . ((buffer-read-only . t)))))
 
 (global-set-key (kbd "C-;") #'comment-line)
+(global-set-key (kbd "C-x C-c") #'save-buffers-kill-terminal)
 
 ;; Emacs source for help system
-(setq emacs-src-dir "/usr/local/Cellar/emacs-plus@28/28.1/share/emacs")
+(setq emacs-src-dir "/usr/local/Cellar/emacs-plus@29/29.0.60/share/emacs")
 (setq macos-sdk-dir "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.1.sdk")
 (setq go-src-dir "/usr/local/Cellar/go/1.17.8/libexec/src")
 (setq edgeworker-deps "~/gitlab/edgeworker/deps")
@@ -269,15 +270,20 @@
   ;; `ls' does not have `--group-directories-first' option, use `gls'.
   (setq insert-directory-program "/usr/local/bin/gls"))
 
+
 (use-package dirvish
   :init
-  (dirvish-override-dired-mode)
+  ;; `dirvish' cause sluggish in `magit-status'. Figure out the reason later
+  ;; (dirvish-override-dired-mode)
   :custom
   (dirvish-quick-access-entries ; It's a custom option, `setq' won't work
-   '(("h" "~/"                          "Home")
-     ("d" "~/Downloads/"                "Downloads")
-     ("m" "/mnt/"                       "Drives")
-     ("t" "~/.local/share/Trash/files/" "TrashCan")))
+   '(("h" "~/"                    "Home")
+     ("r" "/"                     "Root")
+     ("n" "~/Notes/"              "Notes")
+     ("c" "~/Documents/Books/CS/" "CS")
+     ("d" "~/Downloads/"          "Downloads")
+     ("m" "/mnt/"                 "Drives")
+     ("t" "~/.Trash/"             "TrashCan")))
   :config
   ;; (dirvish-peek-mode) ; Preview files in minibuffer
   ;; (dirvish-side-follow-mode) ; similar to `treemacs-follow-mode'
@@ -290,6 +296,7 @@
         "-l --almost-all --human-readable --group-directories-first --no-group")
   :bind ; Bind `dirvish|dirvish-side|dirvish-dwim' as you see fit
   (("C-c f" . dirvish-fd)
+   ("C-c C-j" . dirvish-side)
    :map dirvish-mode-map ; Dirvish inherits `dired-mode-map'
    ("a"   . dirvish-quick-access)
    ("f"   . dirvish-file-info-menu)
@@ -314,12 +321,12 @@
   :ensure nil
   :custom
   (eldoc-echo-area-use-multiline-p 10)
-  (eldoc-idle-delay 0.05))
+  (eldoc-idle-delay 0.05)
+  (eldoc-echo-area-prefer-doc-buffer t))
 
-;; (use-package dirvish
-;;   :custom
-;;   (dirvish-header-style 'normal)
-;;   (dirvish-preview-width 0.4))
+(use-package eldoc-box
+  :bind
+  ("M-." . eldoc-box-help-at-point))
 
 (defun copy-full-path-to-kill-ring ()
   "Copy buffer's full path to kill ring."
@@ -707,7 +714,12 @@ respectively."
   (ediff-split-window-function 'split-window-horizontally)
   ;; [use] magit-log-buffer-file: show a region or buffer's commit history
   (magit-diff-refine-hunk 'all)
-  (magit-completing-read-function 'ivy-completing-read))
+  (magit-completing-read-function 'ivy-completing-read)
+  :config
+  (put 'magit-diff-edit-hunk-commit 'disabled nil))
+
+;; Try it sometime
+;; (use-package diff-hl)
 
 ;; `ivy-xref' cannot easily show xref hit in a window. Don't use it for now
 (use-package ivy-xref
@@ -825,12 +837,48 @@ respectively."
   (git-gutter:update-interval 0.1 "Automatically update diff in 0.1 seconds")
   (git-gutter:window-width 1))
 
-(defun org-mode-setup ()
-  "Run after `org-mode' is initiated."
-  (org-indent-mode)
-  (set-face-attribute 'org-table nil :font (font-spec :name "Sarasa Mono SC Nerd" :size 18))
-  (set-fontset-font t nil "Sarasa Mono SC Nerd" nil 'append)
-  (setq-local corfu-auto-delay 0.2))
+
+(use-package org
+  :config
+  (defun org-mode-setup ()
+    "Run after `org-mode' is initiated."
+    (org-indent-mode)
+    (set-face-attribute 'org-table nil :font (font-spec :name "Sarasa Mono SC Nerd" :size 18))
+    (set-fontset-font t nil "Sarasa Mono SC Nerd" nil 'append)
+    (setq-local corfu-auto-delay 0.2))
+
+  (defun individual-visibility-source-blocks ()
+    "Fold some blocks in the current buffer."
+    (interactive)
+    (org-show-block-all)
+    (org-block-map
+     (lambda ()
+       (let ((case-fold-search t))
+         (when (and
+                (save-excursion
+                  (beginning-of-line 1)
+                  (looking-at org-block-regexp))
+                (cl-assoc
+                 ':hidden
+                 (cl-third
+                  (org-babel-get-src-block-info))))
+           (org-hide-block-toggle))))))
+
+  (defun zino/advise-org-edit-src-code (f &rest args)
+    "Temporarily make current window undedicated if needed."
+    (let ((dedicated-p (window-dedicated-p)))
+      (if dedicated-p
+          (progn
+            (zino/toggle-window-dedication)
+            (apply f args)
+            (zino/toggle-window-dedication)))))
+
+  ;; set `org-src-window-setup' to 'current-window
+  ;; this will not work, tinker later
+  ;; (advice-add 'org-edit-src-code :around 'zino/advise-org-edit-src-code)
+
+  :hook
+  (org-mode . individual-visibility-source-blocks))
 
 (use-package org
   :hook
@@ -867,6 +915,7 @@ respectively."
         ;; org-agenda
         zino/GTD-file "~/Notes/Roam/20220816100518-gtd.org"
         org-agenda-files '("~/Notes/Roam/Journal"))
+
   :config
   (org-babel-do-load-languages
    'org-babel-load-languages
@@ -883,6 +932,7 @@ respectively."
   (defun zino/org-babel-tangle-rename ()
     (let ((tangle-file (buffer-file-name)))
       (rename-file tangle-file zino/org-babel-tangle-dir t)))
+
   ;;; Enable it when we want to tangle a file, edit the file with lsp enabled,
   ;;; and detangle it back to the org source block
   ;; (add-hook 'org-babel-post-tangle-hook 'zino/org-babel-tangle-rename)
@@ -899,20 +949,6 @@ respectively."
   (define-key org-mode-map (kbd "C-S-j") #'org-return-and-maybe-indent)
   (setq org-image-actual-width nil)
   (setf (cdr (assoc 'file org-link-frame-setup)) 'find-file)
-
-  :config
-  (defun zino/advise-org-edit-src-code (f &rest args)
-    "Temporarily make current window undedicated if needed."
-    (let ((dedicated-p (window-dedicated-p)))
-      (if dedicated-p
-          (progn
-            (zino/toggle-window-dedication)
-            (apply f args)
-            (zino/toggle-window-dedication)))))
-
-  ;; set `org-src-window-setup' to 'current-window
-  ;; this will not work, tinker later
-  ;; (advice-add 'org-edit-src-code :around 'zino/advise-org-edit-src-code)
 
   :custom-face
   (org-level-1 ((t (:inherit outline-1 :extend nil :height 1.3 :width normal :family "Iosevka"))))
@@ -933,7 +969,6 @@ respectively."
   :custom
   (org-id-link-to-org-use-id 'create-if-interactive)
   (org-src-window-setup 'split-window-below)
-
   ;; the default is ?C
   (org-priority-lowest ?D)
   (org-tags-column -85 nil nil "Customized with use-package org")
@@ -1155,8 +1190,6 @@ Similar to `org-capture' like behavior"
 
 (use-package all-the-icons)
 
-(global-set-key (kbd "C-x C-c") #'save-buffers-kill-terminal)
-
 ;; temporary workaround
 ;; REVIEW See Wilfred/elisp-refs#35. Remove once fixed upstream.
 (defvar read-symbol-positions-list nil)
@@ -1196,16 +1229,63 @@ Similar to `org-capture' like behavior"
 
 (setq gc-cons-threshold (* 300 1024 1024))
 
+;; https://emacs-china.org/t/auctex-setup-synctex-with-pdf-tools-not-working/11257
+;; (use-package auctex
+;;   :ensure t
+;;   :no-require t
+;;   :commands (TeX-latex-mode)
+;;   :config
+;;   (setq TeX-auto-save t)
+;;   (setq TeX-parse-self t)
+;;   (setq-default TeX-master nil)
+
+;;   ;; Use `xetex' engine for better TeX compilation for Chinese.
+;;   ;; `TeX-engine-alist', `TeX-engine-in-engine-alist'
+;;   (setq-default TeX-engine 'xetex)
+;;   (with-eval-after-load 'tex-mode
+;;     ;; "latexmk -shell-escape -bibtex -xelatex -g -f %f"
+;;     (add-to-list 'tex-compile-commands '("xelatex %f" t "%r.pdf"))
+;;     (add-to-list 'TeX-command-list '("XeLaTeX" "%`xelatex%(mode)%' %t" TeX-run-TeX nil t))
+;;     (setq TeX-command "xelatex"))
+
+;;   (setq-default LaTeX-command  "latex -shell-escape --synctex=1")
+
+;;   (setq TeX-show-compilation t)
+
+;;   ;; view generated PDF with `pdf-tools'. (this is built-in now.)
+;;   (unless (assoc "PDF Tools" TeX-view-program-list-builtin)
+;;     (add-to-list 'TeX-view-program-list-builtin '("PDF Tools" TeX-pdf-tools-sync-view)))
+;;   (unless (equalp "PDF Tools" (car (cdr (assoc 'output-pdf TeX-view-program-selection))))
+;;     (add-to-list 'TeX-view-program-selection '(output-pdf "PDF Tools")))
+
+;;   ;; [ SyncTeX ] -- Sync (forward and inverse search) PDF with TeX/LaTeX.
+;;   (setq TeX-source-correlate-mode t)
+;;   (setq TeX-source-correlate-method '((dvi . source-specials) (pdf . synctex))) ; default
+;;   ;; [C-c C-g] switch between LaTeX source code and PDF positions.
+;;   (setq TeX-source-correlate-start-server t)
+;;   (TeX-source-correlate-mode t)
+;;   ;; update PDF buffers after successful LaTeX runs.
+;;   (add-hook 'TeX-after-TeX-LaTeX-command-finished-hook #'TeX-revert-document-buffer))
+
+;; (add-to-list 'TeX-command-list '("XeLaTeX" "%`xelatex --synctex=1%(mode)%' %t" TeX-run-TeX nil t))
+
 ;;; arch
 ;; epdfinfo runs poppler in server mode, receives request from emacs
 ;; poppler render pdf into PNGs on the go and return them to emacs
 ;; poppler can provide rich information about the pdf and also the
 ;; ability to modify
-
-;;; install dependencies first on the system: poppler, epdfinfo
+;; Download `pdf-tools' from melpa handles dependencies for us
 (use-package pdf-tools
   :init
   (pdf-tools-install)
+  :config
+  (defun zino/pdf-tools-toggle-mouse-1-use ()
+    "Toggle `pdf-view-selection-style' between word and glyph."
+    (interactive)
+    (if (eq pdf-view-selection-style 'glyph)
+        (setq pdf-view-selection-style 'word)
+      (setq pdf-view-selection-style 'glyph)))
+
   :bind
   (:map pdf-view-mode-map
         ("n" . pdf-view-next-line-or-next-page)
@@ -1215,12 +1295,16 @@ Similar to `org-capture' like behavior"
         ("s-1" . pdf-annot-add-highlight-markup-annotation)
         ("s-2" . pdf-annot-add-squiggly-markup-annotation)
         ("s-3" . pdf-annot-add-text-annotation)
-        ("s-4" . pdf-annot-delete))
+        ("s-4" . pdf-annot-delete)
+        ("C-<down-mouse-1>" . zino/pdf-tools-toggle-mouse-1-use))
   :custom
   (pdf-view-use-scaling t)
   (pdf-view-continuous t)
   (pdf-view-display-size 'fit-page)
-  (pdf-view-resize-factor 1.1))
+  (pdf-view-resize-factor 1.1)
+  ;; Select by word by default and use `zino/pdf-tools-toggle-mouse-1-use' to toggle
+  (pdf-view-selection-style 'word))
+
 
 (use-package doc-toc
   :ensure nil
@@ -1268,7 +1352,6 @@ Similar to `org-capture' like behavior"
 
 ;;(add-hook 'nov-post-html-render-hook 'my-nov-post-html-render-hook)
 
-;; begin_UI
 ;;(defvar message-filter-regexp-list '("^Starting new Ispell process \\[.+\\] \\.\\.\\.$"
 ;;                                     "^Ispell process killed$"
 ;;                                     ;;"^down-mouse"
@@ -1336,11 +1419,9 @@ Similar to `org-capture' like behavior"
 
 (setq display-line-numbers-width 0)
 (setq display-line-numbers-width-start 0)
-;; end_UI
 
 (global-set-key (kbd "C-x b") #'ido-switch-buffer)
 
-;; begin_mastering_emacs
 (setq apropos-sort-by-scores t)
 
 (use-package ace-window
@@ -1370,10 +1451,6 @@ Similar to `org-capture' like behavior"
   (register-preview-delay 0.1)
   :bind
   ("C-]" . insert-register))
-
-;; end_mastering_emacs
-
-;; begin_move_and_edit
 
 (defun zino/increment-number-decimal (&optional arg)
   "Increment the number forward from point by ARG."
@@ -1577,7 +1654,6 @@ Do not prompt me to create parent directory"
 (global-set-key (kbd "s-<return>") 'newline-below)
 (global-set-key (kbd "<C-return>") 'newline-below)
 
-
 (defun zino/next-k-lines ()
   "Move cursor down k lines."
   (interactive)
@@ -1658,10 +1734,6 @@ point reaches the beginning or end of the buffer, stop there."
 (global-set-key (kbd "C-c k") #'copy-line)
 (global-set-key (kbd "C-c C-k") #'copy-line)
 
-;; Vim like return to last mark location
-;; use better-jumper for now
-;; (global-set-key (kbd "C-o") #'pop-global-mark)
-
 (use-package helm
   :custom
   (helm-semantic-fuzzy-match t)
@@ -1675,7 +1747,6 @@ point reaches the beginning or end of the buffer, stop there."
   (setq helm-locate-project-list (list "~/Dev"))
   :bind
   ("M-i" . helm-imenu))
-;; end_edit_and_movement
 
 (use-package consult)
 
@@ -1736,6 +1807,7 @@ point reaches the beginning or end of the buffer, stop there."
   :init
   (setq lsp-clangd-binary-path (executable-find "clangd"))
   (setq lsp-clients-lua-language-server-bin (executable-find "lua-language-server"))
+  ;; Use `eglot' for now
   ;; :hook
   ;; (
   ;;; bug with company and template completion, switch to eglot
@@ -1789,11 +1861,12 @@ point reaches the beginning or end of the buffer, stop there."
   (lsp-rust-analyzer-display-lifetime-elision-hints-use-parameter-names nil)
   (lsp-rust-analyzer-display-closure-return-type-hints t)
   (lsp-rust-analyzer-display-parameter-hints nil)
-  (lsp-rust-analyzer-display-reborrow-hints nil))
+  (lsp-rust-analyzer-display-reborrow-hints nil)
 
-;; [use]
-;; reset lsp session in lsp mode
-;; (setq lsp--session nil)
+  ;; [use]
+  ;; reset lsp session in lsp mode
+  ;; (setq lsp--session nil)
+  )
 
 (use-package rustic
   :custom
@@ -1996,10 +2069,6 @@ point reaches the beginning or end of the buffer, stop there."
   :ensure nil
   :load-path "~/.config/emacs/manually_installed/eglot-x")
 
-(use-package eldoc-box
-  :bind
-  ("M-." . eldoc-box-help-at-point))
-
 (use-package company-prescient
   :after company
   :config
@@ -2030,10 +2099,9 @@ point reaches the beginning or end of the buffer, stop there."
   (flycheck-mode . flycheck-rust-setup)
   :config
   (define-key flycheck-mode-map (kbd "C-c [") #'flycheck-previous-error)
-  (define-key flycheck-mode-map (kbd "C-c ]") #'flycheck-next-error))
-
-;; (setq flycheck-indication-mode 'left-fringe)
-;; (global-flycheck-mode)
+  (define-key flycheck-mode-map (kbd "C-c ]") #'flycheck-next-error)
+  :custom
+  (flycheck-indication-mode 'left-fringe))
 
 ;; TODO: use directory variables to configure per project
 ;; (add-hook 'c++-mode-hook (lambda ()
@@ -2185,8 +2253,7 @@ Do not increase cloze number"
  '(next-error ((t (:inherit (bold region)))))
  '(org-block-begin-line ((t (:inherit org-block :extend t :foreground "#83898d"))))
  '(org-remark-highlighter ((t (:background "#023047" :underline nil))))
- '(variable-pitch ((t (:family "ETBembo" :height 180 :weight regular))))
- '(xref-file-header ((t (:inherit orderless-match-face-0)))))
+ '(variable-pitch ((t (:family "ETBembo" :height 180 :weight regular)))))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
@@ -2281,9 +2348,6 @@ Do not increase cloze number"
       (path-separator . ":")
       (null-device . "/dev/null"))))
  '(display-line-numbers-width-start nil)
- '(eldoc-echo-area-prefer-doc-buffer t)
- '(eldoc-echo-area-use-multiline-p 10)
- '(eldoc-idle-delay 0.05)
  '(fill-column 80)
  '(flycheck-checkers
    '(rustic-clippy eglot-check vale rustic-clippy ada-gnat asciidoctor asciidoc awk-gawk bazel-build-buildifier bazel-module-buildifier bazel-starlark-buildifier bazel-workspace-buildifier c/c++-clang c/c++-gcc c/c++-cppcheck cfengine chef-foodcritic coffee coffee-coffeelint coq css-csslint css-stylelint cuda-nvcc cwl d-dmd dockerfile-hadolint elixir-credo emacs-lisp emacs-lisp-checkdoc ember-template erlang-rebar3 erlang eruby-erubis eruby-ruumba fortran-gfortran go-gofmt go-golint go-vet go-build go-test go-errcheck go-unconvert go-staticcheck groovy haml handlebars haskell-stack-ghc haskell-ghc haskell-hlint html-tidy javascript-eslint javascript-jshint javascript-standard json-jsonlint json-python-json json-jq jsonnet less less-stylelint llvm-llc lua-luacheck lua markdown-markdownlint-cli markdown-mdl nix nix-linter opam perl perl-perlcritic php php-phpmd php-phpcs processing proselint protobuf-protoc protobuf-prototool pug puppet-parser puppet-lint python-flake8 python-pylint python-pycompile python-pyright python-mypy r-lintr racket rpm-rpmlint rst-sphinx rst ruby-rubocop ruby-standard ruby-reek ruby-rubylint ruby ruby-jruby rust-cargo rust rust-clippy scala scala-scalastyle scheme-chicken scss-lint scss-stylelint sass/scss-sass-lint sass scss sh-bash sh-posix-dash sh-posix-bash sh-zsh sh-shellcheck slim slim-lint sql-sqlint systemd-analyze tcl-nagelfar terraform terraform-tflint tex-chktex tex-lacheck texinfo textlint typescript-tslint verilog-verilator vhdl-ghdl xml-xmlstarlet xml-xmllint yaml-jsyaml yaml-ruby yaml-yamllint))
@@ -2324,8 +2388,7 @@ Do not increase cloze number"
      ((flymake flymake.el))
      (lsp-mode)) nil nil "Customized with use-package lsp-mode")
  '(windmove-wrap-around t)
- '(xref-history-storage 'xref-window-local-history)
- '(xref-search-program 'ripgrep))
+ )
 
 (use-package winner
   :hook
@@ -2389,7 +2452,6 @@ Do not increase cloze number"
                   makefile-imake-mode-hook))
     (add-hook hook #'makefile-mode-setup)))
 
-
 ;; Use Dabbrev with Corfu!
 (use-package dabbrev
   ;; Swap M-/ and C-M-/
@@ -2400,6 +2462,10 @@ Do not increase cloze number"
   (dabbrev-ignored-buffer-regexps '("\\.\\(?:pdf\\|jpe?g\\|png\\)\\'"))
   (dabbrev-case-fold-search t)
   (dabbrev-case-replace nil))
+
+(use-package hippie-exp
+  :config
+  (global-set-key [remap dabbrev-expand] 'hippie-expand))
 
 (use-package corfu
   :custom
@@ -2430,12 +2496,6 @@ Do not increase cloze number"
               ([backtab]    . corfu-previous)
               ("<ret>" . corfu-insert))
 
-  ;; Enable Corfu only for certain modes.
-  ;; :hook ((prog-mode . corfu-mode)
-  ;;        (shell-mode . corfu-mode)
-  ;;        (eshell-mode . corfu-mode))
-
-  ;; Recommended: Enable Corfu globally.
   ;; This is recommended since Dabbrev can be used globally (M-/s ).
   ;; See also `corfu-exclude-modes'.
   :init
@@ -2455,7 +2515,7 @@ Do not increase cloze number"
     (corfu-mode 1)))
 (add-hook 'minibuffer-setup-hook #'corfu-enable-in-minibuffer)
 
-;; Add extensions
+;; Add extensions for `completion-at-point-functions'
 (use-package cape
   ;; Bind dedicated completion commands
   ;; Alternative prefix keys: C-c p, M-p, M-+, ...
@@ -2513,19 +2573,10 @@ Do not increase cloze number"
   :config
   (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
 
-;; (use-package emacs
-;;   :init
-;;   ;; TAB cycle if there are only few candidates
-;;   (setq completion-cycle-threshold 3)
-
-;;   ;; Emacs 28: Hide commands in M-x which do not apply to the current mode.
-;;   ;; Corfu commands are hidden, since they are not supposed to be used via M-x.
-;;   ;; (setq read-extended-command-predicate
-;;   ;;       #'command-completion-default-include-p)
-
-;;   ;; Enable indentation+completion using the TAB key.
-;;   ;; `completion-at-point' is often bound to M-TAB.
-;; (setq tab-always-indent 'complete))
+;; Emacs 28: Hide commands in M-x which do not apply to the current mode.
+;; Corfu commands are hidden, since they are not supposed to be used via M-x.
+;; (setq read-extended-command-predicate
+;;       #'command-completion-default-include-p)
 
 ;; \` matches beginning of string
 ;; \' matches end of string
@@ -2537,13 +2588,12 @@ Do not increase cloze number"
                             "Set tab width to four spacess."
                             (setq tab-width 4)))
 (setq tab-stop-list '(4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64 68 72 76 80))
-;; end_work_computer
 
 (global-set-key (kbd "<RET>") #'newline)
 
-;; trying lsp-bridge
 (use-package lsp-bridge
   :load-path "~/.config/emacs/manually_installed/lsp-bridge"
+  ;; Use `eglot' for now
   ;; :hook
   ;;; statically typed
   ;; (c-mode . lsp-bridge-mode)
@@ -2601,7 +2651,6 @@ Do not increase cloze number"
 ;; git-modes
 (use-package git-modes)
 
-;; try ripgrep
 (use-package rg
   :custom
   (rg-executable (executable-find "rg"))
@@ -2633,18 +2682,6 @@ Save the buffer of the current window and kill it"
   (save-buffer)
   (delete-window))
 (global-set-key (kbd "C-x s-s") #'zino/save-buffer-and-exit)
-
-;; (add-hook 'eglot-managed-mode-hook (lambda ()
-;;                                      (add-to-list 'company-backends
-;;                                                   '(company-capf :with company-yasnippet))))
-
-;; (defun my/eglot-capf ()
-;;   (setq-local completion-at-point-functions
-;;               (list (cape-super-capf
-;;                      #'eglot-completion-at-point
-;;                      (cape-company-to-capf #'company-yasnippet)))))
-
-;;(add-hook 'eglot-managed-mode-hook #'my/eglot-capf)
 
 (use-package format-all
   :hook
@@ -2861,64 +2898,6 @@ I find myself often do this workflow"
   :config
   (add-to-list 'auto-mode-alist '("\\.asm\\'" . nasm-mode)))
 
-;; (setq ba/org-adjust-tags-column t)
-
-;; (defun ba/org-adjust-tags-column-reset-tags ()
-;;   "In org-mode buffers it will reset tag position according to
-;; `org-tags-column'."
-;;   (when (and
-;;          (not (string= (buffer-name) "*Remember*"))
-;;          (eql major-mode 'org-mode))
-;;     (let ((b-m-p (buffer-modified-p)))
-;;       (condition-case nil
-;;           (save-excursion
-;;             (goto-char (point-min))
-;;             (command-execute 'outline-next-visible-heading)
-;;             ;; disable (message) that org-set-tags generates
-;;             (flet ((message (&rest ignored) nil))
-;;                   (org-set-tags 1 t))
-;;             (set-buffer-modified-p b-m-p))
-;;         (error nil)))))
-
-;; (defun ba/org-adjust-tags-column-now ()
-;;   "Right-adjust `org-tags-column' value, then reset tag position."
-;;   (set (make-local-variable 'org-tags-column)
-;;        (- (- (window-width) (length org-ellipsis))))
-;;   (ba/org-adjust-tags-column-reset-tags))
-
-;; (defun ba/org-adjust-tags-column-maybe ()
-;;   "If `ba/org-adjust-tags-column' is set to non-nil, adjust tags."
-;;   (when ba/org-adjust-tags-column
-;;     (ba/org-adjust-tags-column-now)))
-
-;; (defun ba/org-adjust-tags-column-before-save ()
-;;   "Tags need to be left-adjusted when saving."
-;;   (when ba/org-adjust-tags-column
-;;     (setq org-tags-column 1)
-;;     (ba/org-adjust-tags-column-reset-tags)))
-
-;; (defun ba/org-adjust-tags-column-after-save ()
-;;   "Revert left-adjusted tag position done by before-save hook."
-;;   (ba/org-adjust-tags-column-maybe)
-;;   (set-buffer-modified-p nil))
-
-;; automatically align tags on right-hand side
-;; (add-hook 'window-configuration-change-hook
-;;           'ba/org-adjust-tags-column-maybe)
-;; (add-hook 'before-save-hook 'ba/org-adjust-tags-column-before-save)
-;; (add-hook 'after-save-hook 'ba/org-adjust-tags-column-after-save)
-;; (add-hook 'org-agenda-mode-hook (lambda ()
-;;                                   (setq org-agenda-tags-column (- (window-width)))))
-
-;;                                         ; between invoking org-refile and displaying the prompt (which
-;;                                         ; triggers window-configuration-change-hook) tags might adjust,
-;;                                         ; which invalidates the org-refile cache
-;; (defadvice org-refile (around org-refile-disable-adjust-tags)
-;;   "Disable dynamically adjusting tags"
-;;   (let ((ba/org-adjust-tags-column nil))
-;;     ad-do-it))
-;; (ad-activate 'org-refile)
-
 (use-package json-mode)
 
 (use-package elfeed
@@ -2996,19 +2975,27 @@ I find myself often do this workflow"
   (pulsar-face 'beacon-fallback-background)
   (pulsar-iterations 3))
 
-(defun xref-pulse-momentarily ()
-  "Control the highlight in source buffer after executing `xref-next-line'.
+(use-package xref
+  :ensure nil
+  :config
+  (defun xref-pulse-momentarily ()
+    "Control the highlight in source buffer after executing `xref-next-line'.
 
 This is inserted into `xref-after-jump-hook'"
-  (save-excursion
-    (let (beg end)
-      (beginning-of-line)
-      (setq beg (point))
-      (end-of-line)
-      (setq end (point))
-      (pulsar-pulse-line))))
-
-(global-set-key (kbd "C-c M-d") 'xref-find-definitions-other-frame)
+    (save-excursion
+      (let (beg end)
+        (beginning-of-line)
+        (setq beg (point))
+        (end-of-line)
+        (setq end (point))
+        (pulsar-pulse-line))))
+  :bind
+  ("C-c M-d" . xref-find-definitions-other-frame)
+  :custom
+  (xref-history-storage 'xref-window-local-history)
+  (xref-search-program 'ripgrep)
+  :custom-face
+  (xref-file-header ((t (:inherit orderless-match-face-0)))))
 
 (windmove-default-keybindings)
 
@@ -3060,7 +3047,7 @@ This is inserted into `xref-after-jump-hook'"
                               (split-window-right)
                               (balance-windows)))
 
-;; try `straight'
+;; Try `straight'
 (defvar bootstrap-version)
 (let ((bootstrap-file
        (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
@@ -3118,27 +3105,6 @@ This is inserted into `xref-after-jump-hook'"
 ;;   (pretty-control-l-mode)
 ;;   )
 
-(defun individual-visibility-source-blocks ()
-  "Fold some blocks in the current buffer."
-  (interactive)
-  (org-show-block-all)
-  (org-block-map
-   (lambda ()
-     (let ((case-fold-search t))
-       (when (and
-              (save-excursion
-                (beginning-of-line 1)
-                (looking-at org-block-regexp))
-              (cl-assoc
-               ':hidden
-               (cl-third
-                (org-babel-get-src-block-info))))
-         (org-hide-block-toggle))))))
-
-(add-hook
- 'org-mode-hook
- (function individual-visibility-source-blocks))
-
 (use-package prism)
 
 (use-package bookmark+
@@ -3175,10 +3141,6 @@ This is inserted into `xref-after-jump-hook'"
   (:map beancount-mode-map
         ("<tab>" . indent-for-tab-command)))
 
-(use-package hippie-exp
-  :config
-  (global-set-key [remap dabbrev-expand] 'hippie-expand))
-
 (use-package plantuml-mode
   :custom
   (plantuml-executable-path "plantuml")
@@ -3192,6 +3154,5 @@ This is inserted into `xref-after-jump-hook'"
 
 ;; Put this at the end otherwise `pcache' will still register itself
 (remove-hook 'kill-emacs-hook 'pcache-kill-emacs-hook)
-(put 'magit-diff-edit-hunk-commit 'disabled nil)
 
 ;;; init.el ends here
