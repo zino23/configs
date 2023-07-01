@@ -42,7 +42,7 @@
 (scroll-bar-mode -1)
 (tool-bar-mode -1)
 (tooltip-mode nil)
-(set-fringe-mode 7)
+(set-fringe-mode '(7 . 0))
 (menu-bar-mode -1)
 (column-number-mode)
 (global-display-line-numbers-mode -1)
@@ -53,6 +53,9 @@
 ;; Display line numbers in mode line
 (line-number-mode 1)
 (setq help-window-select t)
+
+;; Treat manual buffer switching the same as programmatic switching
+(setq switch-to-buffer-obey-display-actions t)
 
 (use-package desktop
   :ensure nil
@@ -92,8 +95,209 @@
 ;; Define a read-only directory class
 (dir-locals-set-class-variables 'read-only '((nil . ((buffer-read-only . t)))))
 
-(global-set-key (kbd "C-;") #'comment-line)
-(global-set-key (kbd "C-x C-c") #'save-buffers-kill-terminal)
+(global-set-key (kbd "C-;") 'comment-line)
+(global-set-key (kbd "C-x C-c") 'save-buffers-kill-terminal)
+(global-set-key (kbd "s-3") 'kmacro-start-macro-or-insert-counter)
+(global-set-key (kbd "s-4") 'kmacro-end-or-call-macro)
+
+;; Rebind bc by default `list-buffers' list buffers in another window
+(global-set-key "\C-x\C-b" 'ibuffer)
+(global-set-key (kbd "s-b") 'zino/switch-other-buffer)
+
+(global-set-key (kbd "M-s-3") (lambda ()
+                                "Quickly create 3 balanced vertically spit windows."
+                                (interactive)
+                                (split-window-right)
+                                (split-window-right)
+                                (balance-windows)))
+
+(global-set-key (kbd "M-s-s") 'window-toggle-side-windows)
+
+(define-key minibuffer-mode-map (kbd "S-SPC") nil)
+
+(defun toggle-window-split ()
+  "Toggle between vertical and horizontal split when therea are only two window."
+  (interactive)
+  (if (= (count-windows) 2)
+      (let* ((this-win-buffer (window-buffer))
+	           (next-win-buffer (window-buffer (next-window)))
+	           (this-win-edges (window-edges (selected-window)))
+	           (next-win-edges (window-edges (next-window)))
+	           (this-win-2nd (not (and (<= (car this-win-edges)
+					                               (car next-win-edges))
+				                             (<= (cadr this-win-edges)
+					                               (cadr next-win-edges)))))
+	           (splitter
+	            (if (= (car this-win-edges)
+		                 (car (window-edges (next-window))))
+		              'split-window-horizontally
+		            'split-window-vertically)))
+	      (delete-other-windows)
+	      (let ((first-win (selected-window)))
+	        (funcall splitter)
+	        (if this-win-2nd (other-window 1))
+	        (set-window-buffer (selected-window) this-win-buffer)
+	        (set-window-buffer (next-window) next-win-buffer)
+	        (select-window first-win)
+	        (if this-win-2nd (other-window 1))))))
+
+(define-key ctl-x-4-map "t" 'toggle-window-split)
+
+;; The following only undoes remapping instead of remapping to nil
+;; (define-key global-map [remap ns-print-buffer] nil)
+(global-unset-key (kbd "s-p"))
+
+;; Make ESC quit prompts
+(global-set-key (kbd "<escape>") 'keyboard-escape-quit)
+
+;; the original keybinding is set-goal-column
+(global-unset-key (kbd "C-x C-n"))
+
+(global-set-key (kbd "C-c +") 'zino/increment-number-decimal)
+
+
+(define-key global-map [remap goto-line] 'avy-goto-line)
+(global-set-key (kbd "s-j")
+                (lambda ()
+                  (interactive)
+                  (join-line -1)))
+
+(global-set-key (kbd "M-j") 'avy-goto-char-timer)
+
+(global-set-key (kbd "C-d") 'zino/delete-forward-char)
+
+;; speed up swiper
+;; when visual-line mode is enabled, emacs will forward
+;; by visual line which is very slow in large files
+(setq swiper-use-visual-line nil)
+(setq swiper-use-visual-line-p (lambda (a) nil))
+
+(defun zino/swiper-isearch-again ()
+  "Start swiper-isearch with the last thing searched for."
+  (interactive)
+  (swiper-isearch (car swiper-history)))
+(global-set-key (kbd "s-F") 'zino/swiper-isearch-again)
+
+(defun zino/delete-forward-char (n)
+  "Delete the following N chars and keep it in the `kill-ring'."
+  (interactive "p*")
+  (delete-char n t))
+
+;; vim like newline
+(defun newline-below ()
+  "Newline like vim's o."
+  (interactive)
+  (end-of-line)
+  (newline-and-indent))
+
+(defun newline-above ()
+  "Newline like vim's O."
+  (interactive)
+  (beginning-of-line)
+  (open-line 1)
+  (indent-for-tab-command))
+
+(global-set-key (kbd "C-S-<return>") 'newline-above)
+(global-set-key (kbd "S-s-<return>") 'newline-above)
+(global-set-key (kbd "s-<return>") 'newline-below)
+(global-set-key (kbd "<C-return>") 'newline-below)
+
+(defun zino/next-k-lines ()
+  "Move cursor down k lines."
+  (interactive)
+  (forward-line 5))
+
+(defun zino/previous-k-lines ()
+  "Move cursor up k lines."
+  (interactive)
+  (forward-line -5))
+
+(global-set-key (kbd "M-n") 'zino/next-k-lines)
+(global-set-key (kbd "M-p") 'zino/previous-k-lines)
+(global-set-key (kbd "C-,") 'scroll-up-command)
+(global-set-key (kbd "C-.") 'scroll-down-command)
+
+(global-set-key (kbd "C-a") 'smarter-move-beginning-of-line)
+
+(global-set-key (kbd "M-f") 'forward-to-word)
+(global-set-key (kbd "M-e") 'forward-word)
+
+(defun zino/kill-whole-line-without-newline ()
+  "Kill the whole line but leave the trailing newline."
+  (interactive)
+  (kill-whole-line 0))
+
+(global-set-key (kbd "C-k") 'kill-whole-line)
+(global-set-key (kbd "C-S-k") 'kill-line)
+(global-set-key (kbd "C-S-s-k") 'zino/kill-whole-line-without-newline)
+
+(defun smarter-move-beginning-of-line (arg)
+  "Move point back to indentation of beginning of line.
+Move point to the first non-whitespace character on this line.
+If point is already there, move to the beginning of the line.
+Effectively toggle between the first non-whitespace character and
+the beginning of the line.
+
+If ARG is not nil or 1, move forward ARG - 1 lines first.  If
+point reaches the beginning or end of the buffer, stop there."
+  (interactive "^p")
+  (setq arg (or arg 1))
+
+  ;; Move lines first
+  (when (/= arg 1)
+    (let ((line-move-visual nil))
+      (forward-line (1- arg))))
+
+  (let ((old-point (point)))
+    (beginning-of-visual-line)
+    (skip-syntax-forward " " (line-end-position))
+    (backward-prefix-chars)
+    (when (= old-point (point))
+      (beginning-of-visual-line))
+    ))
+
+(defun copy-line (arg)
+  "Copy ARG lines."
+  (interactive "p")
+  (let ((beg (line-beginning-position))
+        (end (line-end-position arg)))
+    (when mark-active
+      (if (> (point) (mark))
+          (setq beg (save-excursion
+                      (goto-char (mark))
+                      (line-beginning-position)))
+        (setq end (save-excursion
+                    (goto-char (mark))
+                    (line-end-position)))))
+    (if (eq last-command 'copy-line)
+        (kill-append (buffer-substring beg end) (< end beg))
+      (kill-ring-save beg end)))
+  (kill-append "\n" nil)
+  ;; move cursor to the next line of the last of copied lines
+  (beginning-of-line (or (and arg (1+ arg)) 2))
+  ;; print a message when copying more than 1 lines
+  (if (and arg (not (= 1 arg)))
+      (message "%d lines copied" arg)))
+
+(global-set-key (kbd "C-c k") #'copy-line)
+(global-set-key (kbd "C-c C-k") #'copy-line)
+(defun zino/switch-other-buffer ()
+  "Swithch to the most recent buffer."
+  (interactive)
+  (switch-to-buffer (other-buffer)))
+
+(global-set-key (kbd "C-c b") 'zino/switch-other-buffer)
+(global-set-key (kbd "C-c C-b") 'zino/switch-other-buffer)
+
+
+(global-set-key (kbd "<RET>") #'newline)
+(defun zino/save-buffer-and-exit()
+  "Simple convenience function.
+Save the buffer of the current window and kill it"
+  (interactive)
+  (save-buffer)
+  (delete-window))
+(global-set-key (kbd "C-x s-s") #'zino/save-buffer-and-exit)
 
 ;; Emacs source for help system
 (setq emacs-src-dir "/usr/local/Cellar/emacs-plus@29/29.0.60/share/emacs")
@@ -111,10 +315,6 @@
               edgeworker-deps
               rust-src-dir))
   (dir-locals-set-directory-class (file-truename dir) 'read-only))
-
-;; Rebind bc by default `list-buffers' list buffers in another window
-(global-set-key "\C-x\C-b" 'ibuffer)
-(global-set-key (kbd "s-b") 'zino/switch-other-buffer)
 
 (use-package frame
   :after ivy
@@ -147,10 +347,6 @@
 ;; Disable the visible bell
 (setq visible-bell nil)
 
-;; the following only undoes remapping instead of remapping to nil
-;; (define-key global-map [remap ns-print-buffer] nil)
-(global-unset-key (kbd "s-p"))
-
 ;; `auto-fill-mode' is defined in package `simple'
 ;; Auto soft-break line
 (use-package simple
@@ -168,12 +364,6 @@
 
 (global-visual-line-mode 1)
 (global-hl-line-mode 1)
-
-;; Make ESC quit prompts
-(global-set-key (kbd "<escape>") 'keyboard-escape-quit)
-
-;; the original keybinding is set-goal-column
-(global-unset-key (kbd "C-x C-n"))
 
 (use-package general
   :config
@@ -258,6 +448,7 @@
    ("(" . dired-hide-details-mode))
   :hook
   (dired-mode . auto-revert-mode)
+  (dired-mode . dired-hide-details-mode)
   ;; Drag-and-drop to `dired'
   (dired-mode . org-download-enable)
   :custom
@@ -265,11 +456,11 @@
   (dired-create-destination-dirs 'always)
   (dired-listing-switches "-alGuh --group-directories-first")
   (auto-revert-verbose nil)
+  (dired-clean-confirm-killing-deleted-buffers nil)
   :config
   (setq ls-lisp-use-insert-directory-program t)
   ;; `ls' does not have `--group-directories-first' option, use `gls'.
   (setq insert-directory-program "/usr/local/bin/gls"))
-
 
 (use-package dirvish
   :init
@@ -424,10 +615,10 @@
 (use-package all-the-icons-dired
   :if
   (display-graphic-p)
-  ;;; This will show two columns of icons in `dirvish' mode
-  ;; :hook
-  ;; (dired-mode . all-the-icons-dired-mode)
-  )
+  ;; NOTE: This will show two columns of icons in `dirvish' mode. Remove the
+  ;; hook when using `dirvish'.
+  :hook
+  (dired-mode . all-the-icons-dired-mode))
 
 (use-package doom-modeline
   :init (doom-modeline-mode 1)
@@ -534,10 +725,19 @@
    ("s" . sp-forward-slurp-sexp)
    ("k" . sp-change-enclosing))
   :config
-  (advice-add 'sp-copy-sexp :after (lambda (&optional arg)
-                                     "Print a message after applying `sp-copy-sexp'."
-                                     (let ((sexp (read (car kill-ring))))
-                                       (print (concat "sexp '" (format "%s" sexp) "' has been copied to the kill-ring"))))))
+  (advice-add
+   'sp-copy-sexp
+   :after
+   (lambda (&optional arg)
+     "Print a message after applying `sp-copy-sexp'."
+     (let ((sexp (read (car kill-ring))))
+       (print (concat "sexp '" (format "%s" sexp) "' has been copied to the kill-ring")))))
+  ;; :hook
+  ;; `smartparens-global-mode' does not enable `smartparens-mode' in minibuffer
+  ;; NOTE: disable it for now coz often I don't want quoting characters to be
+  ;; automatically inserted.
+  ;; (minibuffer-mode . smartparens-mode)
+  )
 
 (defmacro def-pairs (pairs)
   "Define functions for pairing. PAIRS is an alist of (NAME . STRING)
@@ -629,8 +829,6 @@ respectively."
   :custom
   (ivy-use-selectable-prompt t)
   (ivy-use-virtual-buffers nil))
-
-(define-key minibuffer-mode-map (kbd "S-SPC") nil)
 
 (use-package which-key
   :init
@@ -1102,7 +1300,10 @@ Similar to `org-capture' like behavior"
   (defun zino/no-op (&rest args))
   (advice-add 'org-noter--set-notes-scroll :override 'zino/no-op)
   :bind
-  ("M-s-." . org-noter))
+  (("M-s-." . org-noter)
+   :map org-noter-doc-mode-map
+   ("i" . org-noter-insert-precise-note)
+   ("M-i" . org-noter-insert-note)))
 
 (defun zino/org-journal-cycle-after-open-current-journal-file ()
   "Toggle visibility according to buffer's setting."
@@ -1164,13 +1365,15 @@ Similar to `org-capture' like behavior"
          ;; narrowed org capture buffer. However, when the captured text gets
          ;; inserted, the drawer is unfolded. With `:after-finalize', the
          ;; nullary function is called in the buffer wherein captured text is
-         ;; inserted. Currently an relatively expensive
-         ;; `org-fold-hide-drawer-all' is called. Optimize it by only hiding the
-         ;; drawer we just inserted.
+         ;; inserted. Currently a relatively expensive
+         ;; `org-fold-hide-drawer-all' is called. Optimize it by only folding
+         ;; the drawer we just inserted.
          ;; :before-finalize (lambda ()
          ;;                    (org-back-to-heading-or-point-min)
          ;;                    (next-line)
          ;;                    (org-fold-hide-drawer-toggle t))
+         ;; NOTE: possible implementation: find the heading we just inserted,
+         ;; forward one line, then call `org-fold-hide-drawer-toggle'.
          :after-finalize org-fold-hide-drawer-all)
         ("gl" "Later"
          entry
@@ -1315,11 +1518,19 @@ Similar to `org-capture' like behavior"
         ("p" . pdf-view-previous-line-or-previous-page)
         ("," . pdf-view-previous-page)
         ("." . pdf-view-next-page)
-        ("s-1" . pdf-annot-add-highlight-markup-annotation)
-        ("s-2" . pdf-annot-add-squiggly-markup-annotation)
-        ("s-3" . pdf-annot-add-text-annotation)
-        ("s-4" . pdf-annot-delete)
-        ("C-<down-mouse-1>" . zino/pdf-tools-toggle-mouse-1-use))
+        ("C-<down-mouse-1>" . zino/pdf-tools-toggle-mouse-1-use)
+        ("[" . shrink-window-horizontally)
+        ("]" . enlarge-window-horizontally)
+        ("s" . isearch-forward)
+        ("f" . image-forward-hscroll)
+        ("b" . image-backward-hscroll)
+        ("1" . pdf-annot-add-highlight-markup-annotation)
+        ("2" . pdf-annot-add-underline-markup-annotation)
+        ("3" . pdf-annot-add-squiggly-markup-annotation)
+        ("4" . pdf-annot-delete)
+        ("5" . pdf-annnt-add-text-annotation))
+  ;; :config
+  ;; (define-key pdf-links-minor-mode-map [remap pdf-links-isearch-link] 'image-forward-hscroll)
   :custom
   (pdf-view-use-scaling t)
   (pdf-view-continuous t)
@@ -1327,7 +1538,6 @@ Similar to `org-capture' like behavior"
   (pdf-view-resize-factor 1.1)
   ;; Select by word by default and use `zino/pdf-tools-toggle-mouse-1-use' to toggle
   (pdf-view-selection-style 'word))
-
 
 (use-package doc-toc
   :ensure nil
@@ -1496,16 +1706,14 @@ Similar to `org-capture' like behavior"
   (interactive "p*")
   (zino/increment-number-decimal (if arg (- arg) -1)))
 
-(global-set-key (kbd "C-c +") 'zino/increment-number-decimal)
-
 (use-package company
   ;; :config
   ;; (setq company-backends (mapcar #'company-mode/backend-with-yas company-backends))
-  :bind
-  (("M-." . company-show-doc-buffer)
-   :map company-active-map
-   ("<return>" . company-complete-selection)
-   ("<tab>" . company-complete-common))
+  ;; :bind
+  ;; (("M-." . company-show-doc-buffer)
+  ;;  :map company-active-map
+  ;;  ("<return>" . company-complete-selection)
+  ;;  ("<tab>" . company-complete-common))
   :custom
   (company-minimum-prefix-length 2)
   (company-idle-delay 0.05)
@@ -1548,8 +1756,6 @@ Similar to `org-capture' like behavior"
   )
 
 (repeat-mode)
-
-(define-key global-map [remap goto-line] 'avy-goto-line)
 
 (pixel-scroll-mode 1)
 
@@ -1633,135 +1839,12 @@ Do not prompt me to create parent directory"
 
 (delete-selection-mode 1)
 
-(global-set-key (kbd "s-j")
-                (lambda ()
-                  (interactive)
-                  (join-line -1)))
-
-(global-set-key (kbd "M-j") 'avy-goto-char-timer)
-
-;; speed up swiper
-;; when visual-line mode is enabled, emacs will forward
-;; by visual line which is very slow in large files
-(setq swiper-use-visual-line nil)
-(setq swiper-use-visual-line-p (lambda (a) nil))
-
-(defun zino/swiper-isearch-again ()
-  "Start swiper-isearch with the last thing searched for."
-  (interactive)
-  (swiper-isearch (car swiper-history)))
-(global-set-key (kbd "s-F") 'zino/swiper-isearch-again)
-
-(defun zino/delete-forward-char (n)
-  "Delete the following N chars and keep it in the `kill-ring'."
-  (interactive "p*")
-  (delete-char n t))
-
-(global-set-key (kbd "C-d") 'zino/delete-forward-char)
-
-;; vim like newline
-(defun newline-below ()
-  "Newline like vim's o."
-  (interactive)
-  (end-of-line)
-  (newline-and-indent))
-
-(defun newline-above ()
-  "Newline like vim's O."
-  (interactive p)
-  (beginning-of-line)
-  (open-line 1)
-  (indent-for-tab-command))
-(global-set-key (kbd "C-S-<return>") 'newline-above)
-(global-set-key (kbd "S-s-<return>") 'newline-above)
-(global-set-key (kbd "s-<return>") 'newline-below)
-(global-set-key (kbd "<C-return>") 'newline-below)
-
-(defun zino/next-k-lines ()
-  "Move cursor down k lines."
-  (interactive)
-  (next-line 5))
-
-(defun zino/previous-k-lines ()
-  "Move cursor up k lines."
-  (interactive)
-  (next-line -5))
-
-(global-set-key (kbd "M-n") 'zino/next-k-lines)
-(global-set-key (kbd "M-p") 'zino/previous-k-lines)
-(global-set-key (kbd "C-,") 'scroll-up-command)
-(global-set-key (kbd "C-.") 'scroll-down-command)
-
-(global-set-key (kbd "C-a") 'smarter-move-beginning-of-line)
-
-(global-set-key (kbd "M-f") 'forward-to-word)
-(global-set-key (kbd "M-e") 'forward-word)
-
-(defun zino/kill-whole-line-without-newline ()
-  "Kill the whole line but leave the trailing newline."
-  (interactive)
-  (kill-whole-line 0))
-
-(global-set-key (kbd "C-k") 'kill-whole-line)
-(global-set-key (kbd "C-S-k") 'kill-line)
-(global-set-key (kbd "C-S-s-k") 'zino/kill-whole-line-without-newline)
-
-(defun smarter-move-beginning-of-line (arg)
-  "Move point back to indentation of beginning of line.
-Move point to the first non-whitespace character on this line.
-If point is already there, move to the beginning of the line.
-Effectively toggle between the first non-whitespace character and
-the beginning of the line.
-
-If ARG is not nil or 1, move forward ARG - 1 lines first.  If
-point reaches the beginning or end of the buffer, stop there."
-  (interactive "^p")
-  (setq arg (or arg 1))
-
-  ;; Move lines first
-  (when (/= arg 1)
-    (let ((line-move-visual nil))
-      (forward-line (1- arg))))
-
-  (let ((old-point (point)))
-    (beginning-of-visual-line)
-    (skip-syntax-forward " " (line-end-position))
-    (backward-prefix-chars)
-    (when (= old-point (point))
-      (beginning-of-visual-line))
-    ))
-
-(defun copy-line (arg)
-  "Copy ARG lines."
-  (interactive "p")
-  (let ((beg (line-beginning-position))
-        (end (line-end-position arg)))
-    (when mark-active
-      (if (> (point) (mark))
-          (setq beg (save-excursion
-                      (goto-char (mark))
-                      (line-beginning-position)))
-        (setq end (save-excursion
-                    (goto-char (mark))
-                    (line-end-position)))))
-    (if (eq last-command 'copy-line)
-        (kill-append (buffer-substring beg end) (< end beg))
-      (kill-ring-save beg end)))
-  (kill-append "\n" nil)
-  ;; move cursor to the next line of the last of copied lines
-  (beginning-of-line (or (and arg (1+ arg)) 2))
-  ;; print a message when copying more than 1 lines
-  (if (and arg (not (= 1 arg)))
-      (message "%d lines copied" arg)))
-
-(global-set-key (kbd "C-c k") #'copy-line)
-(global-set-key (kbd "C-c C-k") #'copy-line)
-
 (use-package helm
   :custom
   (helm-semantic-fuzzy-match t)
   (helm-imenu-fuzzy-match    t)
   (helm-minibuffer-history-key "M-p")
+  (helm-candidate-number-limit nil)
 
   :config
   (add-to-list 'helm-sources-using-default-as-input 'helm-source-man-pages)
@@ -1772,14 +1855,6 @@ point reaches the beginning or end of the buffer, stop there."
   ("M-i" . helm-imenu))
 
 (use-package consult)
-
-(defun zino/switch-other-buffer ()
-  "Swithch to the most recent buffer."
-  (interactive)
-  (switch-to-buffer (other-buffer)))
-
-(global-set-key (kbd "C-c b") 'zino/switch-other-buffer)
-(global-set-key (kbd "C-c C-b") 'zino/switch-other-buffer)
 
 (use-package hl-line
   :hook
@@ -1893,7 +1968,11 @@ point reaches the beginning or end of the buffer, stop there."
 
 (use-package rustic
   :custom
-  (rustic-lsp-client 'eglot))
+  (rustic-lsp-client 'eglot)
+  :config
+  ;; These hooks are added in `rustic.el'
+  (remove-hook 'rustic-mode-hook 'flymake-mode-off)
+  (remove-hook 'rustic-mode-hook 'flycheck-mode))
 
 (use-package cargo
   :hook
@@ -1948,6 +2027,20 @@ point reaches the beginning or end of the buffer, stop there."
   (define-key lsp-ui-imenu-mode-map (kbd "p") 'previous-line))
 
 (use-package eglot
+  :preface
+  (defun mp-eglot-eldoc ()
+    (setq eldoc-documentation-strategy
+          'eldoc-documentation-compose-eagerly)
+    ;; Customize the order various doc strings are displayed.
+    (setq eldoc-documentation-functions '(flymake-eldoc-function
+                                          eglot-signature-eldoc-function
+                                          eglot-hover-eldoc-function)))
+  ;; :hook
+  ;; (
+  ;;  (eglot-managed-mode . flymake-mode)
+  ;;  (eglot-managed-mode . mp-eglot-eldoc)
+  ;;  )
+
   :init
   ;; eglot use this variable to determine if `company-mode' ignores case
   (setq completion-ignore-case t)
@@ -1976,7 +2069,19 @@ point reaches the beginning or end of the buffer, stop there."
         ("C-c C-r" . xref-find-references)
         ("C-c H-i" . eglot-find-implementation)
         ("C-c C-a" . eglot-code-actions)
-        ("C-c C-e" . flycheck-list-errors))
+        ("C-c C-e" . (lambda ()
+                       "Open the window listing errors and switch to it."
+                       (interactive)
+                       (flycheck-list-errors)
+                       (pop-to-buffer "*Flycheck errors*")))
+        ;; ("C-c C-e" .
+        ;;  (lambda ()
+        ;;    "Open the window listing errors and switch to it."
+        ;;    (interactive)
+        ;;    (flymake-show-buffer-diagnostics)
+        ;;    ;; (pop-to-buffer "*Flymake diagnostics*")
+        ;;    (other-window 1)))
+        )
   :hook
   (rust-mode . eglot-ensure)
   (c-mode . eglot-ensure)
@@ -2103,7 +2208,7 @@ point reaches the beginning or end of the buffer, stop there."
   :custom
   (company-box-doc-delay 0.2)
   :config
-  (setq company-box-backends-colors '((company-yasnippet . (:all "#457b9d" :selected (:foreground "#1d3557" :background "#457b9d"))))))
+  (setq company-box-backends-colors '((company-yasnippet . (:all "#457b9d" :selected (:foreground "#1d3557" :background  "#457b9d"))))))
 
 (use-package yasnippet
   :hook
@@ -2111,20 +2216,44 @@ point reaches the beginning or end of the buffer, stop there."
 
 (use-package yasnippet-snippets)
 
+(use-package flymake-cursor
+  :load-path "~/.config/emacs/manually_installed/emacs-flymake-cursor")
+
+(use-package flymake
+  :bind
+  (:map flymake-mode-map
+        ("C-c [" . flymake-goto-prev-error)
+        ("C-c ]" . flymake-goto-next-error))
+  :config
+  (eval-after-load 'flymake '(require 'flymake-cursor))
+  ;; :hook
+  ;; (prog-mode . flymake-mode)
+  )
+
+;; Try it sometime
+;; (use-package flymake-popon)
+
 (use-package flycheck
+  ;; Use `flymake' for now
   :hook
   (prog-mode . flycheck-mode)
   :config
-  (push 'rustic-clippy flycheck-checkers))
+  (push 'rustic-clippy flycheck-checkers)
+  :custom
+  (flycheck-display-errors-delay 0.2)
+  (flycheck-indication-mode 'left-fringe)
+  :bind
+  (:map flycheck-mode-map
+        ("C-c [" . flycheck-previous-error)
+        ("C-c ]" . flycheck-next-error)))
 
 (use-package flycheck-rust
   :hook
-  (flycheck-mode . flycheck-rust-setup)
+  (flycheck-mode . flycheck-rust-setup))
+
+(use-package flycheck-eglot
   :config
-  (define-key flycheck-mode-map (kbd "C-c [") #'flycheck-previous-error)
-  (define-key flycheck-mode-map (kbd "C-c ]") #'flycheck-next-error)
-  :custom
-  (flycheck-indication-mode 'left-fringe))
+  (global-flycheck-eglot-mode -1))
 
 ;; TODO: use directory variables to configure per project
 ;; (add-hook 'c++-mode-hook (lambda ()
@@ -2185,8 +2314,8 @@ point reaches the beginning or end of the buffer, stop there."
 (use-package mic-paren
   :custom-face
   (paren-face-match ((t (:foreground "#7bb6e2" :background "#2c3946" :weight ultra-bold))))
-  :config
-  (paren-activate)
+  ;; :config
+  ;; (paren-activate)
   :custom
   (paren-display-message 'always))
 
@@ -2370,11 +2499,13 @@ Do not increase cloze number"
      (tramp-connection-local-default-system-profile
       (path-separator . ":")
       (null-device . "/dev/null"))))
+ '(dired-clean-confirm-killing-deleted-buffers nil)
  '(display-line-numbers-width-start nil)
  '(fill-column 80)
  '(flycheck-checkers
    '(rustic-clippy eglot-check vale rustic-clippy ada-gnat asciidoctor asciidoc awk-gawk bazel-build-buildifier bazel-module-buildifier bazel-starlark-buildifier bazel-workspace-buildifier c/c++-clang c/c++-gcc c/c++-cppcheck cfengine chef-foodcritic coffee coffee-coffeelint coq css-csslint css-stylelint cuda-nvcc cwl d-dmd dockerfile-hadolint elixir-credo emacs-lisp emacs-lisp-checkdoc ember-template erlang-rebar3 erlang eruby-erubis eruby-ruumba fortran-gfortran go-gofmt go-golint go-vet go-build go-test go-errcheck go-unconvert go-staticcheck groovy haml handlebars haskell-stack-ghc haskell-ghc haskell-hlint html-tidy javascript-eslint javascript-jshint javascript-standard json-jsonlint json-python-json json-jq jsonnet less less-stylelint llvm-llc lua-luacheck lua markdown-markdownlint-cli markdown-mdl nix nix-linter opam perl perl-perlcritic php php-phpmd php-phpcs processing proselint protobuf-protoc protobuf-prototool pug puppet-parser puppet-lint python-flake8 python-pylint python-pycompile python-pyright python-mypy r-lintr racket rpm-rpmlint rst-sphinx rst ruby-rubocop ruby-standard ruby-reek ruby-rubylint ruby ruby-jruby rust-cargo rust rust-clippy scala scala-scalastyle scheme-chicken scss-lint scss-stylelint sass/scss-sass-lint sass scss sh-bash sh-posix-dash sh-posix-bash sh-zsh sh-shellcheck slim slim-lint sql-sqlint systemd-analyze tcl-nagelfar terraform terraform-tflint tex-chktex tex-lacheck texinfo textlint typescript-tslint verilog-verilator vhdl-ghdl xml-xmlstarlet xml-xmllint yaml-jsyaml yaml-ruby yaml-yamllint))
  '(flycheck-go-golint-executable "golangci-lint")
+ '(helm-imenu-use-icon t)
  '(helm-split-window-default-side 'right)
  '(ibuffer-formats
    '((mark modified read-only locked " "
@@ -2398,6 +2529,8 @@ Do not increase cloze number"
  '(org-startup-folded 'fold)
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp flycheck-golangci-lint abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
+ '(pdf-annot-list-listed-types
+   '(caret circle file free-text highlight ink popup square squiggly strike-out text underline watermark widget))
  '(popper-group-function 'popper-group-by-projectile)
  '(recenter-positions '(top middle bottom))
  '(safe-local-variable-values '((comment-style quote box)))
@@ -2614,8 +2747,6 @@ Do not increase cloze number"
                             (setq tab-width 4)))
 (setq tab-stop-list '(4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64 68 72 76 80))
 
-(global-set-key (kbd "<RET>") #'newline)
-
 (use-package lsp-bridge
   :load-path "~/.config/emacs/manually_installed/lsp-bridge"
   ;; Use `eglot' for now
@@ -2656,23 +2787,6 @@ Do not increase cloze number"
   :ensure t
   :hook (after-init . global-clipetty-mode))
 
-(use-package flymake-cursor)
-
-(use-package flymake
-  :bind
-  (:map flymake-mode-map
-        ("C-c [" . flymake-goto-prev-error)
-        ("C-c ]" . flymake-goto-next-error))
-  :config
-  (eval-after-load 'flymake '(require 'flymake-cursor))
-  ;; :hook
-  ;; (eglot-managed-mode . flymake-mode))
-  )
-
-(use-package flycheck-eglot
-  :config
-  (global-flycheck-eglot-mode 1))
-
 ;; git-modes
 (use-package git-modes)
 
@@ -2699,14 +2813,6 @@ Do not increase cloze number"
 
 ;; set limit for prompt opening large files higher, 100 M
 (setq large-file-warning-threshold 100000000)
-
-(defun zino/save-buffer-and-exit()
-  "Simple convenience function.
-Save the buffer of the current window and kill it"
-  (interactive)
-  (save-buffer)
-  (delete-window))
-(global-set-key (kbd "C-x s-s") #'zino/save-buffer-and-exit)
 
 (use-package format-all
   :hook
@@ -3020,7 +3126,17 @@ This is inserted into `xref-after-jump-hook'"
   (xref-history-storage 'xref-window-local-history)
   (xref-search-program 'ripgrep)
   :custom-face
-  (xref-file-header ((t (:inherit orderless-match-face-0)))))
+  (xref-file-header ((t (:inherit orderless-match-face-0))))
+  :config
+  (add-to-list
+   'display-buffer-alist
+   '("\\*xref\\*"
+     (display-buffer-in-side-window)
+     (side . left)
+     (slot . 0)
+     (window-width . 42)
+     (window-parameters
+      (no-delete-other-windows . t)))))
 
 (windmove-default-keybindings)
 
@@ -3065,13 +3181,6 @@ This is inserted into `xref-after-jump-hook'"
 (advice-add 'pdf-view-mouse-set-region :around 'suppress-messages)
 (advice-add 'mouse-set-point :around 'suppress-messages)
 
-(global-set-key (kbd "s-3") (lambda ()
-                              "Quickly create 3 balanced vertically spit windows."
-                              (interactive)
-                              (split-window-right)
-                              (split-window-right)
-                              (balance-windows)))
-
 ;; Try `straight'
 (defvar bootstrap-version)
 (let ((bootstrap-file
@@ -3091,33 +3200,6 @@ This is inserted into `xref-after-jump-hook'"
   ;; :config
   ;; (explain-pause-mode)
   )
-
-(defun toggle-window-split ()
-  (interactive)
-  (if (= (count-windows) 2)
-      (let* ((this-win-buffer (window-buffer))
-	           (next-win-buffer (window-buffer (next-window)))
-	           (this-win-edges (window-edges (selected-window)))
-	           (next-win-edges (window-edges (next-window)))
-	           (this-win-2nd (not (and (<= (car this-win-edges)
-					                               (car next-win-edges))
-				                             (<= (cadr this-win-edges)
-					                               (cadr next-win-edges)))))
-	           (splitter
-	            (if (= (car this-win-edges)
-		                 (car (window-edges (next-window))))
-		              'split-window-horizontally
-		            'split-window-vertically)))
-	      (delete-other-windows)
-	      (let ((first-win (selected-window)))
-	        (funcall splitter)
-	        (if this-win-2nd (other-window 1))
-	        (set-window-buffer (selected-window) this-win-buffer)
-	        (set-window-buffer (next-window) next-win-buffer)
-	        (select-window first-win)
-	        (if this-win-2nd (other-window 1))))))
-
-(define-key ctl-x-4-map "t" 'toggle-window-split)
 
 (use-package breadcrumb
   :load-path "~/.config/emacs/manually_installed/breadcrumb/")
@@ -3147,7 +3229,7 @@ This is inserted into `xref-after-jump-hook'"
   :after tree-sitter-langs
   :config
   ;; (global-tree-sitter-mode)
-  (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode))
+  (add-hook 'tree-sitter-after-on-hook 'tree-sitter-hl-mode))
 
 (use-package separedit
   :bind
@@ -3161,6 +3243,7 @@ This is inserted into `xref-after-jump-hook'"
   :ensure nil
   :load-path "~/.config/emacs/manually_installed/beancount-mode"
   :config
+  (require 'beancount)
   (add-to-list 'auto-mode-alist '("\\.beancount\\'" . beancount-mode))
   :bind
   (:map beancount-mode-map
