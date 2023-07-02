@@ -63,5 +63,10 @@ dlv
 raycast/extensions
 
 # Rime
-rime/build
-rime/luna_pinyin.userdb
+rime/build/
+rime/*.userdb/
+rime/cn_dicts/
+rime/en_dicts/
+rime/opencc/
+rime/zh-hans-t-essay-bgw.gram
+rime/opencc/

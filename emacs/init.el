@@ -2499,7 +2499,6 @@ Do not increase cloze number"
      (tramp-connection-local-default-system-profile
       (path-separator . ":")
       (null-device . "/dev/null"))))
- '(dired-clean-confirm-killing-deleted-buffers nil)
  '(display-line-numbers-width-start nil)
  '(fill-column 80)
  '(flycheck-checkers
