@@ -1,2 +1,5 @@
 var:
-  last_build_time: 1688268010
+  last_build_time: 1688272344
+  option:
+    ascii_punct: true
+    emoji: false
