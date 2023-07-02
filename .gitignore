@@ -61,3 +61,7 @@ dlv
 
 # raycast
 raycast/extensions
+
+# Rime
+rime/build
+rime/luna_pinyin.userdb
