@@ -525,11 +525,11 @@
                     "simple_modifications": [
                         {
                             "from": {
-                                "key_code": "right_shift"
+                                "key_code": "f6"
                             },
                             "to": [
                                 {
-                                    "apple_vendor_top_case_key_code": "keyboard_fn"
+                                    "key_code": "f14"
                                 }
                             ]
                         },
@@ -540,6 +540,16 @@
                             "to": [
                                 {
                                     "key_code": "left_option"
+                                }
+                            ]
+                        },
+                        {
+                            "from": {
+                                "key_code": "right_shift"
+                            },
+                            "to": [
+                                {
+                                    "apple_vendor_top_case_key_code": "keyboard_fn"
                                 }
                             ]
                         }
@@ -579,6 +589,16 @@
                             "to": [
                                 {
                                     "key_code": "grave_accent_and_tilde"
+                                }
+                            ]
+                        },
+                        {
+                            "from": {
+                                "key_code": "f14"
+                            },
+                            "to": [
+                                {
+                                    "key_code": "scroll_lock"
                                 }
                             ]
                         },
