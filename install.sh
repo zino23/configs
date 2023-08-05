@@ -27,9 +27,3 @@ if ! which plantuml &> /dev/null; then
 fi
 
 echo "PlantUML successfully installed!"
-
-## Rime Configuration Manager
-# echo "Installing Rime Configuration Manager plum..."
-# curl -fsSL https://raw.githubusercontent.com/rime/plum/master/rime-install | bash
-
-
