@@ -1,5 +1,8 @@
 var:
-  last_build_time: 1688272344
+  last_build_time: 1690363183
   option:
     ascii_punct: true
     emoji: false
+  previously_selected_schema: rime_ice
+  schema_access_time:
+    rime_ice: 1690362601

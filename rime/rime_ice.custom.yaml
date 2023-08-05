@@ -7,3 +7,7 @@ patch:
     - name: ascii_punct # 中英标点
       states: [ ¥, $ ]
       reset: 1
+  key_binder/bindings:
+    - { when: always, accept: Shift, toggle: ascii_mode }
+    - { when: has_menu, accept: Alt_L+v, send: Page_Up }
+    - { when: has_menu, accept: Control+v, send: Page_Down }

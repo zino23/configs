@@ -49,7 +49,8 @@ style:
   spacing: 10
   #candidate_format: '%c. %@'
   #base_offset: 6
-  font_face: 'Lucida Grande'
+  # font_face: 'Lucida Grande'
+  font_face: 'Iosevka'
   font_point: 21
   #label_font_face: 'Lucida Grande'
   label_font_point: 18
