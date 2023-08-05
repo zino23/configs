@@ -35,6 +35,8 @@ emacs/.emacs.desktop.lock
 emacs/forge-database.sqlite
 emacs/org-roam.db
 emacs/.dap-breakpoints
+emacs/eshell/
+emacs/straight/
 abbrev_defs
 
 clash
@@ -65,3 +67,5 @@ raycast/extensions
 # Rime
 rime/build/
 rime/user.yaml
+rime/sync
+rime/*.userdb
