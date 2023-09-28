@@ -6,13 +6,10 @@
 ;;; code:
 (setq load-prefer-newer t)
 
-;; take the full control, don't load `default.el'
+;; Take the full control, don't load `default.el'
 (setq inhibit-default-init t)
 
 (require 'package)
-
-;; Don't know why this is not loaded
-(require 'ox)
 
 (if (and (fboundp 'native-comp-available-p)
          (native-comp-available-p))
@@ -25,7 +22,8 @@
 
 ;; initialize package sources
 (setq package-archives '(("melpa" . "https://melpa.org/packages/")
-                         ("elpa" . "https://elpa.gnu.org/packages/")))
+                         ("elpa" . "https://elpa.gnu.org/packages/")
+                         ("nongnu" . "https://elpa.nongnu.org/nongnu/")))
 (setq user-emacs-directory "~/.config/emacs/")
 
 (package-initialize)
@@ -34,8 +32,26 @@
 (unless (package-installed-p 'use-package)
   (package-install 'use-package))
 
-(require 'use-package)
-(setq use-package-always-ensure t)
+;; Must be set before loading `use-package'
+(setq use-package-enable-imenu-support t)
+
+(use-package use-package
+  :custom
+  (use-package-always-ensure t))
+
+;; Try `straight'
+(defvar bootstrap-version)
+(let ((bootstrap-file
+       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+      (bootstrap-version 6))
+  (unless (file-exists-p bootstrap-file)
+    (with-current-buffer
+        (url-retrieve-synchronously
+         "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
+         'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
+  (load bootstrap-file nil 'nomessage))
 
 (use-package use-package-ensure-system-package)
 
@@ -47,7 +63,7 @@
   (setq mac-option-modifier 'meta
         mac-command-modifier 'super))
 
-(setq confirm-kill-emacs #'yes-or-no-p)
+(setq confirm-kill-emacs 'yes-or-no-p)
 (setq read-process-output-max (* 1024 1024)) ;; 1MB
 
 (set-default-coding-systems 'utf-8)
@@ -107,6 +123,7 @@
 (save-place-mode 1)
 
 ;; Save minibuffer's history inputs
+(setq enable-recursive-minibuffers t)
 (setq history-length 25)
 (savehist-mode t)
 (recentf-mode t)
@@ -132,9 +149,15 @@
 (global-set-key (kbd "s-u") 'revert-buffer)
 (global-set-key (kbd "s--") 'text-scale-adjust)
 (global-set-key (kbd "s-=") 'text-scale-adjust)
-(global-set-key (kbd "s-n") 'make-frame)
+;; `m' for make
+(global-set-key (kbd "s-m") 'make-frame)
 (global-set-key (kbd "s-[") 'backward-paragraph)
 (global-set-key (kbd "s-]") 'forward-paragraph)
+
+;; Easy-to-access previous/next-logical-line
+(global-set-key (kbd "C-S-p") 'previous-logical-line)
+(global-set-key (kbd "C-S-n") 'next-logical-line)
+
 ;; The good old pager-like scrolling.
 (global-set-key (kbd "<Scroll_Lock>") 'scroll-lock-mode)
 ;; On HHKB, <Scroll_Lock> is also <f14>
@@ -160,31 +183,36 @@
 
 (define-key minibuffer-mode-map (kbd "S-SPC") nil)
 
+(global-set-key (kbd "s-j")
+                (lambda ()
+                  (interactive)
+                  (join-line -1)))
+
 (defun toggle-window-split ()
   "Toggle between vertical and horizontal split when therea are only two window."
   (interactive)
   (if (= (count-windows) 2)
       (let* ((this-win-buffer (window-buffer))
-	           (next-win-buffer (window-buffer (next-window)))
-	           (this-win-edges (window-edges (selected-window)))
-	           (next-win-edges (window-edges (next-window)))
-	           (this-win-2nd (not (and (<= (car this-win-edges)
-					                               (car next-win-edges))
-				                             (<= (cadr this-win-edges)
-					                               (cadr next-win-edges)))))
-	           (splitter
-	            (if (= (car this-win-edges)
-		                 (car (window-edges (next-window))))
-		              'split-window-horizontally
-		            'split-window-vertically)))
-	      (delete-other-windows)
-	      (let ((first-win (selected-window)))
-	        (funcall splitter)
-	        (if this-win-2nd (other-window 1))
-	        (set-window-buffer (selected-window) this-win-buffer)
-	        (set-window-buffer (next-window) next-win-buffer)
-	        (select-window first-win)
-	        (if this-win-2nd (other-window 1))))))
+             (next-win-buffer (window-buffer (next-window)))
+             (this-win-edges (window-edges (selected-window)))
+             (next-win-edges (window-edges (next-window)))
+             (this-win-2nd (not (and (<= (car this-win-edges)
+                                         (car next-win-edges))
+                                     (<= (cadr this-win-edges)
+                                         (cadr next-win-edges)))))
+             (splitter
+              (if (= (car this-win-edges)
+                     (car (window-edges (next-window))))
+                  'split-window-horizontally
+                'split-window-vertically)))
+        (delete-other-windows)
+        (let ((first-win (selected-window)))
+          (funcall splitter)
+          (if this-win-2nd (other-window 1))
+          (set-window-buffer (selected-window) this-win-buffer)
+          (set-window-buffer (next-window) next-win-buffer)
+          (select-window first-win)
+          (if this-win-2nd (other-window 1))))))
 
 (define-key ctl-x-4-map "t" 'toggle-window-split)
 
@@ -197,20 +225,11 @@
 
 (global-set-key (kbd "C-c +") 'zino/increment-number-decimal)
 
-(define-key global-map (kbd "s-l") 'avy-goto-line)
-(define-key global-map (kbd "C-s-l") 'avy-goto-end-of-line)
-(global-set-key (kbd "s-j")
-                (lambda ()
-                  (interactive)
-                  (join-line -1)))
-
-(global-set-key (kbd "M-j") 'avy-goto-char-timer)
-
 (global-set-key (kbd "C-d") 'zino/delete-forward-char)
 
-;; speed up swiper
-;; when visual-line mode is enabled, emacs will forward
-;; by visual line which is very slow in large files
+;; Speed up swiper.
+;; When visual-line mode is enabled, emacs will forward by visual line which is
+;; very slow in large files.
 (setq swiper-use-visual-line nil)
 (setq swiper-use-visual-line-p (lambda (a) nil))
 
@@ -256,8 +275,8 @@
 
 (global-set-key (kbd "M-n") 'zino/next-k-lines)
 (global-set-key (kbd "M-p") 'zino/previous-k-lines)
-(global-set-key (kbd "C-,") 'scroll-up-command)
-(global-set-key (kbd "C-.") 'scroll-down-command)
+;; (global-set-key (kbd "C-,") 'scroll-up-command)
+;; (global-set-key (kbd "C-.") 'scroll-down-command)
 
 (global-set-key (kbd "C-a") 'smarter-move-beginning-of-line)
 
@@ -321,8 +340,8 @@ point reaches the beginning or end of the buffer, stop there."
   (if (and arg (not (= 1 arg)))
       (message "%d lines copied" arg)))
 
-(global-set-key (kbd "C-c k") #'copy-line)
-(global-set-key (kbd "C-c C-k") #'copy-line)
+(global-set-key (kbd "C-c k") 'copy-line)
+(global-set-key (kbd "C-c C-k") 'copy-line)
 (defun zino/switch-other-buffer ()
   "Swithch to the most recent buffer."
   (interactive)
@@ -331,7 +350,7 @@ point reaches the beginning or end of the buffer, stop there."
 (global-set-key (kbd "C-c b") 'zino/switch-other-buffer)
 (global-set-key (kbd "C-c C-b") 'zino/switch-other-buffer)
 
-(global-set-key (kbd "<RET>") #'newline)
+(global-set-key (kbd "<RET>") 'newline)
 (defun zino/save-buffer-and-exit()
   "Simple convenience function.
 Save the buffer of the current window and kill it"
@@ -347,21 +366,23 @@ Save the buffer of the current window and kill it"
 (global-set-key (kbd "C-M-x") 'mark-sexp)
 
 ;; Emacs source for help system
-(setq emacs-src-dir "/usr/local/Cellar/emacs-plus@29/29.0.60/share/emacs")
-(setq macos-sdk-dir "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.1.sdk")
-(setq go-src-dir "/usr/local/Cellar/go/1.17.8/libexec/src")
-(setq edgeworker-deps "~/gitlab/edgeworker/deps")
-(setq emacs-pkgs-dir "~/.config/emacs/elpa")
-(setq rust-src-dir "~/.rustup/toolchains/stable-x86_64-apple-darwin")
+;; (setq emacs-src-dir "/usr/local/Cellar/emacs-plus@29/29.0.60/share/emacs")
+;; (setq macos-sdk-dir "/Applications/Xcode.app/Contents/Develop er/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.1.sdk")
+;; (setq go-src-dir "/usr/local/Cellar/go/1.17.8/libexec/src")
+;; (setq emacs-pkgs-dir "~/.config/emacs/elpa")
+;; (setq rust-src-dir "~/.rustup/toolchains")
 
 ;; Associate directories with the read-only class
-(dolist (dir (list
-              "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1"
-              emacs-src-dir
-              go-src-dir
-              edgeworker-deps
-              rust-src-dir))
-  (dir-locals-set-directory-class (file-truename dir) 'read-only))
+;; (dolist (dir (list
+;;               "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1"
+;;               emacs-src-dir
+;;               go-src-dir
+;;               rust-src-dir
+;;               "~/.rustup/toolchains/stable-x86_64-apple-darwin"))
+;;   (dir-locals-set-directory-class (file-truename dir) 'read-only))
+
+;; A better way: add ((nil . ((buffer-read-only . t)))) in `.dir-locals.el' at
+;; the directory whose files should be opened in read-only buffers.
 
 ;; https://emacs.stackexchange.com/a/7670/37427
 ;; Edebug a defun or defmacro
@@ -429,6 +450,8 @@ Save the buffer of the current window and kill it"
 (setq mouse-wheel-progressive-speed nil)
 ;; keyboard scroll one line at a time
 (setq scroll-step 1)
+;; Never recenter when scrolling off-screen
+;; (setq scroll-conservatively 10000)
 ;; Disable the visible bell
 (setq visible-bell nil)
 
@@ -439,8 +462,11 @@ Save the buffer of the current window and kill it"
                        "Prevent sluggish in `emacs-lisp-mode'."
                        (setq-local completion-at-point-functions (remove 'cape-dabbrev completion-at-point-functions)))))
 
-;; `auto-fill-mode' is defined in package `simple'
+(use-package eros
+  :hook
+  (emacs-lisp-mode . eros-mode))
 
+;; `auto-fill-mode' is defined in package `simple'
 ;; Auto soft-break line
 (use-package simple
   :ensure nil
@@ -456,19 +482,27 @@ Save the buffer of the current window and kill it"
                   fill-column 80))))
 
 (global-visual-line-mode 1)
-(global-hl-line-mode 1)
 
-(use-package general
+(use-package hl-line
+  :ensure nil
+  :init
+  (global-hl-line-mode)
   :config
-  (general-define-key
-   :prefix
-   "C-c n"
-   "c" 'org-roam-capture
-   "f" 'org-roam-node-find
-   "i" 'org-roam-node-insert
-   "g" 'org-roam-graph)
-  (general-define-key
-   :prefix "C-c C-n"))
+  (add-hook 'vterm-mode-hook (lambda ()
+                               "Disable `global-hl-line-mode' locally."
+                               (setq-local global-hl-line-mode nil))))
+
+;; (use-package general
+;;   :config
+;;   (general-define-key
+;;    :prefix
+;;    "C-c n"
+;;    "c" 'org-roam-capture
+;;    "f" 'org-roam-node-find
+;;    "i" 'org-roam-node-insert
+;;    "g" 'org-roam-graph)
+;;   (general-define-key
+;;    :prefix "C-c C-n"))
 
 ;; Word abbreviation
 ;; "C-x a g" to interactively create an abbrev;
@@ -509,7 +543,6 @@ Save the buffer of the current window and kill it"
   (progn
     (setq zino/abbrev-table '(("tset" "test")
                               ("arch" "architecture")
-                              ("var" "variable")
                               ("conf" "configuration")
                               ("tyep" "type")
                               ("env" "environment")
@@ -534,6 +567,20 @@ Save the buffer of the current window and kill it"
 
 (setq-default tab-width 2)
 (setq-default indent-tabs-mode nil)
+
+(use-package ibuffer
+  :custom
+  (ibuffer-formats
+   '((mark modified read-only locked " "
+           (name 80 80 :left :elide)
+           " "
+           (size 9 -1 :right)
+           " "
+           (mode 16 -1 :left :elide)
+           " " filename-and-process)
+     (mark " "
+           (name 80 -1)
+           " " filename))))
 
 (use-package dired
   :ensure nil
@@ -563,6 +610,32 @@ Save the buffer of the current window and kill it"
   ;; `ls' does not have `--group-directories-first' option, use `gls'.
   (setq insert-directory-program "/usr/local/bin/gls"))
 
+(use-package nerd-icons-dired
+  :hook
+  (dired-mode . nerd-icons-dired-mode))
+
+(use-package diredfl
+  :init
+  (diredfl-global-mode))
+
+(use-package nerd-icons-ibuffer
+  :hook
+  (ibuffer-mode . nerd-icons-ibuffer-mode)
+  :custom
+  ;; `ibuffer-formats' does not take effects when `nerd-icons-ibuffer-mode' is on.
+  (nerd-icons-ibuffer-formats
+   '((mark modified read-only locked " "
+           (icon 2 2)
+           (name 64 64 :left :elide)
+           " "
+           (size-h 9 -1 :right)
+           " "
+           (mode+ 16 -1 :left :elide)
+           " " filename-and-process)
+     (mark " "
+           (name 80 -1)
+           " " filename))))
+
 (use-package dired-preview
   :init
   (dired-preview-global-mode)
@@ -576,57 +649,56 @@ Save the buffer of the current window and kill it"
   :config
   (bind-key "C-c C-r" 'dired-rsync dired-mode-map))
 
-(use-package dirvish
-  :init
-  ;; `dirvish' cause sluggish in `magit-status'. Figure out the reason later
-  ;; (dirvish-override-dired-mode)
-  :custom
-  (dirvish-quick-access-entries ; It's a custom option, `setq' won't work
-   '(("h" "~/"                    "Home")
-     ("r" "/"                     "Root")
-     ("n" "~/Notes/"              "Notes")
-     ("c" "~/Documents/Books/CS/" "CS")
-     ("d" "~/Downloads/"          "Downloads")
-     ("m" "/mnt/"                 "Drives")
-     ("t" "~/.Trash/"             "TrashCan")))
-  :config
-  ;; (dirvish-peek-mode) ; Preview files in minibuffer
-  ;; (dirvish-side-follow-mode) ; similar to `treemacs-follow-mode'
-  (setq dirvish-mode-line-format
-        '(:left (sort symlink) :right (omit yank index)))
-  (setq dirvish-attributes
-        '(all-the-icons file-time file-size collapse subtree-state vc-state git-msg))
-  (setq delete-by-moving-to-trash t)
-  (setq dired-listing-switches
-        "-l --almost-all --human-readable --group-directories-first --no-group")
-  :bind ; Bind `dirvish|dirvish-side|dirvish-dwim' as you see fit
-  (("C-c f" . dirvish-fd)
-   ("C-c C-j" . dirvish-side)
-   :map dirvish-mode-map ; Dirvish inherits `dired-mode-map'
-   ("a"   . dirvish-quick-access)
-   ("f"   . dirvish-file-info-menu)
-   ("y"   . dirvish-yank-menu)
-   ("N"   . dirvish-narrow)
-   ("^"   . dired-up-directory)
-   ("l"   . dirvish-history-last)
-   ("h"   . dirvish-history-jump) ; remapped `describe-mode'
-   ("s"   . dirvish-quicksort)    ; remapped `dired-sort-toggle-or-edit'
-   ("v"   . dirvish-vc-menu)      ; remapped `dired-view-file'
-   ("TAB" . dirvish-subtree-toggle)
-   ("M-f" . dirvish-history-go-forward)
-   ("M-b" . dirvish-history-go-backward)
-   ("M-l" . dirvish-ls-switches-menu)
-   ("M-m" . dirvish-mark-menu)
-   ("M-t" . dirvish-layout-toggle)
-   ("M-s" . dirvish-setup-menu)
-   ("M-e" . dirvish-emerge-menu)
-   ("M-j" . dirvish-fd-jump)))
+;; (use-package dirvish
+;;   :disabled
+;;   :init
+;;   ;; `dirvish' cause sluggish in `magit-status'. Figure out the reason later
+;;   ;; (dirvish-override-dired-mode)
+;;   :custom
+;;   (dirvish-quick-access-entries ; It's a custom option, `setq' won't work
+;;    '(("h" "~/"                    "Home")
+;;      ("r" "/"                     "Root")
+;;      ("n" "~/Notes/"              "Notes")
+;;      ("c" "~/Documents/Books/CS/" "CS")
+;;      ("d" "~/Downloads/"          "Downloads")
+;;      ("m" "/mnt/"                 "Drives")
+;;      ("t" "~/.Trash/"             "TrashCan")))
+;;   :config
+;;   ;; (dirvish-peek-mode) ; Preview files in minibuffer
+;;   ;; (dirvish-side-follow-mode) ; similar to `treemacs-follow-mode'
+;;   (setq dirvish-mode-line-format
+;;         '(:left (sort symlink) :right (omit yank index)))
+;;   (setq dirvish-attributes
+;;         '(file-time file-size collapse subtree-state vc-state git-msg))
+;;   (setq delete-by-moving-to-trash t)
+;;   (setq dired-listing-switches
+;;         "-l --almost-all --human-readable --group-directories-first --no-group")
+;;   :bind ; Bind `dirvish|dirvish-side|dirvish-dwim' as you see fit
+;;   (("C-c f" . dirvish-fd)
+;;    ("C-c C-j" . dirvish-side)
+;;    :map dirvish-mode-map ; Dirvish inherits `dired-mode-map'
+;;    ("a"   . dirvish-quick-access)
+;;    ("f"   . dirvish-file-info-menu)
+;;    ("y"   . dirvish-yank-menu)
+;;    ("N"   . dirvish-narrow)
+;;    ("^"   . dired-up-directory)
+;;    ("l"   . dirvish-history-last)
+;;    ("h"   . dirvish-history-jump) ; remapped `describe-mode'
+;;    ("s"   . dirvish-quicksort)    ; remapped `dired-sort-toggle-or-edit'
+;;    ("v"   . dirvish-vc-menu)      ; remapped `dired-view-file'
+;;    ("TAB" . dirvish-subtree-toggle)
+;;    ("M-f" . dirvish-history-go-forward)
+;;    ("M-b" . dirvish-history-go-backward)
+;;    ("M-l" . dirvish-ls-switches-menu)
+;;    ("M-m" . dirvish-mark-menu)
+;;    ("M-t" . dirvish-layout-toggle)
+;;    ("M-s" . dirvish-setup-menu)
+;;    ("M-e" . dirvish-emerge-menu)
+;;    ("M-j" . dirvish-fd-jump)))
 
 (use-package eldoc
   :ensure nil
   :custom
-  ;; This will prevent anything that writes to the echo area from scrolling
-  ;; other windows behind my back (usually windows right above the echo area).
   (eldoc-echo-area-use-multiline-p t)
   (eldoc-idle-delay 0.05)
   (eldoc-echo-area-prefer-doc-buffer t))
@@ -659,9 +731,9 @@ Save the buffer of the current window and kill it"
 (defun zino/set-font (font-name cn-font-name &optional initial-size cn-font-rescale-ratio)
   "Set different font-family for Latin and Chinese charactors."
   (let* ((size (or initial-size 14))
-	       (ratio (or cn-font-rescale-ratio 0.0))
-	       (main (font-spec :name font-name :size size))
-	       (cn (font-spec :name cn-font-name)))
+         (ratio (or cn-font-rescale-ratio 0.0))
+         (main (font-spec :name font-name :size size))
+         (cn (font-spec :name cn-font-name)))
     (set-face-attribute 'default nil :font main)
     (dolist (charset '(kana han symbol cjk-misc bopomofo))
       (set-fontset-font t charset cn))
@@ -709,7 +781,8 @@ Save the buffer of the current window and kill it"
   (prog-mode . rainbow-delimiters-mode)
   (lispy-data-mode . rainbow-delimiters-mode)
   (debugger-mode . rainbow-delimiters-mode)
-  (helpful-mode . rainbow-delimiters-mode))
+  (helpful-mode . rainbow-delimiters-mode)
+  (dired-preview-mode . rainbow-delimiters-mode))
 
 ;; Display keybindings in another buffer
 (use-package command-log-mode
@@ -727,23 +800,21 @@ Save the buffer of the current window and kill it"
   :custom-face
   (show-paren-match-expression ((t (:inherit nil :background "#282c34" :weight bold)))))
 
-(use-package all-the-icons
-  :if (display-graphic-p))
+(use-package nerd-icons)
 
-(use-package all-the-icons-dired
-  :if (display-graphic-p)
-  ;; NOTE: This will show two columns of icons in `dirvish' mode. Remove the
-  ;; hook when using `dirvish'.
-  :hook
-  (dired-mode . all-the-icons-dired-mode))
+;; (use-package all-the-icons)
 
 (use-package doom-modeline
   :init (doom-modeline-mode 1)
   :custom
-  (doom-modeline-height 10)
+  (doom-modeline-height 24)
   (doom-modeline-indent-info nil)
   (doom-modeline-hud nil)
   (doom-modeline-unicode-fallback t)
+  ;; Whether display the modal state icon.
+  ;; Including `evil', `overwrite', `god', `ryo' and `xah-fly-keys', etc.
+  (doom-modeline-modal-icon t)
+  (doom-modeline-highlight-modified-buffer-name t)
   :custom-face
   (doom-modeline-buffer-modified ((t (:background unspecified :inherit (warning bold))))))
 
@@ -762,10 +833,7 @@ Save the buffer of the current window and kill it"
   :custom
   (doom-themes-enable-bold t) ; if nil, bold is universally disabled
   (doom-themes-enable-italic t) ; if nil, italics is universally disabled
-  ;; Whether display the modal state icon.
-  ;; Including `evil', `overwrite', `god', `ryo' and `xah-fly-keys', etc.
-  (doom-modeline-modal-icon t)
-  (doom-modeline-highlight-modified-buffer-name t))
+  )
 
 (use-package emojify
   :hook
@@ -773,9 +841,9 @@ Save the buffer of the current window and kill it"
   :commands
   emojify-mode)
 
-(use-package all-the-icons-dired)
-
 (use-package undo-tree
+  ;; `undo-tree' is not fast enough for me on mac.
+  :disabled
   :init
   (global-undo-tree-mode t)
   :custom
@@ -803,7 +871,7 @@ Save the buffer of the current window and kill it"
    ("M-r" ("unwrap the enclosing sexp" . sp-splice-sexp))
    ("M-k" ("delete anything of the enclosing sexp". sp-change-enclosing))
    ("C-M-r" ("rewrap with a different pair". sp-rewrap-sexp))
-   ("C-M-y" ("copy the sexp at point". sp-copy-sexp))
+   ("M-y" ("copy the sexp at point". sp-copy-sexp))
    ("C-M-k" . sp-kill-sexp)
    ("C-c s b" ("remove the last sexp from current list by moving the closing delimiter" . sp-forward-barf-sexp))
    ("C-c s s" ("eat the next sexp into current one". sp-forward-slurp-sexp))
@@ -976,10 +1044,13 @@ respectively."
   :bind
   (("M-x" . counsel-M-x)
    ("C-x C-f" . counsel-find-file)
+   ("C-M-y" . counsel-yank-pop)
    :map
    minibuffer-local-map ("C-r" . 'counsel-minibuffer-history))
   :config
-  (counsel-mode 1))
+  (counsel-mode 1)
+  :custom
+  (counsel-switch-buffer-preview-virtual-buffers nil))
 
 (use-package ivy-prescient
   :after counsel
@@ -1027,10 +1098,19 @@ respectively."
   ;; [use] call `projectile-find-file' with prefix argument will invalidate cache first
   (setq projectile-switch-project-action #'projectile-find-file))
 
+;; Boost performance of `magit'
+(use-package libgit
+  :load-path "~/.config/emacs/manually_installed/libegit2/")
+
 (use-package magit
   :bind
-  ("C-x g" . magit-status)
-  ([remap vc-diff] . magit-diff-buffer-file)
+  (("C-x g" . magit-status)
+   ([remap vc-diff] . magit-diff-buffer-file)
+   :map magit-stash-mode-map
+   ("M-n" . zino/next-k-lines)
+   ("M-p" . zino/previous-k-lines)
+   ("M-s-n" . magit-section-forward-sibling)
+   ("M-s-p" . magit-section-backward-sibling))
   :custom
   (magit-git-executable "/usr/local/bin/git")
   (magit-display-buffer-function 'magit-display-buffer-same-window-except-diff-v1)
@@ -1105,11 +1185,18 @@ respectively."
    (concat "${title:*} "
            (propertize "${tags:40}" 'face 'org-tag)))
   :config
-  (org-roam-db-autosync-mode))
+  (org-roam-db-autosync-mode)
+  (defun zino/org-roam-node-find-other-window ()
+    (interactive)
+    (org-roam-node-find 'other-windw))
+  :bind
+  ;; Keybindings containing `4' before normal key actions often means to execute
+  ;; the action in other window.
+  ("s-n 4 f" . zino/org-roam-node-find-other-window)
+  ("s-n f" . org-roam-node-find))
 
 (use-package magit-todos
   ;; Not compatible with Emacs 28
-  ;;
   :disabled)
 
 (use-package magit-delta
@@ -1123,6 +1210,7 @@ respectively."
 
 (use-package hl-todo
   :custom
+  (hl-todo-wrap-movement t)
   (hl-todo-keyword-faces
    '(("HOLD" . "#d0bf8f")
      ("TODO" . "#cc9393")
@@ -1255,7 +1343,7 @@ respectively."
   (org-todo-keywords '((sequence "TODO(t!)" "DOING(i@/!)" "Q(n@/!)" "|" "DONE(d@)" "POSTPONED(p@)" "DELEGATED(g@)" "CANCELED(c@)")))
   (org-startup-folded t)
   (org-blank-before-new-entry (quote ((heading . nil)
-					                            (plain-list-item . nil))))
+                                      (plain-list-item . nil))))
   (org-edit-src-content-indentation 0)
   (org-catch-invisible-edits 'show-and-error)
   (org-goto-auto-isearch nil)
@@ -1287,6 +1375,8 @@ respectively."
   (org-level-6 ((t (:inherit outline-6 :extend nil :height 1.0 :width normal :weight normal :family "Iosevka"))))
   ;; (org-block ((t (:inherit nil :extend t :background "#282c34")))) ;; the original: "#23272e"
   (org-block-begin-line ((t (:inherit org-block :extend t :foreground "#83898d")))) ;; the original: "#5B6268"
+  (org-block ((t (:background "#23272e" :extend t))))
+  ;; '(org-block-begin-line ((t (:inherit org-block :extend t :foreground "#83898d"))))
   (org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
   (org-code ((t (:inherit nil :foreground "#da8548"))))
   (org-verbatim ((t (:foreground "#98be65"))))
@@ -1320,10 +1410,8 @@ respectively."
   :bind
   (("C-c c" . org-capture)
    ("C-c a" . org-agenda)
-   ("C-c l" . org-store-link)
-   ("C-c i" . org-insert-link)
-   ("s-<up>" . org-priority-up)
-   ("s-<down>" . org-priority-down)
+   ("C-c C-l" . org-store-link)
+   ("C-c H-i" . org-insert-link)
    ("<f5>" . org-toggle-inline-images)
    ("<f6>" . (lambda ()
                "Toggle inline image under the current line."
@@ -1333,7 +1421,10 @@ respectively."
                   t t (beginning-of-line) (end-of-line)))))
    :map org-mode-map
    ([remap org-return-and-maybe-indent] . better-jumper-jump-forward)
-   ("C-S-j" . org-return-and-maybe-indent)))
+   ("C-S-j" . org-return-and-maybe-indent)
+   ("C-," . nil)
+   ("s-<up>" . org-priority-up)
+   ("s-<down>" . org-priority-down)))
 
 ;; `org-babel' support for evaluating go code
 (use-package ob-go)
@@ -1371,12 +1462,12 @@ respectively."
   "Create a Cornell-style book notes template for org-roam node.
 Return TEMPLATE as a string."
   (let* ((chapters (read-number "Number of chapters: "))
-	       (ch 1)
-	       (template ""))
+         (ch 1)
+         (template ""))
     (while (<= ch chapters)
       (if (<= ch 9)
-	        (setq template (concat template (format "* Ch0%d. \n" ch)))
-	      (setq template (concat template (format "* Ch%d. \n" ch))))
+          (setq template (concat template (format "* Ch0%d. \n" ch)))
+        (setq template (concat template (format "* Ch%d. \n" ch))))
       (setq template (concat template "** Questions [/]\n** Notes\n** Summary\n"))
       (setq ch (1+ ch)))
     (setq template (concat template "* General\n** Questions [/]\n** Notes\n** Summary"))
@@ -1463,8 +1554,7 @@ Similar to `org-capture' like behavior"
       zino/meeting-file (concat zino/roam-dir "/20221115143855-meeting.org"))
 
 (setq org-capture-templates
-      `(
-        ;; a for "Anki"
+      `(;; a for "Anki"
         ("a" "Anki")
         ("ab" "Basic card with a front and a back"
          entry
@@ -1556,9 +1646,7 @@ Similar to `org-capture' like behavior"
          :jump-to-captured t
          :after-finalize org-fold-hide-drawer-all)))
 
-(use-package all-the-icons)
-
-;; temporary workaround
+;; Temporary workaround.
 ;; REVIEW See Wilfred/elisp-refs#35. Remove once fixed upstream.
 (defvar read-symbol-positions-list nil)
 
@@ -1804,7 +1892,9 @@ Similar to `org-capture' like behavior"
   ("M-o" . ace-window)
   ("s-q" . ace-delete-window)
   :custom-face
-  (aw-leading-char-face ((t (:foreground "red" :weight bold :height 1.0)))))
+  (aw-leading-char-face ((t (:foreground "red" :weight bold :height 1.0))))
+  :custom
+  (aw-char-position 'top-left))
 
 (setq next-screen-context-lines 2)
 
@@ -1818,7 +1908,7 @@ Similar to `org-capture' like behavior"
   ;; Column width of bookmark name in `bookmark-menu' buffer
   (bookmark-bmenu-file-column 80))
 
-;; registers
+;; Registers
 (use-package register
   :ensure nil
   :custom
@@ -1989,11 +2079,20 @@ Do not prompt me to create parent directory"
   ;; Show all the candidates.
   (helm-candidate-number-limit nil)
 
+  ;; TODO: Use `nerd-icons' instead of `all-the-icons' so we can get rid of
+  ;; `all-the-icons' once and for all.
+  ;; Check `helm-imenu-icon-type-alist'.
+  (helm-imenu-use-icon nil)
+  (helm-split-window-default-side 'right)
+
   :config
   (add-to-list 'helm-sources-using-default-as-input 'helm-source-man-pages)
   (setq helm-locate-command "glocate %s %s"
         helm-locate-create-db-command "gupdatedb --output='%s' --localpaths='%s'")
   (setq helm-locate-project-list (list "~/Dev"))
+  ;; Refernece: https://github.com/emacs-helm/helm/issues/1134
+  (setq helm-sources-using-default-as-input
+        (remove 'helm-source-imenu helm-sources-using-default-as-input))
   :bind
   ("M-i" . helm-imenu))
 
@@ -2002,32 +2101,39 @@ Do not prompt me to create parent directory"
   :bind
   ("s-f" . helm-swoop))
 
-(use-package consult)
+(use-package consult
+  :custom
+  ;; Maually and immidiate
+  (consult-preview-key "M-.")
+  (consult-narrow-key "<"))
+
+(use-package consult-todo
+  :load-path "~/.config/emacs/manually_installed/consult-todo/")
 
 (use-package hl-line
   :hook
   (dired-mode . hl-line-mode)
   :config
   (set-face-attribute 'hl-line nil :inherit nil :background "#21242b") ;;"#2e3b49")
-  ;; original region face #42444a
   (set-face-attribute 'region nil :inherit nil :distant-foreground "#959ba5" :background "#42444a"));; "dark slate gray"));;"#113d69"));;"#2e4a54")) ;;"#406389")) ;; "#42444a")) ;; #4f5b66
 
 (use-package move-text
   :config
   (move-text-default-bindings))
 
-;; Set up before-save hooks to format buffer and add/delete imports.
-;; Make sure you don't have other gofmt/goimports hooks enabled.
-(defun lsp-go-install-save-hooks ()
-  "Befor-save hooks to format buffer."
-  (add-hook 'before-save-hook #'lsp-format-buffer t t)
-  (add-hook 'before-save-hook #'lsp-organize-imports t t))
-
 (use-package go-mode
-  ;; :hook
-  ;; (go-mode . (lambda ()
-  ;;              (setq-local beginning-of-defun-function 'go-goto-function-name)))
-  )
+  :bind
+  (:map go-mode-map
+        ([remap beginning-of-defun] . go-goto-function)))
+
+(use-package go-ts-mode
+  :init
+  (add-to-list 'auto-mode-alist '("/go\\.mod\\'" . go-mod-ts-mode))
+  (add-to-list 'auto-mode-alist '("\\.go\\'" . go-ts-mode))
+  :hook
+  (go-ts-mode . tree-sitter-hl-mode)
+  :custom
+  (go-ts-mode-indent-offset 2))
 
 (use-package tramp
   :custom
@@ -2042,12 +2148,103 @@ Do not prompt me to create parent directory"
               vc-ignore-dir-regexp
               tramp-file-name-regexp))
 
+(defun my/tree-sitter-compile-grammar (destination &optional path)
+  "Compile grammar at PATH, and place the resulting shared library in DESTINATION."
+  (interactive "fWhere should we put the shared library? \nfWhat tree-sitter grammar are we compiling? \n")
+  (make-directory destination 'parents)
+
+  (let* ((default-directory
+          (expand-file-name "src/" (or path default-directory)))
+         (parser-name
+          (thread-last (expand-file-name "grammar.json" default-directory)
+                       (json-read-file)p
+                       (alist-get 'name)))
+         (emacs-module-url
+          "https://raw.githubusercontent.com/casouri/tree-sitter-module/master/emacs-module.h")
+         (tree-sitter-lang-in-url
+          "https://raw.githubusercontent.com/casouri/tree-sitter-module/master/tree-sitter-lang.in")
+         (needs-cpp-compiler nil))
+    (message "Compiling grammar at %s" path)
+
+    (url-copy-file emacs-module-url "emacs-module.h" :ok-if-already-exists)
+    (url-copy-file tree-sitter-lang-in-url "tree-sitter-lang.in" :ok-if-already-exists)
+
+    (with-temp-buffer
+      (unless
+          (zerop
+           (apply #'call-process
+                  (if (file-exists-p "scanner.cc") "c++" "cc") nil t nil
+                  "parser.c" "-I." "--shared" "-o"
+                  (expand-file-name
+                   (format "libtree-sitter-%s%s" parser-name module-file-suffix)
+                   destination)
+                  (cond ((file-exists-p "scanner.c") '("scanner.c"))
+                        ((file-exists-p "scanner.cc") '("scanner.cc")))))
+        (user-error
+         "Unable to compile grammar, please file a bug report\n%s"
+         (buffer-string))))
+    (message "Completed compilation")))
+
+;; (use-package tree-sitter-rust
+;;   :straight
+;;   (:type git
+;;          :host github
+;;          :repo "tree-sitter/tree-sitter-rust")
+;;   :init
+;;   (setq treesit-extra-load-path '("~/.config/emacs/ts-grammars/")))
+
+(setq treesit-extra-load-path '("~/.config/emacs/ts-grammars/"))
+
+(setq treesit-language-source-alist
+      '((bash "https://github.com/tree-sitter/tree-sitter-bash")
+        (cmake "https://github.com/uyha/tree-sitter-cmake")
+        (css "https://github.com/tree-sitter/tree-sitter-css")
+        (elisp "https://github.com/Wilfred/tree-sitter-elisp")
+        (go "https://github.com/tree-sitter/tree-sitter-go")
+        (gomod "https://github.com/camdencheek/tree-sitter-go-mod")
+        (html "https://github.com/tree-sitter/tree-sitter-html")
+        (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
+        (json "https://github.com/tree-sitter/tree-sitter-json")
+        (make "https://github.com/alemuller/tree-sitter-make")
+        (markdown "https://github.com/ikatyang/tree-sitter-markdown")
+        (python "https://github.com/tree-sitter/tree-sitter-python")
+        (toml "https://github.com/tree-sitter/tree-sitter-toml")
+        (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
+        (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+        (yaml "https://github.com/ikatyang/tree-sitter-yaml")))
+
 (use-package rust-mode
-  :init
-  (add-to-list 'auto-mode-alist '("\\.rs\\'" . rust-mode))
+  ;; When (treesit-ready-p 'rust) is t, `rust-ts-mode' registers itself for file
+  ;; name pattern "\\.rs\\'". Currently use `rust-mode' in rust files.
+  ;; :after rust-ts-mode
+  :custom
+  (rust-indent-offset 4))
+
+(use-package rust-ts-mode
+  ;; :after tree-sitter-rust
+  :config
+  (setq auto-mode-alist (delete '("\\.rs\\'" . rust-ts-mode) auto-mode-alist)))
+
+(use-package rustic
+  :load-path "~/.config/emacs/manually_installed/rustic/"
+  :custom
+  (rustic-lsp-client 'eglot)
+  ;; :config
+  ;; NOTE: These hooks are added in `rustic.el'. Remove them if intend to use
+  ;; `flymake'.
+  ;; (remove-hook 'rustic-mode-hook 'flymake-mode-off)
+  ;; (remove-hook 'rustic-mode-hook 'flycheck-mode)
   :bind
-  (:map rust-mode-map
-        ("C-c C-p" . rustic-popup)))
+  (
+   :map rust-mode-map ("C-c C-p" . rustic-popup)
+   :map rust-ts-mode-map ("C-c C-p" . rustic-popup)
+   :map rustic-compilation-mode-map ("p" . previous-error-no-select))
+  :config
+  ;; Reverse the action of making `rustic-mode' default for rust files in
+  ;; `rustic.el'.
+  ;; (setq auto-mode-alist (delete '("\\.rs\\'" . rustic-mode) auto-mode-alist))
+  ;; (setf (alist-get "\\.rs\\'" auto-mode-alist nil nil 'string=) 'rust-mode)
+  )
 
 (use-package cmake-mode)
 
@@ -2061,28 +2258,25 @@ Do not prompt me to create parent directory"
   (setq lsp-clangd-binary-path (executable-find "clangd"))
   (setq lsp-clients-lua-language-server-bin (executable-find "lua-language-server"))
   ;; Use `eglot' for now
-  ;; :hook
-  ;; (
-  ;;; bug with company and template completion, switch to eglot
-  ;; (python-mode . lsp)
-  ;; (lua-mode . lsp)
-  ;; (c-mode . lsp)
-  ;; (c++-mode . lsp)
-  ;; (cmake-mode . lsp)
-  ;; (go-mode . lsp)
-  ;; (rust-mode . lsp)
-  ;; (jsonc-mode . lsp)
-  ;; (sh-mode . lsp)
-  ;; (html-mode . lsp)
-  ;; (css-mode . lsp)
-  ;; (js-mode . lsp)
-  ;; (nginx-mode . lsp)
-  ;; )
+  :hook
+  (;; bug with company and template completion, switch to eglot
+   (python-mode . lsp)
+   (lua-mode . lsp)
+   (c-mode . lsp)
+   (c++-mode . lsp)
+   (cmake-mode . lsp)
+   (go-mode . lsp)
+   (rust-mode . lsp)
+   (jsonc-mode . lsp)
+   (sh-mode . lsp)
+   (html-mode . lsp)
+   (css-mode . lsp)
+   (js-mode . lsp)
+   (nginx-mode . lsp))
   :config
   (setq lsp-keymap-prefix "C-c l")
   (setq lsp-signature-auto-activate t
         lsp-signature-render-documentation t)
-
   :bind
   (:map lsp-mode-map
         ("C-c C-l" . lsp-treemacs-symbols)
@@ -2119,19 +2313,10 @@ Do not prompt me to create parent directory"
   ;; (setq lsp--session nil)
   )
 
-(use-package rustic
-  :custom
-  (rustic-lsp-client 'eglot)
-  :config
-  ;; NOTE: These hooks are added in `rustic.el'. Remove them if intend to use
-  ;; `flymake'.
-  ;; (remove-hook 'rustic-mode-hook 'flymake-mode-off)
-  ;; (remove-hook 'rustic-mode-hook 'flycheck-mode)
-  )
-
 (use-package cargo
   :hook
-  (rust-mode . cargo-minor-mode))
+  (rust-mode . cargo-minor-mode)
+  (rust-ts-mode . cargo-minor-mode))
 
 (with-eval-after-load 'lsp-mode
   ;; :global/:workspace/:file
@@ -2182,6 +2367,7 @@ Do not prompt me to create parent directory"
   (define-key lsp-ui-imenu-mode-map (kbd "p") 'previous-line))
 
 (use-package eglot
+  ;; :load-path "~/.config/emacs/manually_installed/eglot/"
   :preface
   (defun mp-eglot-eldoc ()
     (setq eldoc-documentation-strategy
@@ -2210,8 +2396,10 @@ Do not prompt me to create parent directory"
   (add-to-list 'eglot-server-programs '(cmake-mode . ("cmake-language-server")))
   (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp")))
   (add-to-list 'eglot-server-programs '(lua-mode . ("lua-language-server")))
-  (add-to-list 'eglot-server-programs '(rust-mode . ("rust-analyzer")))
+  (add-to-list 'eglot-server-programs '(rust-mode . ("rust-analyzer" "-v")))
   (add-to-list 'eglot-server-programs '(beancount-mode . ("beancount-language-server")))
+  (add-to-list 'eglot-server-programs '(rust-ts-mode . ("rust-analyzer")))
+  (add-to-list 'eglot-server-programs '(go-ts-mode . ("gopls")))
 
   (defclass eglot-deno (eglot-lsp-server) ()
     :documentation "A custom class for deno lsp.")
@@ -2240,7 +2428,16 @@ Do not prompt me to create parent directory"
   (typescript-mode . eglot-ensure)
   (css-mode . eglot-ensure)
   (python-mode . eglot-ensure)
-  (beancount-mode . eglot-ensure))
+  (beancount-mode . eglot-ensure)
+  (rust-ts-mode . eglot-ensure)
+  (go-ts-mode . eglot-ensure)
+  :custom-face
+  ;; (eglot-highlight-symbol-face ((t (:foreground "#DFDFDF" :background "#34536c" :weight bold))))
+  (eglot-highlight-symbol-face ((t (:weight bold))))
+  :custom
+  ;; NOTE: Important. The default is nil, and will cause `xref-find-definitions'
+  ;; to fail in rust crates. (TODO: find out why it failed.)
+  (eglot-extend-to-xref t))
 
 (use-package eglot
   :config
@@ -2286,25 +2483,22 @@ Do not prompt me to create parent directory"
 ;; null translates to nil, empty directory {} translates to eglot-{}.
 
 ;; Define a setup function that runs in the mode hook.
-(defun setup-rust ()
-  "Setup for ‘rust-mode’."
-  ;; Configuration taken from rust-analyzer’s manual:
-  ;; https://rust-analyzer.github.io/manual.html#configuration
-  (setq-local eglot-workspace-configuration
-              ;; Setting the workspace configuration for every
-              ;; rust-mode buffer, you can also set it with dir-local
-              ;; variables, should you want different configuration
-              ;; per project/directory.
-              '(:rust-analyzer
-                ( :procMacro ( :attributes (:enable t)
-                               :enable t)
-                  :autoImport (:enable t)
-                  :cargo (:buildScripts (:enable t))
-                  :diagnostics (:disabled ["unresolved-proc-macro"
-                                           "unresolved-macro-call"])))))
-
-;; Run our setup function in ‘rust-mode-hook’.
-(add-hook 'rust-mode-hook #'setup-rust)
+;; (defun setup-rust ()
+;;   "Setup for ‘rust-mode’."
+;;   ;; Configuration taken from rust-analyzer’s manual:
+;;   ;; https://rust-analyzer.github.io/manual.html#configuration
+;;   (setq-local eglot-workspace-configuration
+;;               ;; Setting the workspace configuration for every
+;;               ;; rust-mode buffer, you can also set it with dir-local
+;;               ;; variables, should you want different configuration
+;;               ;; per project/directory.
+;;               '(:rust-analyzer
+;;                 ( :procMacro ( :attributes (:enable t)
+;;                                :enable t)
+;;                   :autoImport (:enable t)
+;;                   :cargo (:buildScripts (:enable t))
+;;                   :diagnostics (:disabled ["unresolved-proc-macro"
+;;                                            "unresolved-macro-call"])))))
 
 ;; Define a custom eglot LSP server for rust-analyzer because it
 ;; expects initializationOptions done a bit differently (see below).
@@ -2323,21 +2517,21 @@ Do not prompt me to create parent directory"
 ;;              '(rust-mode . (eglot-rust-analyzer "rust-analyzer")))
 
 ;; Define a setup function that runs in the mode hook.
-(defun setup-rust ()
-  "Setup for ‘rust-mode’."
-  ;; Configuration taken from rust-analyzer’s manual:
-  ;; https://rust-analyzer.github.io/manual.html#configuration
-  (interactive)
-  (setq-local eglot-workspace-configuration
-              ;; Setting the workspace configuration for every
-              ;; rust-mode buffer, you can also set it with dir-local
-              ;; variables, should you want different configuration
-              ;; per project/directory.
-              '(:rust-analyzer
-                (:autoImport (:enable t)))))
+;; (defun setup-rust ()
+;;   "Setup for ‘rust-mode’."
+;;   ;; Configuration taken from rust-analyzer’s manual:
+;;   ;; https://rust-analyzer.github.io/manual.html#configuration
+;;   (interactive)
+;;   (setq-local eglot-workspace-configuration
+;;               ;; Setting the workspace configuration for every
+;;               ;; rust-mode buffer, you can also set it with dir-local
+;;               ;; variables, should you want different configuration
+;;               ;; per project/directory.
+;;               '(:rust-analyzer
+;;                 (:autoImport (:enable t)))))
 
 ;; Run our setup function in ‘rust-mode-hook’.
-(add-hook 'rust-mode-hook #'setup-rust)
+;; (add-hook 'rust-mode-hook #'setup-rust)
 
 (use-package eglot-x
   :ensure nil
@@ -2375,10 +2569,11 @@ Do not prompt me to create parent directory"
            "Open the window listing errors and switch to it."
            (interactive)
            (flymake-show-buffer-diagnostics)
-           ;; (pop-to-buffer "*Flymake diagnostics*")
-           (other-window 1))))
+           (pop-to-buffer "*Flymake diagnostics*"))))
   :config
   (eval-after-load 'flymake '(require 'flymake-cursor))
+  (defun flymake--diagnostics-buffer-name ()
+    (format "*Flymake diagnostics*"))
   :hook
   (prog-mode . (lambda ()
                  (flymake-mode -1))))
@@ -2408,14 +2603,14 @@ Do not prompt me to create parent directory"
        flycheck-errors)))
 
   (defun mp-flycheck-prefer-eldoc ()
-    (add-hook 'eldoc-documentation-functions #'mp-flycheck-eldoc nil t)
+    (add-hook 'eldoc-documentation-functions 'mp-flycheck-eldoc nil t)
     (setq eldoc-documentation-strategy 'eldoc-documentation-compose-eagerly)
     (setq flycheck-display-errors-function nil)
     (setq flycheck-help-echo-function nil))
 
   :hook
   (prog-mode . flycheck-mode)
-  ;;; NOTE: this will slow emacs down
+  ;; NOTE: this will slow emacs down
   ;; :config
   ;; (push 'rustic-clippy flycheck-checkers)
   :custom
@@ -2446,9 +2641,9 @@ Do not prompt me to create parent directory"
   :hook
   (flycheck-mode . flycheck-rust-setup))
 
-(use-package flycheck-eglot
-  :config
-  (global-flycheck-eglot-mode -1))
+;; (use-package flycheck-eglot
+;;   :config
+;;   (global-flycheck-eglot-mode -1))
 
 (defun repeatize (keymap)
   "Add `repeat-mode' support to a KEYMAP."
@@ -2537,7 +2732,7 @@ Do not prompt me to create parent directory"
 
   (defun zino/anki-editor-cloze-region-auto-incr ()
     "Cloze active region or word under corsor without hint.
-Automatically increase cloze number"
+  Automatically increase cloze number"
     (interactive)
     (anki-editor-cloze-dwim anki-editor-cur-cloze-num "")
     (sp-forward-sexp)
@@ -2545,7 +2740,7 @@ Automatically increase cloze number"
 
   (defun zino/anki-editor-cloze-region-not-incr ()
     "Cloze active region or word under corsor without hint.
-Do not increase cloze number"
+  Do not increase cloze number"
     (interactive)
     (anki-editor-cloze-dwim anki-editor-cur-cloze-num "")
     (sp-forward-sexp))
@@ -2580,31 +2775,25 @@ Do not increase cloze number"
   :ensure nil
   :custom-face
   (font-lock-comment-face ((t (:foreground "#83898d")))) ;; the original: ;; "#5B6268"
-  ;; (font-lock-doc-face ((t (:foreground "#5699AF"))));; "#7F9F7F"))));;"#9FC59F")))) ;;"#8CA276")))) ;; the original: "#83898d"
-  (font-lock-doc-face ((t (:foreground "#7cb8bb"))));; "#7F9F7F"))));;"#9FC59F")))) ;;"#8CA276")))) ;; the original: "#83898d"
-  )
+  ;; (font-lock-doc-face ((t (:family "Iosevka" :foreground "#7cb8bb"))));; "#7F9F7F"))));;"#9FC59F")))) ;;"#8CA276")))) ;; the original: "#83898d"
+  (font-lock-doc-face ((t (:family "Fira Code" :foreground "#83898d" :inherit font-lock-comment-face)))))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(aw-leading-char-face ((t (:foreground "red" :weight bold :height 1.2))))
  '(completions-common-part ((t (:background "#2c3946" :foreground "#7bb6e2" :weight bold))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
+ '(helm-eshell-prompts-buffer-name ((t (:extend t))))
+ '(helm-eshell-prompts-promptidx ((t (:extend t :foreground "#51afef"))))
  '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
- '(indent-bars-1 ((t (:inherit indent-bars-stipple :foreground "#348153a06c85"))) t)
- '(indent-bars-2 ((t (:foreground "#57bd430f6719" :inherit indent-bars-stipple))) t)
- '(indent-bars-3 ((t (:inherit indent-bars-stipple :foreground "#4f014f68684e"))) t)
- '(indent-bars-4 ((t (:inherit indent-bars-stipple :foreground "#417459a66dba"))) t)
- '(indent-bars-5 ((t (:inherit indent-bars-stipple :foreground "#5bf54cff6982"))) t)
- '(indent-bars-6 ((t (:inherit indent-bars-stipple :foreground "#348153a06c85"))) t)
- '(indent-bars-7 ((t (:inherit indent-bars-stipple :foreground "#57bd430f6719"))) t)
- '(indent-bars-8 ((t (:inherit indent-bars-stipple :foreground "#4f014f68684e"))) t)
- '(indent-bars-9 ((t (:inherit indent-bars-stipple :foreground "#417459a66dba"))) t)
  '(next-error ((t (:inherit (bold region)))))
+ '(org-block ((t (:background "#23272e"))))
  '(org-block-begin-line ((t (:inherit org-block :extend t :foreground "#83898d"))))
  '(peek-overlay-content-face ((t (:extend t :background "#23272e"))))
+ '(tree-sitter-hl-face:function.call ((t (:inherit (link font-lock-function-name-face) :underline nil :weight normal))))
+ '(tree-sitter-hl-face:property ((t (:inherit font-lock-constant-face))))
  '(variable-pitch ((t (:family "ETBembo" :height 180 :weight regular)))))
 
 (custom-set-variables
@@ -2613,7 +2802,6 @@ Do not increase cloze number"
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(auto-revert-interval 5)
- '(aw-char-position 'top-left)
  '(bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks")
  '(comment-style 'indent)
  '(connection-local-criteria-alist
@@ -2624,7 +2812,7 @@ Do not increase cloze number"
      ((:application tramp :machine "192.168.0.104")
       tramp-connection-local-darwin-ps-profile)
      ((:application tramp)
-      tramp-connection-local-default-system-profile tramp-connection-local-default-shell-profile)) t)
+      tramp-connection-local-default-system-profile tramp-connection-local-default-shell-profile)))
  '(connection-local-profile-alist
    '((eshell-connection-default-profile
       (eshell-path-env-list))
@@ -2699,41 +2887,37 @@ Do not increase cloze number"
       (shell-command-switch . "-c"))
      (tramp-connection-local-default-system-profile
       (path-separator . ":")
-      (null-device . "/dev/null"))) t)
+      (null-device . "/dev/null"))))
  '(display-line-numbers-width-start nil)
  '(edebug-trace t)
  '(fill-column 80)
- '(helm-imenu-use-icon t)
- '(helm-split-window-default-side 'right)
+ '(flycheck-display-errors-delay 0.6)
+ '(helm-swoop-use-fuzzy-match t)
  '(ibuffer-formats
    '((mark modified read-only locked " "
-           (name 64 64 :left :elide)
+           (name 100 100 :left :elide)
            " "
            (size 9 -1 :right)
            " "
            (mode 16 -1 :left :elide)
            " " filename-and-process)
      (mark " "
-           (name 64 -1)
+           (name 80 -1)
            " " filename)))
- '(indent-bars-color-by-depth
-   '(:palette
-     (outline-1
-      (outline-2 . bg)
-      outline-3 outline-4 outline-5 outline-6 outline-7)
-     :blend 1))
  '(magit-todos-insert-after '(bottom) nil nil "Changed by setter of obsolete option `magit-todos-insert-at'")
  '(max-mini-window-height 0.3)
  '(next-error-highlight t)
  '(next-error-highlight-no-select t)
  '(next-error-message-highlight t)
  '(nyan-cat-face-number 1)
+ '(org-agenda-files
+   '("/Users/zino/Notes/Roam/20230909174347-rust_presentations.org" "/Users/zino/Notes/Roam/20220816100518-gtd.org"))
  '(org-safe-remote-resources
    '("\\`https://fniessen\\.github\\.io/org-html-themes/org/theme-readtheorg\\.setup\\'"))
  '(outline-minor-mode-cycle t)
  '(outline-minor-mode-highlight t)
  '(package-selected-packages
-   '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev rustic go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode all-the-icons better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme all-the-icons-dired))
+   '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme))
  '(pdf-annot-list-listed-types
    '(caret circle file free-text highlight ink popup square squiggly strike-out text underline watermark widget))
  '(popper-group-function 'popper-group-by-projectile)
@@ -2741,20 +2925,16 @@ Do not increase cloze number"
  '(recenter-positions '(top middle bottom))
  '(rg-custom-type-aliases '(("sls" . "*.sls")))
  '(rg-hide-command nil)
- '(safe-local-variable-values '((comment-style quote box)))
+ '(safe-local-variable-values
+   '((indent-bars-spacing-override . 2)
+     (god-local-mode . t)
+     (completion-styles orderless basic partial-completion)))
  '(screenshot-line-numbers-p t)
- '(warning-suppress-types
-   '(((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
-     ((flymake flymake\.el))
-     (lsp-mode)) nil nil "Customized with use-package lsp-mode")
- '(windmove-wrap-around t nil nil "Customized with use-package windmove"))
+ '(tree-sitter-hl-use-font-lock-keywords t)
+ '(vterm-toggle-scope 'project)
+ '(warning-suppress-types '((flycheck) ((flymake flymake.el)) (lsp-mode)) nil nil "Customized with use-package lsp-mode")
+ '(windmove-wrap-around t nil nil "Customized with use-package windmove")
+ '(zoom-window-mode-line-color "black"))
 
 (use-package winner
   :hook
@@ -2767,7 +2947,10 @@ Do not increase cloze number"
         ([remap beginning-of-defun] . lua-beginning-of-proc)
         ([remap end-of-defun] . lua-end-of-proc))
   :custom
-  (lua-indent-level 4))
+  (lua-indent-level 4)
+  :hook
+  (lua-mode . (lambda ()
+                (setq-local completion-styles '(orderless basic partial-completion)))))
 
 (add-to-list 'load-path "~/.config/emacs/manually_installed/lua-mode")
 (autoload 'lua-mode "lua-mode" "Lua editing mode." t)
@@ -2779,7 +2962,8 @@ Do not increase cloze number"
 (use-package cc-mode
   :ensure nil
   :init
-  (add-to-list 'auto-mode-alist '("\\.inl$" . c++-mode)))
+  (add-to-list 'auto-mode-alist '("\\.inl$" . c++-mode))
+  (add-to-list 'auto-mode-alist '("\\.ipp$" . c++-mode)))
 
 (with-eval-after-load 'c-or-c++-mode
   (define-key c-mode-base-map [remap c-toggle-comment-style] 'copy-line)
@@ -2860,6 +3044,7 @@ Do not increase cloze number"
   (corfu-popupinfo-delay '(0.2 . 0))   ;; Initial and subsequent delay
   (tab-always-indent 'complete)
   :custom
+  (corfu-count 10)
   (corfu-popupinfo-max-height 150)
   (corfu-popupinfo-min-height 80)
   (corfu-popupinfo-min-width 80)
@@ -2881,7 +3066,8 @@ Do not increase cloze number"
   (corfu-popupinfo-mode) ; Popup completion info
   :custom-face
   (corfu-bar ((t (:background "#a8a8a8" :weight bold))))
-  (corfu-border ((t (:weight bold :width extra-expanded)))))
+  (corfu-border ((t (:weight bold :width extra-expanded))))
+  (corfu-current ((t (:background "#2c3946" :foreground "#bbc2cf")))))
 
 (defun corfu-enable-in-minibuffer ()
   "Enable Corfu in the minibuffer if `completion-at-point' is bound."
@@ -2931,7 +3117,7 @@ Do not increase cloze number"
 
 (add-hook 'minibuffer-setup-hook (lambda ()
                                    "Enable autocompletion on files."
-                                   (add-to-list 'completion-at-point-functions #'cape-file)))
+                                   (add-to-list 'completion-at-point-functions 'cape-file)))
 
 ;; Optionally use the `orderless' completion style.
 (use-package orderless
@@ -2939,9 +3125,15 @@ Do not increase cloze number"
   ;; Configure a custom style dispatcher (see the Consult wiki)
   ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
   ;;       orderless-component-separator #'orderless-escapable-split-on-space)
-  (setq completion-styles '(orderless basic)
+  (setq completion-styles '(flex orderless basic)
         completion-category-defaults nil
-        completion-category-overrides '((file (styles . (partial-completion))))))
+        completion-category-overrides '((file (styles . (partial-completion)))))
+  :hook
+  (emacs-lisp-mode . (lambda ()
+                       (setq-local completion-styles '(orderless basic partial-completion))
+                       (setq-local corfu-auto-delay 0.2)))
+  (sh-mode . (lambda ()
+               (setq-local completion-styles '(orderless basic partial-completion)))))
 
 (use-package kind-icon
   :ensure t
@@ -2949,7 +3141,7 @@ Do not increase cloze number"
   :custom
   (kind-icon-default-face 'corfu-default) ; to compute blended backgrounds correctly
   :config
-  (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
+  (add-to-list 'corfu-margin-formatters 'kind-icon-margin-formatter))
 
 ;; Emacs 28: Hide commands in M-x which do not apply to the current mode.
 ;; Corfu commands are hidden, since they are not supposed to be used via M-x.
@@ -2968,21 +3160,22 @@ Do not increase cloze number"
 (setq tab-stop-list '(4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64 68 72 76 80))
 
 (use-package lsp-bridge
+  :disabled
   :load-path "~/.config/emacs/manually_installed/lsp-bridge"
   ;; Use `eglot' for now
-  ;; :hook
-  ;;; statically typed
-  ;; (c-mode . lsp-bridge-mode)
-  ;; (c++-mode . lsp-bridge-mode)
-  ;;; dynamically typed
-  ;; (python-mode . lsp-bridge-mode)
-  ;; (lua-mode . lsp-bridge-mode)
-  ;; (go-mode . lsp-bridge-mode)
-  ;; (sh-mode . lsp-bridge-mode)
-  ;;; DSL
-  ;; (cmake-mode . lsp-bridge-mode)
-  ;; (css-mode . lsp-bridge-mode)
-  ;; (html-mode . lsp-bridge-mode)
+  :hook
+  statically typed
+  (c-mode . lsp-bridge-mode)
+  (c++-mode . lsp-bridge-mode)
+  dynamically typed
+  (python-mode . lsp-bridge-mode)
+  (lua-mode . lsp-bridge-mode)
+  (go-mode . lsp-bridge-mode)
+  (sh-mode . lsp-bridge-mode)
+  DSL
+  (cmake-mode . lsp-bridge-mode)
+  (css-mode . lsp-bridge-mode)
+  (html-mode . lsp-bridge-mode)
   :bind
   (:map lsp-bridge-mode-map
         ("C-c C-d" . lsp-bridge-find-define)
@@ -3036,7 +3229,7 @@ Do not increase cloze number"
   :custom
   (comint-prompt-read-only t))
 
-;; set limit for prompt opening large files higher, 100 M
+;; Set limit for prompt opening large files higher, 100 M
 (setq large-file-warning-threshold 100000000)
 
 (use-package format-all
@@ -3046,8 +3239,11 @@ Do not increase cloze number"
   :custom
   (format-all-show-errors 'never)
   :config
-  (setq format-all-formatters '(("Rust" (rustfmt "--edition" "2021"))))
-  (setq format-all-formatters '(("Python" (black "--skip-string-normalization")))))
+  (setq format-all-formatters '(("Rust" (rustfmt "--edition" "2021"
+                                                 "--config" "tab_spaces=4"))
+                                ("Python" (black "--skip-string-normalization"))
+                                ("JavaScript" deno)
+                                ("Shell" (shfmt "-i" "2")))))
 
 (use-package better-jumper
   :preface
@@ -3093,7 +3289,8 @@ Do not increase cloze number"
   (advice-add 'end-of-defun :around 'zino/better-jumper-advice)
   (advice-add 'org-roam-node-find :around 'zino/better-jumper-advice)
   (advice-add 'zino/find-user-init-file :around 'zino/better-jumper-advice)
-  (advice-add 'avy-goto-char-timer :around 'zino/better-jumper-advice))
+  (advice-add 'avy-goto-char-timer :around 'zino/better-jumper-advice)
+  (advice-add 'helm-maybe-exit-minibuffer :around 'zino/better-jumper-advice))
 
 (use-package org-remark
   :config
@@ -3106,8 +3303,8 @@ Do not increase cloze number"
   ;;; `org-remark' builtin function redefinition
   (defun org-remark-open (point &optional view-only)
     "Open remark note buffer if there is notes from `point' to the beginning
-of the line and automatically unfold the note headline.
-This is a modified version of the function in `org-remark'."
+  of the line and automatically unfold the note headline.
+  This is a modified version of the function in `org-remark'."
     (interactive "d\nP")
     (when-let ((id
                 ;; #+begin_modified
@@ -3147,18 +3344,18 @@ This is a modified version of the function in `org-remark'."
   (defun org-remark-delete (point)
     "Delete the nearest highlight and marginal notes from POINT to the beginning of line.
 
-This function will prompt for confirmation if there is any notes
-present in the marginal notes buffer.  When the marginal notes
-buffer is not displayed in the current frame, it will be
-temporarily displayed together with the prompt for the user to
-see the notes.
+  This function will prompt for confirmation if there is any notes
+  present in the marginal notes buffer.  When the marginal notes
+  buffer is not displayed in the current frame, it will be
+  temporarily displayed together with the prompt for the user to
+  see the notes.
 
-If there is no notes, this function will not prompt for
-confirmation and will remove the highlight and deletes the entry
-in the marginal notes buffer.
+  If there is no notes, this function will not prompt for
+  confirmation and will remove the highlight and deletes the entry
+  in the marginal notes buffer.
 
-This command is identical with passing a universal argument to
-`org-remark-remove'."
+  This command is identical with passing a universal argument to
+  `org-remark-remove'."
     (interactive "d")
     (let ((bol (line-beginning-position)))
       (save-excursion
@@ -3169,19 +3366,19 @@ This command is identical with passing a universal argument to
 
   (defun zino/org-remark-mark-and-open ()
     "Helper function to mark region and open notes buffer.
-I find myself often do this workflow."
+  I find myself often do this workflow."
     (interactive)
     (org-remark-mark (region-beginning) (region-end))
     (org-remark-open (point)))
 
   (defun zino/org-remark-open-advice (point &optional view-only)
     "Display source code edit buffer in `other-window' cause a `side-window'
-cannot be splitted."
+  cannot be splitted."
     (setq-local org-src-window-setup 'other-window))
 
   :config
   (advice-add 'org-remark-open :after 'zino/org-remark-open-advice))
-b
+
 (use-package org-remark
   :init
   ;; Turn on `org-remark' highlights on startup
@@ -3319,7 +3516,37 @@ b
       (message "The current window is dedicated")
     (message "The current window is not dedicated")))
 
-(use-package org-present)
+(use-package org-present
+  :init
+  (defun zino/org-present-on-start ()
+    (visual-fill-column-mode 1)
+    (setq-local visual-fill-column-width 120)
+    (setq-local org-hide-emphasis-markers t)
+    ;; (face-remap-add-relative 'org-block-begin-line '(:background "#282c34"))
+    ;; (face-remap-add-relative 'org-block-end-line '(:background "#282c34"))
+    )
+
+  (defun zino/org-present-on-quit ()
+    (visual-fill-column-mode -1)
+    (setq-local org-hide-emphasis-markers nil)
+    ;; (face-remap-add-relative 'org-block-begin-line '(:foreground "#83898d" :background "#23272e"))
+    ;; (face-remap-add-relative 'org-block-end-line '(:foreground "#83898d" :background "#23272e"))
+    )
+
+  (defun zino/org-present-prepare-slide (buffer-name heading)
+    ;; Show only top-level headlines.
+    (org-overview)
+    ;; Unfold the current entry.
+    (org-fold-show-entry)
+    ;; Show only direct subheadings of the slide but don't expand them
+    (org-fold-show-children))
+  :hook
+  (org-present-mode . zino/org-present-on-start)
+  (org-present-mode-quit . zino/org-present-on-quit)
+  :config
+  (add-hook 'org-present-after-navigate-functions 'zino/org-present-prepare-slide)
+  :custom
+  (visual-fill-column-center-text t))
 
 (use-package visual-fill-column)
 
@@ -3338,10 +3565,45 @@ b
   :hook
   (compilation-filter . zino/ansi-colorize-buffer))
 
+(use-package avy
+  :bind
+  ("s-l" . avy-goto-line)
+  ("C-s-l" . avy-goto-end-of-line)
+  ("M-j" . avy-goto-char-timer)
+  :custom
+  (avy-background nil))
+
 (use-package avy-zap
   :bind
+  ("C-z" . zap-up-to-char)
   ("M-z" . avy-zap-up-to-char-dwim)
   ("M-Z" . avy-zap-to-char-dwim))
+
+;; Redefine `zap-up-to-char' to use `read-char' instead of
+;; `read-char-from-minibuffer' to read from minibuffer. The latter one does not
+;; support reading a double quote.
+(defun zap-up-to-char (arg char &optional interactive)
+  "Kill up to, but not including ARGth occurrence of CHAR.
+When run interactively, the argument INTERACTIVE is non-nil.
+Case is ignored if `case-fold-search' is non-nil in the current buffer.
+Goes backward if ARG is negative; error if CHAR not found.
+Ignores CHAR at point.
+If called interactively, do a case sensitive search if CHAR
+is an upper-case character."
+  (interactive (list (prefix-numeric-value current-prefix-arg)
+		                 (read-char "Zap up to char: " t)
+                     t))
+  (let ((direction (if (>= arg 0) 1 -1))
+        (case-fold-search (if (and interactive (char-uppercase-p char))
+                              nil
+                            case-fold-search)))
+    (kill-region (point)
+		             (progn
+		               (forward-char direction)
+		               (unwind-protect
+		                   (search-forward (char-to-string char) nil nil arg)
+		                 (backward-char direction))
+		               (point)))))
 
 (use-package crux
   :preface
@@ -3407,11 +3669,8 @@ This is inserted into `xref-after-jump-hook'"
      (window-parameters
       (no-delete-other-windows . t)))))
 
-(use-package esh-autosuggest
-  :hook
-  (eshell-mode . esh-autosuggest-mode))
-
 (use-package eshell
+  :disabled
   :ensure nil
   :preface
   (defun setup-eshell-ivy-completion ()
@@ -3422,15 +3681,55 @@ This is inserted into `xref-after-jump-hook'"
                 (remq (assoc 'ivy-completion-in-region ivy-display-functions-alist)
                       ivy-display-functions-alist)))
   :hook
-  (eshell-mode-hook . setup-eshell-ivy-completion))
+  ;; (eshell-mode-hook . setup-eshell-ivy-completion)
+  (eshell-mode .  (lambda ()
+                    (setq-local corfu-auto nil)))
+
+  :config
+  (with-eval-after-load 'esh-mode
+    (define-key eshell-mode-map (kbd "C-k") 'eshell-kill-input))
+  (add-hook 'eshell-mode-hook (lambda () (setenv "TERM" "xterm-256color"))))
+
+(use-package esh-autosuggest
+  :hook
+  (eshell-mode . esh-autosuggest-mode))
+
+(use-package eshell-toggle
+  :disabled
+  :after eshell
+  :bind
+  ("s-e" . eshell-toggle))
+
+;; (use-package eat
+;;   :load-path "~/.config/emacs/manually_installed/emacs-eat/")
+
+(use-package vterm
+  :ensure t)
+
+(use-package vterm-toggle
+  :bind
+  ("s-e" . vterm-toggle)
+  :config
+  (setq vterm-toggle-fullscreen-p nil)
+  ;; (add-to-list 'display-buffer-alist
+  ;;              '((lambda (buffer-or-name _)
+  ;;                  (let ((buffer (get-buffer buffer-or-name)))
+  ;;                    (with-current-buffer buffer
+  ;;                      (or (equal major-mode 'vterm-mode)
+  ;;                          (string-prefix-p vterm-buffer-name (buffer-name buffer))))))
+  ;;                (display-buffer-reuse-window display-buffer-in-side-window)
+  ;;                (side . bottom)
+  ;;                ;;(dedicated . t) ;dedicated is supported in emacs27
+  ;;                (reusable-frames . visible)
+  ;;                (window-height . 0.3)))
+  )
 
 (use-package fish-completion
-  ;; This will cause org-mode to be extremely slow, may want to enable it only
-  ;; in `eshell' mode. But currently I am not dedicated to `eshell'. Tinker
-  ;; later.
+  ;; `fish-completion-mode' is unbearably slow
   :disabled
+  :load-path "~/.config/emacs/manually_installed/emacs-fish-completion"
   :hook
-  (after-init . global-fish-completion-mode))
+  (eshell-mode . fish-completion-mode))
 
 (use-package nyan-mode
   :config
@@ -3438,20 +3737,6 @@ This is inserted into `xref-after-jump-hook'"
 
 (use-package screenshot
   :load-path "~/.config/emacs/manually_installed/screenshot/")
-
-;; Try `straight'
-(defvar bootstrap-version)
-(let ((bootstrap-file
-       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
-      (bootstrap-version 6))
-  (unless (file-exists-p bootstrap-file)
-    (with-current-buffer
-        (url-retrieve-synchronously
-         "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
-         'silent 'inhibit-cookies)
-      (goto-char (point-max))
-      (eval-print-last-sexp)))
-  (load bootstrap-file nil 'nomessage))
 
 (use-package explain-pause-mode
   :straight (explain-pause-mode :type git :host github :repo "lastquestion/explain-pause-mode"))
@@ -3484,9 +3769,62 @@ This is inserted into `xref-after-jump-hook'"
 (use-package tree-sitter-langs)
 
 (use-package tree-sitter
-  :after tree-sitter-langs
+  ;; :after tree-sitter-langs
   :hook
-  (tree-sitter-after-on-hook . tree-sitter-hl-mode))
+  (tree-sitter-after-on . tree-sitter-hl-mode))
+
+(add-to-list 'tree-sitter-major-mode-language-alist '(go-ts-mode . go))
+(add-to-list 'tree-sitter-major-mode-language-alist '(rust-ts-mode . go))
+
+;; (use-package treesit-auto
+;;   :config
+;;   (global-treesit-auto-mode))
+
+;; (use-package tree-sitter-rust
+;;   :straight
+;;   (:host github
+;;          :repo "tree-sitter/tree-sitter-rust"
+;;          :post-build
+;;          (my/tree-sitter-compile-grammar
+;;           (expand-file-name "ts-grammars" user-emacs-directory)))
+;;   :init
+;;   (setq treesit-extra-load-path '("~/.config/emacs/ts-grammars/"))
+;;   (defun my/tree-sitter-compile-grammar (destination &optional path)
+;;     "Compile grammar at PATH, and place the resulting shared library in DESTINATION."
+;;     (interactive "fWhere should we put the shared library? \nfWhat tree-sitter grammar are we compiling? \n")
+;;     (make-directory destination 'parents)
+
+;;     (let* ((default-directory
+;;             (expand-file-name "src/" (or path default-directory)))
+;;            (parser-name
+;;             (thread-last (expand-file-name "grammar.json" default-directory)
+;;                          (json-read-file)p
+;;                          (alist-get 'name)))
+;;            (emacs-module-url
+;;             "https://raw.githubusercontent.com/casouri/tree-sitter-module/master/emacs-module.h")
+;;            (tree-sitter-lang-in-url
+;;             "https://raw.githubusercontent.com/casouri/tree-sitter-module/master/tree-sitter-lang.in")
+;;            (needs-cpp-compiler nil))
+;;       (message "Compiling grammar at %s" path)
+
+;;       (url-copy-file emacs-module-url "emacs-module.h" :ok-if-already-exists)
+;;       (url-copy-file tree-sitter-lang-in-url "tree-sitter-lang.in" :ok-if-already-exists)
+
+;;       (with-temp-buffer
+;;         (unless
+;;             (zerop
+;;              (apply #'call-process
+;;                     (if (file-exists-p "scanner.cc") "c++" "cc") nil t nil
+;;                     "parser.c" "-I." "--shared" "-o"
+;;                     (expand-file-name
+;;                      (format "libtree-sitter-%s%s" parser-name module-file-suffix)
+;;                      destination)
+;;                     (cond ((file-exists-p "scanner.c") '("scanner.c"))
+;;                           ((file-exists-p "scanner.cc") '("scanner.cc")))))
+;;           (user-error
+;;            "Unable to compile grammar, please file a bug report\n%s"
+;;            (buffer-string))))
+;;       (message "Completed compilation"))))
 
 (use-package separedit
   :bind
@@ -3565,11 +3903,11 @@ This is inserted into `xref-after-jump-hook'"
   (("C-c p d" . peek-xref-definition)
    ("C-c p p" . peek-overlay-dwim)
    :map peek-mode-keymap
-   ;; TODO: integrate `peek-next-line' with `zino/next-k-lines'
    ("M-s-n" . peek-next-line)
    ("M-s-p" . peek-prev-line)
-   ("M-n" . zino/next-k-lines)
-   ("M-p" . zino/previous-k-lines))
+   ("M-n" . nil)
+   ("M-p" . nil))
+
   :custom
   (peek-method 'overlay))
 
@@ -3585,8 +3923,24 @@ This is inserted into `xref-after-jump-hook'"
   :load-path "manually_installed/indent-bars/"
   :hook
   (rust-mode . indent-bars-mode)
+  (rust-ts-mode . indent-bars-mode)
   (lua-mode . indent-bars-mode)
-  (json-mode . indent-bars-mode))
+  (json-mode . indent-bars-mode)
+  (js-mode . indent-bars-mode)
+  (c++-mode . indent-bars-mode)
+  (c-mode . indent-bars-mode)
+  (go-mode . indent-bars-mode)
+  (go-ts-mode . indent-bars-mode)
+  (python-ts-mode . indent-bars-mode)
+  (sh-mode . indent-bars-mode)
+  :custom
+  (indent-bars-color-by-depth
+   '(:palette
+     (outline-1 outline-2 outline-3 outline-4 outline-5 outline-6 outline-7)
+     :blend 1))
+  (indent-bars-pattern ". . . . ")
+  (indent-bars-width-frac 0.2)
+  (indent-bars-treesit-support nil))
 
 (use-package embark
   :disabled
@@ -3606,11 +3960,130 @@ This is inserted into `xref-after-jump-hook'"
   :bind
   ([remap query-replace-regexp] . vr/query-replace))
 
+(use-package posframe-plus
+  :load-path "~/.config/emacs/manually_installed/posframe-plus")
+
+(use-package treesitter-context
+  :after posframe-plus
+  :load-path "~/.config/emacs/manually_installed/treesitter-context.el"
+  :custom
+  (treesitter-context-hide-frame-after-move t)
+  (treesitter-context-idle-time 0.1))
+
+;; mandatory, as the dictionary misbehaves!
+(add-to-list 'display-buffer-alist
+             '("^\\*Dictionary\\*" display-buffer-in-side-window
+               (side . left)
+               (window-width . 50)))
+
+(use-package symbols-outline
+  :custom
+  (symbols-outline-window-position 'left)
+  (symbols-outline-no-other-window nil)
+  (symbols-outline-window-width 42)
+  :config
+  (symbols-outline-follow-mode)
+  (setq symbols-outline-fetch-fn 'symbols-outline-lsp-fetch)
+  :bind
+  ("C-M-i" . symbols-outline-show)
+  :hook
+  (sh-mode . (lambda ()
+               (symbols-outline-follow-mode -1))))
+
+(use-package zoom-window
+  :bind
+  ("C-s-z" . zoom-window-zoom))
+
+(use-package simple
+  :ensure nil
+  :bind
+  ("C-/" . undo-only)
+  ("M-_" . undo-redo)
+  :custom
+  (undo-no-redo t))
+
+(use-package undo-hl
+  ;; Too distracting
+  :disabled
+  :load-path "~/.config/emacs/manually_installed/undo-hl/"
+  :hook
+  (prog-mode . undo-hl-mode)
+  :custom
+  (undo-hl-flash-duration 0.02)
+  (undo-hl-mininum-edit-size 5)
+  (undo-hl-undo-commands
+   '(undo undo-only undo-redo undo-fu-only-undo undo-fu-only-redo evil-undo evil-redo undo-tree-undo undo-tree-redo)))
+
+(use-package vundo
+  :bind
+  ("C-x u" . vundo))
+
 ;; Try it some time.
 ;; (use-package sideline)
 ;; (use-package imenu-everywhere)
 ;; (use-package visual-regexp-steroids)
 ;; (use-package emacs-color-theme-solarized)
+;; (use-package restclient)  ;; Test HTTP REST webservices
+;; (use-package eros)
+;; (use-package burly)
+;; (use-package dired+)  ;; different colors for different file permissions
+;; (use-package org-ioslide) ;; presentation
+;; (use-package smart-hungry-delete)
+;; (use-package popwin)
+
+;; Customizing colors used in diff mode
+;; (defun custom-diff-colors ()
+;;   "update the colors for diff faces"
+;;   (set-face-attribute
+;;    'diff-added nil :foreground "green")
+;;   (set-face-attribute
+;;    'diff-removed nil :foreground "red")
+;;   (set-face-attribute
+;;    'diff-changed nil :foreground "purple"))
+;; (eval-after-load "diff-mode" '(custom-diff-colors))
+
+;;; File manipulation
+(defun zino/insert-buffer-file-name (full-path)
+  "Insert file name of the buffer at point.
+Insert full path if prefix argument `FULL-PATH' is sent."
+  (interactive "P")
+  (let ((f (buffer-file-name)))
+    (if (not full-path)
+        (setq f (file-name-nondirectory f)))
+    (insert f)))
+
+(use-package rebox2
+  :load-path "~/.config/emacs/manually_installed/"
+  :bind
+  ("C-:" . rebox-cycle))
+
+(use-package sh-script
+  :ensure nil
+  :custom
+  (sh-basic-offset 2))
+
+(use-package focus)
+
+(use-package hideshow
+  :bind
+  ("M-s-h" . hs-toggle-hiding)
+  :hook
+  (prog-mode . hs-minor-mode))
+
+;; (use-package hungry-delete
+;;   :load-path "~/.config/emacs/manually_installed/hungry-delete.el/"
+;;   :bind
+;;   ("<backspace>" . hungry-backspace)
+;;   ("C-d" . hungry-delete))
+
+(use-package smart-hungry-delete
+  :config
+  (smart-hungry-delete-add-default-hooks)
+  :bind
+  (:map prog-mode-map
+        ("<backspace>" . smart-hungry-delete-backward-char)
+        ("<delete>" . smart-hungry-delete-backward-char)
+        ("C-d" . smart-hungry-delete-forward-char)))
 
 ;; run as daemon
 (server-start)
@@ -3618,6 +4091,7 @@ This is inserted into `xref-after-jump-hook'"
 ;; Put this at the end otherwise `pcache' will still register itself
 (remove-hook 'kill-emacs-hook 'pcache-kill-emacs-hook)
 
-;;; init.el ends here
 (put 'downcase-region 'disabled nil)
 (put 'dired-find-alternate-file 'disabled nil)
+
+;;; init.el ends here

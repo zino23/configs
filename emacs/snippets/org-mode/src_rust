@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: src_rust
+# key: sr
+# --
+
+src_rust{ $0 }
