@@ -460,7 +460,8 @@ Save the buffer of the current window and kill it"
   :hook
   (emacs-lisp-mode . (lambda ()
                        "Prevent sluggish in `emacs-lisp-mode'."
-                       (setq-local completion-at-point-functions (remove 'cape-dabbrev completion-at-point-functions)))))
+                       (setq-local completion-at-point-functions (remove 'cape-dabbrev completion-at-point-functions)
+                                   completion-styles '(orderless basic partial-completion)))))
 
 (use-package eros
   :hook
