@@ -451,7 +451,7 @@ Save the buffer of the current window and kill it"
 ;; keyboard scroll one line at a time
 (setq scroll-step 1)
 ;; Never recenter when scrolling off-screen
-;; (setq scroll-conservatively 10000)
+(setq scroll-conservatively 10000)
 ;; Disable the visible bell
 (setq visible-bell nil)
 
