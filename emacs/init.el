@@ -2368,6 +2368,13 @@ Do not prompt me to create parent directory"
   (define-key lsp-ui-imenu-mode-map (kbd "p") 'previous-line))
 
 (use-package eglot
+  ;;; Performance tweaking
+  :init
+  ;; Disable logging.
+  (fset #'jsonrpc--log-event #'ignore)
+  :custom
+  (eglot-events-buffer-size 0)
+
   ;; :load-path "~/.config/emacs/manually_installed/eglot/"
   :preface
   (defun mp-eglot-eldoc ()
@@ -2438,7 +2445,8 @@ Do not prompt me to create parent directory"
   :custom
   ;; NOTE: Important. The default is nil, and will cause `xref-find-definitions'
   ;; to fail in rust crates. (TODO: find out why it failed.)
-  (eglot-extend-to-xref t))
+  (eglot-extend-to-xref t)
+  (eglot-autoshutdown t))
 
 (use-package eglot
   :config
