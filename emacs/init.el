@@ -968,7 +968,7 @@ respectively."
             (underscore   . "_")))
 
 (use-package vertico
-  :config
+  :init
   (vertico-mode)
 
   :config
@@ -1028,7 +1028,6 @@ respectively."
 
 ;; Enable rich annotations using the Marginalia package
 (use-package marginalia
-  :load-path "~/.config/emacs/manually_installed/marginalia/"
   ;; Bind `marginalia-cycle' locally in the minibuffer.  To make the binding
   ;; available in the *Completions* buffer, add it to the
   ;; `completion-list-mode-map'.
@@ -1036,12 +1035,11 @@ respectively."
               ("M-A" . marginalia-cycle))
 
   ;; The :init section is always executed.
-  :hook
-
+  :init
   ;; Marginalia must be activated in the :init section of use-package such that
   ;; the mode gets enabled right away. Note that this forces loading the
   ;; package.
-  (vertico-mode . marginalia-mode))
+  (marginalia-mode))
 
 (use-package which-key
   :init
