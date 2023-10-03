@@ -1121,12 +1121,10 @@ respectively."
   :config
   (put 'magit-diff-edit-hunk-commit 'disabled nil))
 
-;; Try it sometime
-;; (use-package diff-hl)
-
-;; `ivy-xref' cannot easily show xref hit in a window. Don't use it for now
-(use-package ivy-xref
-  :disabled
+(use-package diff-hl
+  :custom
+  (diff-hl-show-hunk-function 'diff-hl-show-hunk-inline-popup)
+  (diff-hl-show-staged-changes nil)
   :config
   (advice-add 'diff-hl-next-hunk :after (lambda (&optional backward)
                                           (recenter))))
