@@ -457,11 +457,11 @@ Save the buffer of the current window and kill it"
   ("C-c f s" . select-frame-by-name)
   ("C-M-<tab>" . select-frame-by-name))
 
-;; scroll one line at a time (less "jumpy" than defaults)
+;; Scroll one line at a time (less "jumpy" than defaults)
 (setq mouse-wheel-scroll-amount '(1 ((shift) . 1)))
-;; don't accelerate scrolling
+;; Don't accelerate scrolling
 (setq mouse-wheel-progressive-speed nil)
-;; keyboard scroll one line at a time
+;; Keyboard scroll one line at a time
 (setq scroll-step 1)
 ;; Never recenter when scrolling off-screen
 (setq scroll-conservatively 10000)
@@ -505,18 +505,6 @@ Save the buffer of the current window and kill it"
   (add-hook 'vterm-mode-hook (lambda ()
                                "Disable `global-hl-line-mode' locally."
                                (setq-local global-hl-line-mode nil))))
-
-;; (use-package general
-;;   :config
-;;   (general-define-key
-;;    :prefix
-;;    "C-c n"
-;;    "c" 'org-roam-capture
-;;    "f" 'org-roam-node-find
-;;    "i" 'org-roam-node-insert
-;;    "g" 'org-roam-graph)
-;;   (general-define-key
-;;    :prefix "C-c C-n"))
 
 ;; Word abbreviation
 ;; "C-x a g" to interactively create an abbrev;
@@ -1075,7 +1063,7 @@ respectively."
   ([remap describe-variable] . helpful-variable)
   ([remap describe-key] . helpful-key)
   ([remap describe-command] . helpful-command)
-  ("\C-c\C-d" . helpful-at-point))
+  ("C-c C-d" . helpful-at-point))
 
 (use-package projectile
   :config
@@ -1224,9 +1212,6 @@ respectively."
   ("M-s-[" . hl-todo-previous)
   ("M-s-]" . hl-todo-next))
 
-;; code review
-;; (use-package forge)
-
 (use-package git-gutter
   :bind
   (("C-c C-u g" . git-gutter-mode)
@@ -1243,9 +1228,6 @@ respectively."
   :custom
   (git-gutter:update-interval 0.1 "Automatically update diff in 0.1 seconds")
   (git-gutter:window-width 1))
-
-;; Try it some time
-;; (use-package git-gutter+)
 
 (use-package org
   :preface
@@ -2529,9 +2511,6 @@ Do not prompt me to create parent directory"
   (prog-mode . (lambda ()
                  (flymake-mode -1))))
 
-;; Try it sometime
-;; (use-package flymake-popon)
-
 (use-package flycheck
   :preface
   (defun mp-flycheck-eldoc (callback &rest _ignored)
@@ -2584,9 +2563,6 @@ Do not prompt me to create parent directory"
                              (setq flycheck-clang-language-standard "c++17")))
   (add-hook 'c++-mode-hook (lambda ()
                              (setq flycheck-clang-language-standard "c++17"))))
-
-;; Try it sometime
-;; (use-package flycheck-inline)
 
 (use-package flycheck-rust
   :hook
@@ -2841,17 +2817,6 @@ Do not prompt me to create parent directory"
  '(edebug-trace t)
  '(fill-column 80)
  '(flycheck-display-errors-delay 0.6)
- '(ibuffer-formats
-   '((mark modified read-only locked " "
-           (name 100 100 :left :elide)
-           " "
-           (size 9 -1 :right)
-           " "
-           (mode 16 -1 :left :elide)
-           " " filename-and-process)
-     (mark " "
-           (name 80 -1)
-           " " filename)))
  '(magit-todos-insert-after '(bottom) nil nil "Changed by setter of obsolete option `magit-todos-insert-at'")
  '(max-mini-window-height 0.3)
  '(next-error-highlight t)
@@ -3356,9 +3321,6 @@ Do not prompt me to create parent directory"
   :custom-face
   (org-remark-highlighter ((t (:background "#023047" :underline nil)))))
 
-;; Try it some time
-;; (use-package annotate)
-
 (use-package org-bulletproof
   :disabled
   :config
@@ -3522,36 +3484,36 @@ Do not prompt me to create parent directory"
   (avy-background nil))
 
 (use-package avy-zap
-  :bind
+  :config
   ("C-z" . zap-up-to-char)
-  ("M-z" . avy-zap-up-to-char-dwim)
-  ("M-Z" . avy-zap-to-char-dwim))
-
-;; Redefine `zap-up-to-char' to use `read-char' instead of
-;; `read-char-from-minibuffer' to read from minibuffer. The latter one does not
-;; support reading a double quote.
-(defun zap-up-to-char (arg char &optional interactive)
-  "Kill up to, but not including ARGth occurrence of CHAR.
+  ;; Redefine `zap-up-to-char' to use `read-char' instead of
+  ;; `read-char-from-minibuffer' to read from minibuffer. The latter one does not
+  ;; support reading a double quote.
+  (defun zap-up-to-char (arg char &optional interactive)
+    "Kill up to, but not including ARGth occurrence of CHAR.
 When run interactively, the argument INTERACTIVE is non-nil.
 Case is ignored if `case-fold-search' is non-nil in the current buffer.
 Goes backward if ARG is negative; error if CHAR not found.
 Ignores CHAR at point.
 If called interactively, do a case sensitive search if CHAR
 is an upper-case character."
-  (interactive (list (prefix-numeric-value current-prefix-arg)
-		                 (read-char "Zap up to char: " t)
-                     t))
-  (let ((direction (if (>= arg 0) 1 -1))
-        (case-fold-search (if (and interactive (char-uppercase-p char))
-                              nil
-                            case-fold-search)))
-    (kill-region (point)
-		             (progn
-		               (forward-char direction)
-		               (unwind-protect
-		                   (search-forward (char-to-string char) nil nil arg)
-		                 (backward-char direction))
-		               (point)))))
+    (interactive (list (prefix-numeric-value current-prefix-arg)
+		                   (read-char "Zap up to char: " t)
+                       t))
+    (let ((direction (if (>= arg 0) 1 -1))
+          (case-fold-search (if (and interactive (char-uppercase-p char))
+                                nil
+                              case-fold-search)))
+      (kill-region (point)
+		               (progn
+		                 (forward-char direction)
+		                 (unwind-protect
+		                     (search-forward (char-to-string char) nil nil arg)
+		                   (backward-char direction))
+		                 (point)))))
+  :bind
+  ("M-z" . avy-zap-up-to-char-dwim)
+  ("M-Z" . avy-zap-to-char-dwim))
 
 (use-package crux
   :preface
@@ -3909,7 +3871,7 @@ This is inserted into `xref-after-jump-hook'"
   (treesitter-context-hide-frame-after-move t)
   (treesitter-context-idle-time 0.1))
 
-;; mandatory, as the dictionary misbehaves!
+;; Mandatory, as the dictionary misbehaves!
 (add-to-list 'display-buffer-alist
              '("^\\*Dictionary\\*" display-buffer-in-side-window
                (side . left)
@@ -3957,19 +3919,6 @@ This is inserted into `xref-after-jump-hook'"
   :bind
   ("C-x u" . vundo))
 
-;; Try it some time.
-;; (use-package sideline)
-;; (use-package imenu-everywhere)
-;; (use-package visual-regexp-steroids)
-;; (use-package emacs-color-theme-solarized)
-;; (use-package restclient)  ;; Test HTTP REST webservices
-;; (use-package eros)
-;; (use-package burly)
-;; (use-package dired+)  ;; different colors for different file permissions
-;; (use-package org-ioslide) ;; presentation
-;; (use-package smart-hungry-delete)
-;; (use-package popwin)
-
 ;; Customizing colors used in diff mode
 ;; (defun custom-diff-colors ()
 ;;   "update the colors for diff faces"
@@ -4009,12 +3958,6 @@ Insert full path if prefix argument `FULL-PATH' is sent."
   :hook
   (prog-mode . hs-minor-mode))
 
-;; (use-package hungry-delete
-;;   :load-path "~/.config/emacs/manually_installed/hungry-delete.el/"
-;;   :bind
-;;   ("<backspace>" . hungry-backspace)
-;;   ("C-d" . hungry-delete))
-
 (use-package smart-hungry-delete
   :config
   (smart-hungry-delete-add-default-hooks)
@@ -4024,7 +3967,7 @@ Insert full path if prefix argument `FULL-PATH' is sent."
         ("<delete>" . smart-hungry-delete-backward-char)
         ("C-d" . smart-hungry-delete-forward-char)))
 
-;; run as daemon
+;; Run as daemon
 (server-start)
 
 ;; Put this at the end otherwise `pcache' will still register itself
@@ -4032,5 +3975,24 @@ Insert full path if prefix argument `FULL-PATH' is sent."
 
 (put 'downcase-region 'disabled nil)
 (put 'dired-find-alternate-file 'disabled nil)
+
+;; Try it some time.
+;; (use-package sideline)
+;; (use-package imenu-everywhere)
+;; (use-package visual-regexp-steroids)
+;; (use-package emacs-color-theme-solarized)
+;; (use-package restclient)  ;; Test HTTP REST webservices
+;; (use-package eros)
+;; (use-package burly)
+;; (use-package dired+)  ;; different colors for different file permissions
+;; (use-package org-ioslide) ;; presentation
+;; (use-package smart-hungry-delete)
+;; (use-package popwin)
+;; (use-package imenu-list)
+;; (use-package git-gutter+)
+;; (use-package flymake-popon)
+;; (use-package flycheck-inline)
+;; (use-package annotate)
+;; (use-package forge)
 
 ;;; init.el ends here
