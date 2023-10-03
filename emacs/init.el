@@ -17,10 +17,10 @@
       (message "Native compilation is available"))
   (message "Native complation is *not* available"))
 
-(setq native-comp-deferred-compilation t)
+(setq native-comp-jit-compilation t)
 (setq native-comp-async-report-warnings-errors nil)
 
-;; initialize package sources
+;; Initialize package sources
 (setq package-archives '(("melpa" . "https://melpa.org/packages/")
                          ("elpa" . "https://elpa.gnu.org/packages/")
                          ("nongnu" . "https://elpa.nongnu.org/nongnu/")))
@@ -89,7 +89,33 @@
 
 (setq custom-file "~/.config/emacs/init.el")
 
-(setq gc-cons-threshold (* 300 1024 1024))
+(setq gc-cons-percentage 0.5
+      gc-cons-threshold (* 300 1024 1024))
+
+(use-package emacs
+  :init
+  ;; Add prompt indicator to `completing-read-multiple'.
+  ;; We display [CRM<separator>], e.g., [CRM,] if the separator is a comma.
+  (defun crm-indicator (args)
+    (cons (format "[CRM%s] %s"
+                  (replace-regexp-in-string
+                   "\\`\\[.*?]\\*\\|\\[.*?]\\*\\'" ""
+                   crm-separator)
+                  (car args))
+          (cdr args)))
+  (advice-add #'completing-read-multiple :filter-args #'crm-indicator)
+
+  ;; Do not allow the cursor in the minibuffer prompt
+  (setq minibuffer-prompt-properties
+        '(read-only t cursor-intangible t face minibuffer-prompt))
+  (add-hook 'minibuffer-setup-hook #'cursor-intangible-mode)
+
+  ;; Emacs 28: Hide commands in M-x which do not work in the current mode.
+  ;; Vertico commands are hidden in normal buffers.
+  (setq read-extended-command-predicate 'command-completion-default-include-p)
+
+  ;; Enable recursive minibuffers
+  (setq enable-recursive-minibuffers t))
 
 (use-package desktop
   :ensure nil
@@ -226,18 +252,6 @@
 (global-set-key (kbd "C-c +") 'zino/increment-number-decimal)
 
 (global-set-key (kbd "C-d") 'zino/delete-forward-char)
-
-;; Speed up swiper.
-;; When visual-line mode is enabled, emacs will forward by visual line which is
-;; very slow in large files.
-(setq swiper-use-visual-line nil)
-(setq swiper-use-visual-line-p (lambda (a) nil))
-
-(defun zino/swiper-isearch-again ()
-  "Start swiper-isearch with the last thing searched for."
-  (interactive)
-  (swiper-isearch (car swiper-history)))
-(global-set-key (kbd "s-F") 'zino/swiper-isearch-again)
 
 (defun zino/delete-forward-char (n)
   "Delete the following N chars and keep it in the `kill-ring'."
@@ -434,7 +448,6 @@ Save the buffer of the current window and kill it"
   (windmove-default-keybindings))
 
 (use-package frame
-  :after ivy
   :ensure nil
   :config
   (define-prefix-command 'frame-map)
@@ -638,6 +651,8 @@ Save the buffer of the current window and kill it"
            " " filename))))
 
 (use-package dired-preview
+  ;; Introduce too much sluggish
+  :disabled
   :init
   (dired-preview-global-mode)
   :custom
@@ -964,39 +979,81 @@ respectively."
             (star         . "*")
             (underscore   . "_")))
 
-(use-package hydra
+(use-package vertico
   :config
-  (defhydra hydra-text-scale
-    (:timeout 4)
-    "scale text"
-    ("j" text-scale-increase "in")
-    ("k" text-scale-decrease "out")
-    ("f" nil "finished"
-     :exit t)))
+  (vertico-mode)
 
-(use-package ivy
-  :init
-  (setq ivy-re-builders-alist '(;; (swiper . ivy--regex-plus)
-                                (t . ivy--regex-fuzzy)))
-  :diminish
-  :bind
-  (("s-s" . swiper)
-   ("s-r" . counsel-register)
-   ;; ("C-c f" . counsel-fzf)
-   :map ivy-minibuffer-map
-   ("TAB" . ivy-alt-done)
-   :map ivy-switch-buffer-map
-   ("C-d" . ivy-switch-buffer-kill)
-   :map ivy-reverse-i-search-map
-   ("C-d" . ivy-reverse-i-search-kill))
   :config
-  (ivy-mode 1)
-  (define-key ivy-minibuffer-map [remap ivy-restrict-to-matches] (lambda ()
-                                                                   (interactive)))
-  (setq counsel-fzf-cmd "fd -H -c never \"%s\"")
+  ;; Different scroll margin
+  (setq vertico-scroll-margin 0)
+
+  ;; Show more candidates
+  (setq vertico-count 10)
+
+  ;; Grow and shrink the Vertico minibuffer
+  (setq vertico-resize 'grow-only)
+
+  ;; Optionally enable cycling for `vertico-next' and `vertico-previous'.
+  (setq vertico-cycle t)
+
+  (setq read-file-name-completion-ignore-case t
+        read-buffer-completion-ignore-case t
+        completion-ignore-case t)
+  :bind
+  (:map vertico-map
+        ;; Exit minibuffer with input instead of current candidate.
+        ("C-j" . vertico-exit-input)
+        ("C-M-n" . vertico-next-group)
+        ("C-M-p" . vertico-previous-group)
+        ("?" . minibuffer-completion-help)))
+
+;; Configure directory extension.
+(use-package vertico-directory
+  :after vertico
+  :ensure nil
+  ;; More convenient directory navigation commands
+  :bind (:map vertico-map
+              ("RET" . vertico-directory-enter)
+              ("DEL" . vertico-directory-delete-char)
+              ("M-DEL" . vertico-directory-delete-word))
+  ;; Tidy shadowed file names
+  :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
+
+(use-package vertico-multiform
+  :after vertico
+  :ensure nil
+  :config
+  (vertico-multiform-mode)
   :custom
-  (ivy-use-selectable-prompt t)
-  (ivy-use-virtual-buffers nil))
+  ;; Configure the display per command.
+  ;; Use a buffer with indices for imenu
+  ;; and a flat (Ido-like) menu for M-x.
+  (vertico-multiform-commands '((consult-imenu buffer indexed))))
+
+(use-package vertico-quick
+  :after vertico
+  :ensure nil
+  :bind
+  (:map vertico-map
+        ("M-q" . vertico-quick-insert)
+        ("-q" . vertico-quick-exit)))
+
+;; Enable rich annotations using the Marginalia package
+(use-package marginalia
+  :load-path "~/.config/emacs/manually_installed/marginalia/"
+  ;; Bind `marginalia-cycle' locally in the minibuffer.  To make the binding
+  ;; available in the *Completions* buffer, add it to the
+  ;; `completion-list-mode-map'.
+  :bind (:map minibuffer-local-map
+              ("M-A" . marginalia-cycle))
+
+  ;; The :init section is always executed.
+  :hook
+
+  ;; Marginalia must be activated in the :init section of use-package such that
+  ;; the mode gets enabled right away. Note that this forces loading the
+  ;; package.
+  (vertico-mode . marginalia-mode))
 
 (use-package which-key
   :init
@@ -1008,48 +1065,16 @@ respectively."
   :custom
   (which-key-popup-type 'minibuffer))
 
-(use-package ivy-rich
-  :after counsel
-  :init
-  (ivy-rich-mode 1))
-
-(use-package counsel
-  :bind
-  (("M-x" . counsel-M-x)
-   ("C-x C-f" . counsel-find-file)
-   ("C-M-y" . counsel-yank-pop)
-   :map
-   minibuffer-local-map ("C-r" . 'counsel-minibuffer-history))
-  :config
-  (counsel-mode 1)
-  :custom
-  (counsel-switch-buffer-preview-virtual-buffers nil))
-
-(use-package ivy-prescient
-  :after counsel
-  :custom
-  (setq ivy-prescient-enable-filtering t)
-  :config
-  ;; Remember candidate frequencies across sessions
-  (ivy-prescient-mode 1)
-  (setq ivy-prescient-retain-classic-highlighting t)
-  ;; Not explicitly set this will not use ivy's fuzzy matching by default
-  ;; Also this will not affect swiper's regex-plus method
-  (setq prescient-filter-method '(literal regexp fuzzy)))
-
 (use-package prescient
   :config
   (prescient-persist-mode 1))
 
 (use-package helpful
-  :custom
-  (counsel-describe-function-function #'helpful-callable)
-  (counsel-describe-variable-function #'helpful-variable)
   :bind
-  ([remap describe-function] . counsel-describe-function)
-  ([remap describe-command]  . helpful-command)
-  ([remap describe-variable] . counsel-describe-variable)
+  ([remap describe-function] . helpful-callable)
+  ([remap describe-variable] . helpful-variable)
   ([remap describe-key] . helpful-key)
+  ([remap describe-command] . helpful-command)
   ("\C-c\C-d" . helpful-at-point))
 
 (use-package projectile
@@ -1060,10 +1085,11 @@ respectively."
   ;; respect .projectile
   (projectile-indexing-method 'alien)
   (projectile-enable-caching t)
-  (projectile-completion-system 'ivy)
   (projectile-globally-ignored-directories nil) ; quick fix for bbatsov/projectile#1777
   :bind-keymap
   ("s-p" . projectile-command-map)
+  :bind
+  ([remap projectile-switch-to-buffer] . consult-project-buffer)
   :init
   ;; NOTE: Set this to the folder where you keep your Git repos!
   (when (file-directory-p "~/dev")
@@ -1092,7 +1118,6 @@ respectively."
   (ediff-split-window-function 'split-window-horizontally)
   ;; [use] magit-log-buffer-file: show a region or buffer's commit history
   (magit-diff-refine-hunk 'all)
-  (magit-completing-read-function 'ivy-completing-read)
   :config
   (put 'magit-diff-edit-hunk-commit 'disabled nil))
 
@@ -1103,14 +1128,8 @@ respectively."
 (use-package ivy-xref
   :disabled
   :config
-  ;; xref initialization is different in Emacs 27 - there are two different
-  ;; variables which can be set rather than just one
-  (when (>= emacs-major-version 27)
-    (setq xref-show-definitions-function #'ivy-xref-show-defs))
-  ;; Necessary in Emacs <27. In Emacs 27 it will affect all xref-based
-  ;; commands other than xref-find-definitions (e.g. project-find-regexp)
-  ;; as well
-  (setq xref-show-xrefs-function #'ivy-xref-show-xrefs))
+  (advice-add 'diff-hl-next-hunk :after (lambda (&optional backward)
+                                          (recenter))))
 
 ;; https://github.com/dandavison/magit-delta/issues/6
 ;; (with-eval-after-load 'magit-delta
@@ -1851,8 +1870,6 @@ Similar to `org-capture' like behavior"
 (setq display-line-numbers-width 0)
 (setq display-line-numbers-width-start 0)
 
-(global-set-key (kbd "C-x b") #'ido-switch-buffer)
-
 (setq apropos-sort-by-scores t)
 
 (use-package ace-window
@@ -2010,27 +2027,6 @@ Similar to `org-capture' like behavior"
 
 (use-package super-save)
 
-(setq ivy-dynamic-exhibit-delay-ms 0)
-(setq ivy-re-builders-alist '((t . ivy--regex-fuzzy)))
-(setq ivy-initial-inputs-alist '((counsel-minor . "^+")
-                                 (counsel-package . "^+")
-                                 (counsel-org-capture . "^")
-                                 (counsel-M-x . "^")
-                                 (counsel-describe-symbol . "^")
-                                 (org-refile . "^")
-                                 (org-agenda-refile . "^")
-                                 (org-capture-refile . "^")
-                                 (Man-completion-table . "^")
-                                 (woman . "^")))
-
-(defvar +ivy--queue-last-input nil)
-(defun +ivy-queue-exhibit-a(f &rest args)
-  (if (equal +ivy--queue-last-input (ivy--input))
-      (ivy--exhibit)
-    (apply f args))
-  (setq +ivy--queue-last-input (ivy--input)))
-(advice-add 'ivy--queue-exhibit :around #'+ivy-queue-exhibit-a)
-
 (defun find-file--auto-create-dir (filename &optional wildcards)
   "Create parent directory during visiting file if necessary .
 Do not prompt me to create parent directory"
@@ -2043,42 +2039,18 @@ Do not prompt me to create parent directory"
 
 (delete-selection-mode 1)
 
-(use-package helm
-  ;; :load-path "elpa/helm"
-  :custom
-  (helm-semantic-fuzzy-match t)
-  (helm-imenu-fuzzy-match    t)
-  (helm-minibuffer-history-key "M-p")
-  ;; Show all the candidates.
-  (helm-candidate-number-limit nil)
-
-  ;; TODO: Use `nerd-icons' instead of `all-the-icons' so we can get rid of
-  ;; `all-the-icons' once and for all.
-  ;; Check `helm-imenu-icon-type-alist'.
-  (helm-imenu-use-icon nil)
-  (helm-split-window-default-side 'right)
-
-  :config
-  (add-to-list 'helm-sources-using-default-as-input 'helm-source-man-pages)
-  (setq helm-locate-command "glocate %s %s"
-        helm-locate-create-db-command "gupdatedb --output='%s' --localpaths='%s'")
-  (setq helm-locate-project-list (list "~/Dev"))
-  ;; Refernece: https://github.com/emacs-helm/helm/issues/1134
-  (setq helm-sources-using-default-as-input
-        (remove 'helm-source-imenu helm-sources-using-default-as-input))
-  :bind
-  ("M-i" . helm-imenu))
-
-(use-package helm-swoop
-  :after helm
-  :bind
-  ("s-f" . helm-swoop))
-
 (use-package consult
   :custom
   ;; Maually and immidiate
   (consult-preview-key "M-.")
-  (consult-narrow-key "<"))
+  (consult-narrow-key "<")
+  :bind
+  ("M-i" . consult-imenu)
+  ("s-s" . consult-line)
+  ("C-x b" . consult-buffer)
+  ("C-M-y" . consult-yank-from-kill-ring)
+  ("s-5" . consult-kmacro)
+  ([remap bookmark-jump] . consult-bookmark))
 
 (use-package consult-todo
   :load-path "~/.config/emacs/manually_installed/consult-todo/")
@@ -2766,8 +2738,6 @@ Do not prompt me to create parent directory"
  ;; If there is more than one, they won't work right.
  '(completions-common-part ((t (:background "#2c3946" :foreground "#7bb6e2" :weight bold))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
- '(helm-eshell-prompts-buffer-name ((t (:extend t))))
- '(helm-eshell-prompts-promptidx ((t (:extend t :foreground "#51afef"))))
  '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
  '(next-error ((t (:inherit (bold region)))))
  '(org-block ((t (:background "#23272e"))))
@@ -2873,7 +2843,6 @@ Do not prompt me to create parent directory"
  '(edebug-trace t)
  '(fill-column 80)
  '(flycheck-display-errors-delay 0.6)
- '(helm-swoop-use-fuzzy-match t)
  '(ibuffer-formats
    '((mark modified read-only locked " "
            (name 100 100 :left :elide)
@@ -3653,16 +3622,7 @@ This is inserted into `xref-after-jump-hook'"
 (use-package eshell
   :disabled
   :ensure nil
-  :preface
-  (defun setup-eshell-ivy-completion ()
-    (define-key eshell-mode-map [remap eshell-pcomplete] 'completion-at-point)
-    ;; only if you want to use the minibuffer for completions instead of the
-    ;; in-buffer interface
-    (setq-local ivy-display-functions-alist
-                (remq (assoc 'ivy-completion-in-region ivy-display-functions-alist)
-                      ivy-display-functions-alist)))
   :hook
-  ;; (eshell-mode-hook . setup-eshell-ivy-completion)
   (eshell-mode .  (lambda ()
                     (setq-local corfu-auto nil)))
 
