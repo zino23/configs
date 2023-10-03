@@ -964,34 +964,6 @@ respectively."
             (star         . "*")
             (underscore   . "_")))
 
-;; (use-package evil
-;;   :disabled
-;;   :init
-;;   (setq evil-want-integration t)
-;;   (setq evil-want-keybinding nil)
-;;   (setq evil-want-C-u-scroll t)
-;;   (setq evil-want-C-i-jump t)
-;;   (setq evil-respect-visual-line-mode nil)
-;;   (setq evil-cross-lines t)
-;;   (setq evil-undo-system 'undo-tree)
-;;   (setq evil-move-cursor-back nil)
-;;   (setq evil-auto-indent t)
-;;   (setq evil-undo-system 'undo-tree)
-;;   (setq-default evil-shift-width tab-width)
-;;   :config
-;;   (evil-mode 1)
-;;   (define-key evil-insert-state-map (kbd "C-g") 'evil-normal-state)
-;;   (define-key evil-insert-state-map (kbd "C-n") nil)
-;;   (define-key evil-insert-state-map (kbd "C-p") nil)
-;;   (define-key evil-insert-state-map (kbd "C-a") nil)
-;;   (define-key evil-insert-state-map (kbd "C-p") nil)
-
-;;   ;; Use visual line motions even outside of visual-line-mode buffers
-;;   (evil-global-set-key 'motion "j" 'evil-next-visual-line)
-;;   (evil-global-set-key 'motion "k" 'evil-previous-visual-line)
-;;   (evil-set-initial-state 'messages-buffer-mode 'normal)
-;;   (evil-set-initial-state 'dashboard-mode 'normal))
-
 (use-package hydra
   :config
   (defhydra hydra-text-scale
