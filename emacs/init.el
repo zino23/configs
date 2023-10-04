@@ -760,20 +760,6 @@ Save the buffer of the current window and kill it"
   :hook
   (emacs-lisp-mode . aggressive-indent-mode))
 
-;; Indicate indent level
-(use-package highlight-indent-guides
-  ;; :hook
-  ;; (conf-mode . highlight-indent-guides-mode)
-  :custom
-  (highlight-indent-guides-auto-character-face-perc 20)
-  (highlight-indent-guides-auto-top-character-face-perc 50)
-  (highlight-indent-guides-delay 0)
-  (highlight-indent-guides-responsive 'top)
-  (highlight-indent-guides-method 'character)
-  :custom-face
-  (highlight-indent-guides-character-face ((t (:foreground "#3c3c42414e4d"))))
-  (highlight-indent-guides-top-character-face ((t (:foreground "#bbc2cf")))))
-
 (use-package rainbow-mode
   :hook
   (emacs-lisp-mode . rainbow-mode)
