@@ -579,7 +579,8 @@ Save the buffer of the current window and kill it"
            (size 9 -1 :right)
            " "
            (mode 16 -1 :left :elide)
-           " " filename-and-process)
+           " "
+           (filename-and-process 16 70 :left :elide))
      (mark " "
            (name 80 -1)
            " " filename))))
@@ -633,7 +634,8 @@ Save the buffer of the current window and kill it"
            (size-h 9 -1 :right)
            " "
            (mode+ 16 -1 :left :elide)
-           " " filename-and-process)
+           " "
+           (filename-and-process 16 70 :left :elide))
      (mark " "
            (name 80 -1)
            " " filename))))
@@ -745,7 +747,7 @@ Save the buffer of the current window and kill it"
 
 (zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 16 1)
 
-;; Automatically trim white spaces at the end of line
+;; Automatically trim trailing whitespaces.
 (use-package ws-butler
   :config
   (ws-butler-global-mode))
@@ -791,8 +793,6 @@ Save the buffer of the current window and kill it"
   (show-paren-match-expression ((t (:inherit nil :background "#282c34" :weight bold)))))
 
 (use-package nerd-icons)
-
-;; (use-package all-the-icons)
 
 (use-package doom-modeline
   :init (doom-modeline-mode 1)
@@ -979,6 +979,8 @@ respectively."
         ("C-j" . vertico-exit-input)
         ("C-M-n" . vertico-next-group)
         ("C-M-p" . vertico-previous-group)
+        ;; Insert the current candidate
+        ("TAB" . vertico-insert)
         ("?" . minibuffer-completion-help)))
 
 ;; Configure directory extension.
@@ -2251,8 +2253,6 @@ Do not prompt me to create parent directory"
   (fset #'jsonrpc--log-event #'ignore)
   :custom
   (eglot-events-buffer-size 0)
-
-  ;; :load-path "~/.config/emacs/manually_installed/eglot/"
   :preface
   (defun mp-eglot-eldoc ()
     (setq eldoc-documentation-strategy
@@ -2816,15 +2816,14 @@ Do not prompt me to create parent directory"
   :ensure nil
   :init
   (add-to-list 'auto-mode-alist '("\\.inl$" . c++-mode))
-  (add-to-list 'auto-mode-alist '("\\.ipp$" . c++-mode)))
-
-(with-eval-after-load 'c-or-c++-mode
-  (define-key c-mode-base-map [remap c-toggle-comment-style] 'copy-line)
-  (define-key c-mode-base-map [remap beginning-of-defun] 'c-beginning-of-defun)
-  (define-key c-mode-base-map [remap end-of-defun] 'c-end-of-defun)
-  (define-key c-mode-base-map (kbd ("C-M-a")) 'sp-backward-up-sexp)
-  (define-key c-mode-base-map (kbd ("C-M-e")) 'sp-up-sexp))
-
+  (add-to-list 'auto-mode-alist '("\\.ipp$" . c++-mode))
+  :bind
+  (:map c-mode-base-map
+        ([remap c-toggle-comment-style] . copy-line)
+        ([remap beginning-of-defun] . c-beginning-of-defun)
+        ([remap end-of-defun] . c-end-of-defun)
+        ("C-M-a" . sp-backward-up-sexp)
+        ("C-M-e" . sp-up-sexp)))
 
 (use-package dabbrev
   ;; Swap M-/ and C-M-/
