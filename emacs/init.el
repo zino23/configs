@@ -1891,37 +1891,6 @@ Similar to `org-capture' like behavior"
   (interactive "p*")
   (zino/increment-number-decimal (if arg (- arg) -1)))
 
-(use-package company
-  ;; use corfu for now
-  :disabled
-  :config
-  (setq company-backends (mapcar #'company-mode/backend-with-yas company-backends))
-  :bind
-  (("M-." . company-show-doc-buffer)
-   :map company-active-map
-   ("<return>" . company-complete-selection)
-   ("<tab>" . company-complete-common))
-  :custom
-  (company-minimum-prefix-length 2)
-  (company-idle-delay 0.05)
-  (company-require-match nil)
-  :custom-face
-  (company-tooltip-quick-access ((t (:inherit company-tooltip-annotation :height 2.0))))
-  :init
-  (global-company-mode))
-
-;; Add yasnippet support for all company backends
-;; https://github.com/syl20bnr/spacemacs/pull/179
-(defvar company-mode/enable-yas nil
-  "Enable yasnippet for all backends.")
-
-(defun company-mode/backend-with-yas (backend)
-  "Configure company-mode with BACKEND."
-  (if (or (not company-mode/enable-yas) (and (listp backend) (member 'company-yasnippet backend)))
-      backend
-    (append (if (consp backend) backend (list backend))
-            '(:with company-yasnippet))))
-
 (use-package fzf
   :bind
   ;; Don't forget to set keybinds!
@@ -2454,19 +2423,6 @@ Do not prompt me to create parent directory"
   :ensure nil
   :load-path "~/.config/emacs/manually_installed/eglot-x")
 
-(use-package company-prescient
-  :after company
-  :config
-  (company-prescient-mode 1))
-
-(use-package company-box
-  :hook
-  (company-mode . company-box-mode)
-  :custom
-  (company-box-doc-delay 0.2)
-  :config
-  (setq company-box-backends-colors '((company-yasnippet . (:all "#457b9d" :selected (:foreground "#1d3557" :background  "#457b9d"))))))
-
 (use-package yasnippet
   :hook
   (after-init . yas-global-mode))
@@ -2869,35 +2825,6 @@ Do not prompt me to create parent directory"
   (define-key c-mode-base-map (kbd ("C-M-a")) 'sp-backward-up-sexp)
   (define-key c-mode-base-map (kbd ("C-M-e")) 'sp-up-sexp))
 
-(defun makefile-mode-setup ()
-  (setq-local company-dabbrev-ignore-case t)
-  ;; (setq-local company-dabbrev-other-buffers nil)
-  (setq-local company-dabbrev-code-ignore-case t)
-  (setq-local company-backends '((company-dabbrev-code
-                                  company-keywords
-                                  company-yasnippet
-                                  company-dabbrev
-                                  :separate)))
-  (setf (alist-get major-mode company-keywords-alist)
-        (-uniq
-         (append makefile-statements
-                 makefile-special-targets-list
-                 (->> (pcase major-mode
-                        ('makefile-automake-mode makefile-automake-statements)
-                        ('makefile-gmake-mode makefile-gmake-statements)
-                        ('makefile-makepp-mode makefile-makepp-statements)
-                        ('makefile-bsdmake-mode makefile-bsdmake-statements)
-                        ('makefile-imake-mode makefile-imake-s))
-                      (-filter #'stringp)
-                      (-map #'split-string)
-                      (-flatten))))))
-
-(with-eval-after-load 'company
-  (dolist (hook '(makefile-gmake-mode-hook
-                  makefile-makepp-mode-hook
-                  makefile-bsdmake-mode-hook
-                  makefile-imake-mode-hook))
-    (add-hook hook #'makefile-mode-setup)))
 
 (use-package dabbrev
   ;; Swap M-/ and C-M-/
