@@ -163,6 +163,8 @@
 
 (put 'narrow-to-region 'disabled nil)
 (put 'erase-buffer 'disabled nil)
+(put 'downcase-region 'disabled nil)
+(put 'dired-find-alternate-file 'disabled nil)
 
 ;; Define a read-only directory class
 (dir-locals-set-class-variables 'read-only '((nil . ((buffer-read-only . t)))))
@@ -436,15 +438,15 @@ Save the buffer of the current window and kill it"
 (use-package windmove
   :ensure nil
   :bind
-  ("s-;" . windmove-display-same-window)
-  ("s-'" . windmove-display-new-frame)
+  ("s-;" . windmove-display-new-frame)
+  ("s-'" . windmove-display-same-window)
   ("s-<left>" . windmove-display-left)
   ("s-<right>" . windmove-display-right)
   ("s-<up>" . windmove-display-up)
   ("s-<down>" . windmove-display-down)
   :custom
   (windmove-wrap-around t)
-  :config
+  :init
   (windmove-default-keybindings))
 
 (use-package frame
@@ -707,7 +709,8 @@ Save the buffer of the current window and kill it"
   :custom
   (eldoc-echo-area-use-multiline-p t)
   (eldoc-idle-delay 0.05)
-  (eldoc-echo-area-prefer-doc-buffer t))
+  (eldoc-echo-area-prefer-doc-buffer t)
+  (max-mini-window-height 0.25))
 
 (use-package eldoc-box
   :bind
@@ -783,6 +786,11 @@ Save the buffer of the current window and kill it"
   :bind
   ("C-c C-o" . clm/toggle-command-log-buffer))
 
+(use-package keycast
+  :config
+  (setq keycast-mode-line-insert-after '(:eval (doom-modeline-format--main)))
+  (add-to-list 'global-mode-string '("" keycast-mode-line)))
+
 (use-package paren
   :config
   (show-paren-mode 1)
@@ -806,7 +814,9 @@ Save the buffer of the current window and kill it"
   (doom-modeline-modal-icon t)
   (doom-modeline-highlight-modified-buffer-name t)
   :custom-face
-  (doom-modeline-buffer-modified ((t (:background unspecified :inherit (warning bold))))))
+  ;; (doom-modeline-buffer-modified ((t (:background unspecified :inherit (warning bold)))))
+  (doom-modeline-buffer-modified ((t (:background unspecified :inherit (bold)))))
+  )
 
 ;; (use-package spaceline
 ;;   :config
@@ -981,7 +991,9 @@ respectively."
         ("C-M-p" . vertico-previous-group)
         ;; Insert the current candidate
         ("TAB" . vertico-insert)
-        ("?" . minibuffer-completion-help)))
+        ("?" . minibuffer-completion-help))
+  :custom
+  (vertico-sort-function 'vertico-sort-history-length-alpha))
 
 ;; Configure directory extension.
 (use-package vertico-directory
@@ -1011,8 +1023,10 @@ respectively."
   :ensure nil
   :bind
   (:map vertico-map
-        ("M-q" . vertico-quick-insert)
-        ("-q" . vertico-quick-exit)))
+        ("s-j" . vertico-quick-jump)
+        ;; Exit vertico with the selected candidate
+        ("C-q" . vertico-quick-exit)
+        ("M-q" . vertico-quick-insert)))
 
 ;; Enable rich annotations using the Marginalia package
 (use-package marginalia
@@ -1161,7 +1175,9 @@ respectively."
 
 (use-package magit-todos
   ;; Not compatible with Emacs 28
-  :disabled)
+  :disabled
+  :cusyom
+  (magit-todos-insert-after '(bottom) nil nil "Changed by setter of obsolete option `magit-todos-insert-at'"))
 
 (use-package magit-delta
   :hook
@@ -1323,6 +1339,10 @@ respectively."
   (org-list-demote-modify-bullet '(("+" . "-") ("-" . "+")) "Only use - and +")
   (org-cycle-include-plain-lists t)
   (org-list-indent-offset 2)
+  (org-safe-remote-resources
+   '("\\`https://fniessen\\.github\\.io/org-html-themes/org/theme-readtheorg\\.setup\\'"))
+  (org-refile-targets '((nil . (:level . 1))
+                        (org-agenda-files . (:maxlevel . 1))))
 
   :custom-face
   (org-level-1 ((t (:inherit outline-1 :extend nil :height 1.3 :width normal :family "Iosevka"))))
@@ -1334,7 +1354,6 @@ respectively."
   ;; (org-block ((t (:inherit nil :extend t :background "#282c34")))) ;; the original: "#23272e"
   (org-block-begin-line ((t (:inherit org-block :extend t :foreground "#83898d")))) ;; the original: "#5B6268"
   (org-block ((t (:background "#23272e" :extend t))))
-  ;; '(org-block-begin-line ((t (:inherit org-block :extend t :foreground "#83898d"))))
   (org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
   (org-code ((t (:inherit nil :foreground "#da8548"))))
   (org-verbatim ((t (:foreground "#98be65"))))
@@ -1346,8 +1365,6 @@ respectively."
   :config
   ;; org-agenda
   (defvar  zino/GTD-file "~/Notes/Roam/20220816100518-gtd.org")
-  (defvar org-agenda-files '("~/Notes/Roam/Journal"))
-  (push zino/GTD-file org-agenda-files)
   (defvar zino/org-babel-tangle-dir "~/dev/org-babel-tangle/")
   (setf (cdr (assoc 'file org-link-frame-setup)) 'find-file)
   (org-babel-do-load-languages
@@ -1391,7 +1408,9 @@ respectively."
   :ensure nil
   :custom
   (org-agenda-include-diary t)
-  (org-agenda-todo-list-sublevels t))
+  (org-agenda-todo-list-sublevels t)
+  (org-agenda-files
+   '("~/Notes/Roam/20231025112701-gtd_archive.org" "/Notes/Roam/20220816100518-gtd.org")))
 
 (use-package org-appear)
 
@@ -1715,6 +1734,7 @@ Similar to `org-capture' like behavior"
   (pdf-view-resize-factor 1.1)
   ;; Select by word by default and use `zino/pdf-tools-toggle-mouse-1-use' to toggle
   (pdf-view-selection-style 'word)
+  (pdf-view-use-imagemagick t)
   ;; :config
   ;; (define-key pdf-links-minor-mode-map [remap pdf-links-isearch-link] 'image-forward-hscroll)
   )
@@ -1870,6 +1890,7 @@ Similar to `org-capture' like behavior"
   :custom
   (register-preview-delay 0.1)
   :bind
+  ("s-x" . copy-to-register)
   ("s-i" . insert-register))
 
 (defun zino/increment-number-decimal (&optional arg)
@@ -2093,6 +2114,11 @@ Do not prompt me to create parent directory"
         (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
         (yaml "https://github.com/ikatyang/tree-sitter-yaml")))
 
+(use-package cargo
+  :hook
+  (rust-mode . cargo-minor-mode)
+  (rust-ts-mode . cargo-minor-mode))
+
 (use-package rust-mode
   ;; When (treesit-ready-p 'rust) is t, `rust-ts-mode' registers itself for file
   ;; name pattern "\\.rs\\'". Currently use `rust-mode' in rust files.
@@ -2130,7 +2156,10 @@ Do not prompt me to create parent directory"
 
 (use-package js
   :config
-  (setq js-indent-level 2))
+  (setq js-indent-level 2)
+  :hook
+  (js-mode . (lambda ()
+               (setq format-all-formatters '(("JavaScript" deno))))))
 
 (use-package lsp-mode
   :disabled
@@ -2187,24 +2216,11 @@ Do not prompt me to create parent directory"
   (lsp-rust-analyzer-display-closure-return-type-hints t)
   (lsp-rust-analyzer-display-parameter-hints nil)
   (lsp-rust-analyzer-display-reborrow-hints nil)
-
-  ;; [use]
-  ;; reset lsp session in lsp mode
+  (lsp-modeline-diagnostics-scope :workspace)
+  (lsp-clients-clangd-args '("--header-insertion=iwyu"))  ;; [use]
+  (lsp-intelephense-multi-root nil)  ;; reset lsp session in lsp mode
   ;; (setq lsp--session nil)
   )
-
-(use-package cargo
-  :hook
-  (rust-mode . cargo-minor-mode)
-  (rust-ts-mode . cargo-minor-mode))
-
-(with-eval-after-load 'lsp-mode
-  ;; :global/:workspace/:file
-  (setq lsp-modeline-diagnostics-scope :workspace))
-
-(setq lsp-clients-clangd-args '("--header-insertion=iwyu"))
-
-(setq lsp-intelephense-multi-root nil)
 
 (use-package lsp-ui
   :after lsp-mode
@@ -2245,6 +2261,11 @@ Do not prompt me to create parent directory"
   :config
   (define-key lsp-ui-imenu-mode-map (kbd "n") 'next-line)
   (define-key lsp-ui-imenu-mode-map (kbd "p") 'previous-line))
+
+(use-package markdown-mode
+  :custom-face
+  ;; Remove the default udnerline indicating line breaks
+  (markdown-line-break-face ((t (:underline nil :inherit font-lock-constant-face)))))
 
 (use-package eglot
   ;;; Performance tweaking
@@ -2484,7 +2505,7 @@ Do not prompt me to create parent directory"
   ;; :config
   ;; (push 'rustic-clippy flycheck-checkers)
   :custom
-  (flycheck-display-errors-delay 0.9)
+  (flycheck-display-errors-delay 0.6)
   (flycheck-indication-mode 'left-fringe)
   (flycheck-go-golint-executable "go-staticcheck")
   :bind
@@ -2629,14 +2650,15 @@ Do not prompt me to create parent directory"
   (zino/anki-editor-reset-cloze-num)
   (setq anki-editor-create-decks t
         anki-editor-org-tags-as-anki-tags t)
+  :bind
+  ("C-c m i" . anki-editor-insert-note)
+  ("C-c m r" . zino/anki-editor-reset-cloze-num)
+  ("C-c m c" . zino/anki-editor-cloze-region-auto-incr)
+  ("C-c m p" . zino/anki-editor-push-tree)
+  ("C-c m b" . zino/anki-editor-push-buffer))
 
-  (general-define-key
-   :prefix "C-c m"
-   "i" 'anki-editor-insert-note
-   "r" 'zino/anki-editor-reset-cloze-num
-   "c" 'zino/anki-editor-cloze-region-auto-incr
-   "p" 'zino/anki-editor-push-tree
-   "b" 'zino/anki-editor-push-buffer))
+(use-package ankiorg
+  :straight (:host github :repo "orgtre/ankiorg"))
 
 (use-package font-lock
   :ensure nil
@@ -2644,150 +2666,6 @@ Do not prompt me to create parent directory"
   (font-lock-comment-face ((t (:foreground "#83898d")))) ;; the original: ;; "#5B6268"
   ;; (font-lock-doc-face ((t (:family "Iosevka" :foreground "#7cb8bb"))));; "#7F9F7F"))));;"#9FC59F")))) ;;"#8CA276")))) ;; the original: "#83898d"
   (font-lock-doc-face ((t (:family "Fira Code" :foreground "#83898d" :inherit font-lock-comment-face)))))
-
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(completions-common-part ((t (:background "#2c3946" :foreground "#7bb6e2" :weight bold))))
- '(fixed-pitch ((t (:family "Fira Code" :height 250))))
- '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
- '(next-error ((t (:inherit (bold region)))))
- '(org-block ((t (:background "#23272e"))))
- '(org-block-begin-line ((t (:inherit org-block :extend t :foreground "#83898d"))))
- '(peek-overlay-content-face ((t (:extend t :background "#23272e"))))
- '(tree-sitter-hl-face:function.call ((t (:inherit (link font-lock-function-name-face) :underline nil :weight normal))))
- '(tree-sitter-hl-face:property ((t (:inherit font-lock-constant-face))))
- '(variable-pitch ((t (:family "ETBembo" :height 180 :weight regular)))))
-
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(auto-revert-interval 5)
- '(bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks")
- '(comment-style 'indent)
- '(connection-local-criteria-alist
-   '(((:application eshell)
-      eshell-connection-default-profile)
-     ((:application tramp :machine "localhost")
-      tramp-connection-local-darwin-ps-profile)
-     ((:application tramp :machine "192.168.0.104")
-      tramp-connection-local-darwin-ps-profile)
-     ((:application tramp)
-      tramp-connection-local-default-system-profile tramp-connection-local-default-shell-profile)))
- '(connection-local-profile-alist
-   '((eshell-connection-default-profile
-      (eshell-path-env-list))
-     (tramp-connection-local-darwin-ps-profile
-      (tramp-process-attributes-ps-args "-acxww" "-o" "pid,uid,user,gid,comm=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" "-o" "state=abcde" "-o" "ppid,pgid,sess,tty,tpgid,minflt,majflt,time,pri,nice,vsz,rss,etime,pcpu,pmem,args")
-      (tramp-process-attributes-ps-format
-       (pid . number)
-       (euid . number)
-       (user . string)
-       (egid . number)
-       (comm . 52)
-       (state . 5)
-       (ppid . number)
-       (pgrp . number)
-       (sess . number)
-       (ttname . string)
-       (tpgid . number)
-       (minflt . number)
-       (majflt . number)
-       (time . tramp-ps-time)
-       (pri . number)
-       (nice . number)
-       (vsize . number)
-       (rss . number)
-       (etime . tramp-ps-time)
-       (pcpu . number)
-       (pmem . number)
-       (args)))
-     (tramp-connection-local-busybox-ps-profile
-      (tramp-process-attributes-ps-args "-o" "pid,user,group,comm=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" "-o" "stat=abcde" "-o" "ppid,pgid,tty,time,nice,etime,args")
-      (tramp-process-attributes-ps-format
-       (pid . number)
-       (user . string)
-       (group . string)
-       (comm . 52)
-       (state . 5)
-       (ppid . number)
-       (pgrp . number)
-       (ttname . string)
-       (time . tramp-ps-time)
-       (nice . number)
-       (etime . tramp-ps-time)
-       (args)))
-     (tramp-connection-local-bsd-ps-profile
-      (tramp-process-attributes-ps-args "-acxww" "-o" "pid,euid,user,egid,egroup,comm=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" "-o" "state,ppid,pgid,sid,tty,tpgid,minflt,majflt,time,pri,nice,vsz,rss,etimes,pcpu,pmem,args")
-      (tramp-process-attributes-ps-format
-       (pid . number)
-       (euid . number)
-       (user . string)
-       (egid . number)
-       (group . string)
-       (comm . 52)
-       (state . string)
-       (ppid . number)
-       (pgrp . number)
-       (sess . number)
-       (ttname . string)
-       (tpgid . number)
-       (minflt . number)
-       (majflt . number)
-       (time . tramp-ps-time)
-       (pri . number)
-       (nice . number)
-       (vsize . number)
-       (rss . number)
-       (etime . number)
-       (pcpu . number)
-       (pmem . number)
-       (args)))
-     (tramp-connection-local-default-shell-profile
-      (shell-file-name . "/bin/sh")
-      (shell-command-switch . "-c"))
-     (tramp-connection-local-default-system-profile
-      (path-separator . ":")
-      (null-device . "/dev/null"))))
- '(display-line-numbers-width-start nil)
- '(edebug-trace t)
- '(fill-column 80)
- '(flycheck-display-errors-delay 0.6)
- '(magit-todos-insert-after '(bottom) nil nil "Changed by setter of obsolete option `magit-todos-insert-at'")
- '(max-mini-window-height 0.3)
- '(next-error-highlight t)
- '(next-error-highlight-no-select t)
- '(next-error-message-highlight t)
- '(nyan-cat-face-number 1)
- '(org-agenda-files
-   '("/Users/zino/Notes/Roam/20230909174347-rust_presentations.org" "/Users/zino/Notes/Roam/20220816100518-gtd.org"))
- '(org-safe-remote-resources
-   '("\\`https://fniessen\\.github\\.io/org-html-themes/org/theme-readtheorg\\.setup\\'"))
- '(outline-minor-mode-cycle t)
- '(outline-minor-mode-highlight t)
- '(package-selected-packages
-   '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme))
- '(pdf-annot-list-listed-types
-   '(caret circle file free-text highlight ink popup square squiggly strike-out text underline watermark widget))
- '(popper-group-function 'popper-group-by-projectile)
- '(python-eldoc-function-timeout 1)
- '(recenter-positions '(top middle bottom))
- '(rg-custom-type-aliases '(("sls" . "*.sls")))
- '(rg-hide-command nil)
- '(safe-local-variable-values
-   '((indent-bars-spacing-override . 2)
-     (god-local-mode . t)
-     (completion-styles orderless basic partial-completion)))
- '(screenshot-line-numbers-p t)
- '(tree-sitter-hl-use-font-lock-keywords t)
- '(vterm-toggle-scope 'project)
- '(warning-suppress-types '((flycheck) ((flymake flymake.el)) (lsp-mode)) nil nil "Customized with use-package lsp-mode")
- '(windmove-wrap-around t nil nil "Customized with use-package windmove")
- '(zoom-window-mode-line-color "black"))
 
 (use-package winner
   :hook
@@ -2940,7 +2818,8 @@ Do not prompt me to create parent directory"
 
 (add-hook 'minibuffer-setup-hook (lambda ()
                                    "Enable autocompletion on files."
-                                   (add-to-list 'completion-at-point-functions 'cape-file)))
+                                   (add-to-list 'completion-at-point-functions 'cape-file)
+                                   (setq-local completion-styles '(flex orderless partial-completion basic))))
 
 ;; Optionally use the `orderless' completion style.
 (use-package orderless
@@ -3033,6 +2912,8 @@ Do not prompt me to create parent directory"
   (rg . ripgrep)
   :custom
   (rg-executable (executable-find "rg"))
+  (rg-custom-type-aliases '(("sls" . "*.sls")))
+  (rg-hide-command nil)
   :config
   (add-to-list
    'display-buffer-alist
@@ -3060,13 +2941,91 @@ Do not prompt me to create parent directory"
   (prog-mode . format-all-ensure-formatter)
   (prog-mode . format-all-mode)
   :custom
-  (format-all-show-errors 'never)
-  :config
-  (setq format-all-formatters '(("Rust" (rustfmt "--edition" "2021"
-                                                 "--config" "tab_spaces=4"))
-                                ("Python" (black "--skip-string-normalization"))
-                                ("JavaScript" deno)
-                                ("Shell" (shfmt "-i" "2")))))
+  (format-all-show-errors 'errors)
+  (format-all-default-formatters
+   '(("Assembly" asmfmt)
+     ("ATS" atsfmt)
+     ("Bazel" buildifier)
+     ("BibTeX" emacs-bibtex)
+     ("C" clang-format)
+     ("C#" csharpier)
+     ("C++" clang-format)
+     ("Cabal Config" cabal-fmt)
+     ("Clojure" zprint)
+     ("CMake" cmake-format)
+     ("Crystal" crystal)
+     ("CSS" prettier)
+     ("Cuda" clang-format)
+     ("D" dfmt)
+     ("Dart" dart-format)
+     ("Dhall" dhall)
+     ("Dockerfile" dockfmt)
+     ("Elixir" mix-format)
+     ("Elm" elm-format)
+     ("Emacs Lisp" emacs-lisp)
+     ("Erlang" efmt)
+     ("F#" fantomas)
+     ("Fish" fish-indent)
+     ("Fortran Free Form" fprettify)
+     ("GLSL" clang-format)
+     ("Go" gofmt)
+     ("GraphQL" prettier)
+     ("Haskell" brittany)
+     ("HTML" html-tidy)
+     ("HTML+EEX" mix-format)
+     ("HTML+ERB" erb-format)
+     ("Java" clang-format)
+     ("JavaScript" deno)
+     ("JSON" prettier)
+     ("JSON5" prettier)
+     ("Jsonnet" jsonnetfmt)
+     ("JSX" prettier)
+     ("Kotlin" ktlint)
+     ("LaTeX" latexindent)
+     ("Less" prettier)
+     ("Literate Haskell" brittany)
+     ("Lua" lua-fmt)
+     ("Markdown" prettier)
+     ("Nix" nixpkgs-fmt)
+     ("Objective-C" clang-format)
+     ("OCaml" ocp-indent)
+     ("Perl" perltidy)
+     ("PHP" prettier)
+     ("Protocol Buffer" clang-format)
+     ("PureScript" purty)
+     ("Python"
+      (black "--skip-string-normalization"))
+     ("R" styler)
+     ("Reason" bsrefmt)
+     ("ReScript" rescript)
+     ("Ruby" rufo)
+     ("Rust"
+      (rustfmt "--edition" "2021" "--config" "tab_spaces=4"))
+     ("Scala" scalafmt)
+     ("SCSS" prettier)
+     ("Shell"
+      (shfmt "-i" "2"))
+     ("Solidity" prettier)
+     ("SQL" sqlformat)
+     ("Svelte" prettier)
+     ("Swift" swiftformat)
+     ("Terraform" terraform-fmt)
+     ("TOML" prettier)
+     ("TSX" prettier)
+     ("TypeScript" prettier)
+     ("V" v-fmt)
+     ("Verilog" istyle-verilog)
+     ("Vue" prettier)
+     ("XML" html-tidy)
+     ("YAML" prettier)
+     ("Zig" zig)
+     ("_Angular" prettier)
+     ("_Caddyfile" caddy-fmt)
+     ("_Flow" prettier)
+     ("_Gleam" gleam)
+     ("_Ledger" ledger-mode)
+     ("_Nginx" nginxfmt)
+     ("_Snakemake" snakefmt))))
 
 (use-package better-jumper
   :preface
@@ -3113,7 +3072,9 @@ Do not prompt me to create parent directory"
   (advice-add 'org-roam-node-find :around 'zino/better-jumper-advice)
   (advice-add 'zino/find-user-init-file :around 'zino/better-jumper-advice)
   (advice-add 'avy-goto-char-timer :around 'zino/better-jumper-advice)
-  (advice-add 'helm-maybe-exit-minibuffer :around 'zino/better-jumper-advice))
+  (advice-add 'helm-maybe-exit-minibuffer :around 'zino/better-jumper-advice)
+  (advice-add 'consult-imenu :around 'zino/better-jumper-advice)
+  (advice-add 'consult-line :around 'zino/better-jumper-advice))
 
 (use-package org-remark
   :config
@@ -3267,7 +3228,9 @@ Do not prompt me to create parent directory"
   (with-eval-after-load 'python-mode
     (setq python-shell-interpreter "jupyter"
           python-shell-interpreter-args "console --simple-prompt"
-          python-shell-prompt-detect-failure-warning nil)))
+          python-shell-prompt-detect-failure-warning nil))
+  :custom
+  (python-eldoc-function-timeout 1))
 
 ;; Google's gn meta build system
 (use-package gn-mode
@@ -3395,7 +3358,6 @@ Do not prompt me to create parent directory"
 
 (use-package avy-zap
   :config
-  ("C-z" . zap-up-to-char)
   ;; Redefine `zap-up-to-char' to use `read-char' instead of
   ;; `read-char-from-minibuffer' to read from minibuffer. The latter one does not
   ;; support reading a double quote.
@@ -3421,6 +3383,7 @@ is an upper-case character."
 		                     (search-forward (char-to-string char) nil nil arg)
 		                   (backward-char direction))
 		                 (point)))))
+  (global-set-key (kbd "C-z") 'zap-up-to-char)
   :bind
   ("M-z" . avy-zap-up-to-char-dwim)
   ("M-Z" . avy-zap-to-char-dwim))
@@ -3428,7 +3391,7 @@ is an upper-case character."
 (use-package crux
   :preface
   (defun zino/find-user-init-file (other-window)
-    "Open `user-init-file' in the current or other window based on prefix argument."
+    "Open `user-init-file' in the current or other window based on OTHER-WINDOW."
     (interactive "P")
     (if current-prefix-arg
         (find-file-other-window user-init-file)
@@ -3457,17 +3420,6 @@ is an upper-case character."
 
 (use-package xref
   :ensure nil
-  :preface
-  (defun xref-pulse-momentarily ()
-    "Control the highlight in source buffer after executing `xref-next-line'.
-This is inserted into `xref-after-jump-hook'"
-    (save-excursion
-      (let (beg end)
-        (beginning-of-line)
-        (setq beg (point))
-        (end-of-line)
-        (setq end (point))
-        (pulsar-pulse-line))))
   :bind
   ("C-c M-d" . xref-find-definitions-other-frame)
   ("C-c C-r" . xref-find-references)
@@ -3484,10 +3436,16 @@ This is inserted into `xref-after-jump-hook'"
      (display-buffer-in-side-window)
      (side . bottom)
      (slot . 0)
-     ;; (window-width . 42)
      (window-height . 20)
      (window-parameters
-      (no-delete-other-windows . t)))))
+      (no-delete-other-windows . t))))
+  :hook
+  (xref-after-jump . beacon-blink)
+  (xref-after-return . beacon-blink)
+  ;; :config
+  ;; (remove-hook 'xref-after-jump-hook 'beacon-blink)
+  ;; (remove-hook 'xref-after-return-hook 'beacon-blink)
+  )
 
 (use-package eshell
   :disabled
@@ -3533,7 +3491,8 @@ This is inserted into `xref-after-jump-hook'"
   ;;                ;;(dedicated . t) ;dedicated is supported in emacs27
   ;;                (reusable-frames . visible)
   ;;                (window-height . 0.3)))
-  )
+  :custom
+  (vterm-toggle-scope 'project))
 
 (use-package fish-completion
   ;; `fish-completion-mode' is unbearably slow
@@ -3544,10 +3503,15 @@ This is inserted into `xref-after-jump-hook'"
 
 (use-package nyan-mode
   :config
-  (nyan-mode -1))
+  (nyan-mode -1)
+  :custom
+  (nyan-cat-face-number 1)
+  )
 
 (use-package screenshot
-  :load-path "~/.config/emacs/manually_installed/screenshot/")
+  :load-path "~/.config/emacs/manually_installed/screenshot/"
+  :custom
+  (screenshot-line-numbers-p t))
 
 (use-package explain-pause-mode
   :straight (explain-pause-mode :type git :host github :repo "lastquestion/explain-pause-mode"))
@@ -3569,7 +3533,9 @@ This is inserted into `xref-after-jump-hook'"
 (use-package prism)
 
 (use-package bookmark+
-  :load-path "~/.config/emacs/manually_installed/bookmark-plus")
+  :load-path "~/.config/emacs/manually_installed/bookmark-plus"
+  :custom
+  (bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks"))
 
 (use-package tla-mode
   :load-path "~/.config/emacs/manually_installed/tla-mode")
@@ -3582,7 +3548,12 @@ This is inserted into `xref-after-jump-hook'"
 (use-package tree-sitter
   ;; :after tree-sitter-langs
   :hook
-  (tree-sitter-after-on . tree-sitter-hl-mode))
+  (tree-sitter-after-on . tree-sitter-hl-mode)
+  :custom
+  (tree-sitter-hl-use-font-lock-keywords t)
+  :custom-face
+  (tree-sitter-hl-face:function.call ((t (:inherit (link font-lock-function-name-face) :underline nil :weight normal))))
+  (tree-sitter-hl-face:property ((t (:inherit font-lock-constant-face)))))
 
 (add-to-list 'tree-sitter-major-mode-language-alist '(go-ts-mode . go))
 (add-to-list 'tree-sitter-major-mode-language-alist '(rust-ts-mode . go))
@@ -3720,7 +3691,9 @@ This is inserted into `xref-after-jump-hook'"
    ("M-p" . nil))
 
   :custom
-  (peek-method 'overlay))
+  (peek-method 'overlay)
+  :custom-face
+  (peek-overlay-content-face ((t (:extend t :background "#23272e")))))
 
 (use-package hyperbole
   :disabled)
@@ -3751,7 +3724,40 @@ This is inserted into `xref-after-jump-hook'"
      :blend 1))
   (indent-bars-pattern ". . . . ")
   (indent-bars-width-frac 0.2)
-  (indent-bars-treesit-support nil))
+  (indent-bars-treesit-support nil)
+  :hook
+  ;; HACK: deal with uncorrectly displayed indent-bars in org mode source block.
+  (org-mode . (lambda ()
+                (face-remap-add-relative 'indent-bars-1 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-2 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-3 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-4 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-5 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-6 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-7 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-8 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-9 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-10 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-11 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-12 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-13 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-14 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-15 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-16 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-17 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-18 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-19 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-20 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-21 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-22 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-23 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-24 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-25 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-26 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-27 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-28 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-29 '(:foreground nil))
+                (face-remap-add-relative 'indent-bars-30 '(:foreground nil)))))
 
 (use-package embark
   :disabled
@@ -3803,7 +3809,9 @@ This is inserted into `xref-after-jump-hook'"
 
 (use-package zoom-window
   :bind
-  ("C-s-z" . zoom-window-zoom))
+  ("C-s-z" . zoom-window-zoom)
+  :custom
+  (zoom-window-mode-line-color "black"))
 
 (use-package simple
   :ensure nil
@@ -3877,14 +3885,21 @@ Insert full path if prefix argument `FULL-PATH' is sent."
         ("<delete>" . smart-hungry-delete-backward-char)
         ("C-d" . smart-hungry-delete-forward-char)))
 
-;; Run as daemon
-(server-start)
+(use-package ascii
+  :load-path "~/.config/emacs/manually_installed"
+  :commands (ascii-off ascii-on)
+  :bind ("C-c e" . ascii-toggle)
+  :preface
+  (defun ascii-toggle ()
+    (interactive)
+    (if ascii-display
+        (ascii-off)
+      (ascii-on))))
 
-;; Put this at the end otherwise `pcache' will still register itself
-(remove-hook 'kill-emacs-hook 'pcache-kill-emacs-hook)
-
-(put 'downcase-region 'disabled nil)
-(put 'dired-find-alternate-file 'disabled nil)
+(use-package outline
+  :custom
+  (outline-minor-mode-cycle t)
+  (outline-minor-mode-highlight t))
 
 ;; Try it some time.
 ;; (use-package sideline)
@@ -3904,5 +3919,132 @@ Insert full path if prefix argument `FULL-PATH' is sent."
 ;; (use-package flycheck-inline)
 ;; (use-package annotate)
 ;; (use-package forge)
+
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(completions-common-part ((t (:background "#2c3946" :foreground "#7bb6e2" :weight bold))))
+ '(fixed-pitch ((t (:family "Fira Code" :height 250))))
+ '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
+ '(next-error ((t (:inherit (bold region)))))
+ '(pulse-highlight-face ((t nil)))
+ '(pulse-highlight-start-face ((t nil)))
+ '(tree-sitter-hl-face:property ((t (:inherit font-lock-constant-face))))
+ '(variable-pitch ((t (:weight regular :height 180 :family "Fira Code"))))
+ '(variable-pitch-text ((t (:inherit variable-pitch :height 1.0)))))
+
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(auto-revert-interval 5)
+ '(bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks" nil nil "Customized with use-package bookmark+")
+ '(comment-style 'indent)
+ '(connection-local-criteria-alist
+   '(((:application eshell)
+      eshell-connection-default-profile)
+     ((:application tramp :machine "localhost")
+      tramp-connection-local-darwin-ps-profile)
+     ((:application tramp :machine "192.168.0.104")
+      tramp-connection-local-darwin-ps-profile)
+     ((:application tramp)
+      tramp-connection-local-default-system-profile tramp-connection-local-default-shell-profile)))
+ '(connection-local-profile-alist
+   '((eshell-connection-default-profile
+      (eshell-path-env-list))
+     (tramp-connection-local-darwin-ps-profile
+      (tramp-process-attributes-ps-args "-acxww" "-o" "pid,uid,user,gid,comm=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" "-o" "state=abcde" "-o" "ppid,pgid,sess,tty,tpgid,minflt,majflt,time,pri,nice,vsz,rss,etime,pcpu,pmem,args")
+      (tramp-process-attributes-ps-format
+       (pid . number)
+       (euid . number)
+       (user . string)
+       (egid . number)
+       (comm . 52)
+       (state . 5)
+       (ppid . number)
+       (pgrp . number)
+       (sess . number)
+       (ttname . string)
+       (tpgid . number)
+       (minflt . number)
+       (majflt . number)
+       (time . tramp-ps-time)
+       (pri . number)
+       (nice . number)
+       (vsize . number)
+       (rss . number)
+       (etime . tramp-ps-time)
+       (pcpu . number)
+       (pmem . number)
+       (args)))
+     (tramp-connection-local-busybox-ps-profile
+      (tramp-process-attributes-ps-args "-o" "pid,user,group,comm=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" "-o" "stat=abcde" "-o" "ppid,pgid,tty,time,nice,etime,args")
+      (tramp-process-attributes-ps-format
+       (pid . number)
+       (user . string)
+       (group . string)
+       (comm . 52)
+       (state . 5)
+       (ppid . number)
+       (pgrp . number)
+       (ttname . string)
+       (time . tramp-ps-time)
+       (nice . number)
+       (etime . tramp-ps-time)
+       (args)))
+     (tramp-connection-local-bsd-ps-profile
+      (tramp-process-attributes-ps-args "-acxww" "-o" "pid,euid,user,egid,egroup,comm=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" "-o" "state,ppid,pgid,sid,tty,tpgid,minflt,majflt,time,pri,nice,vsz,rss,etimes,pcpu,pmem,args")
+      (tramp-process-attributes-ps-format
+       (pid . number)
+       (euid . number)
+       (user . string)
+       (egid . number)
+       (group . string)
+       (comm . 52)
+       (state . string)
+       (ppid . number)
+       (pgrp . number)
+       (sess . number)
+       (ttname . string)
+       (tpgid . number)
+       (minflt . number)
+       (majflt . number)
+       (time . tramp-ps-time)
+       (pri . number)
+       (nice . number)
+       (vsize . number)
+       (rss . number)
+       (etime . number)
+       (pcpu . number)
+       (pmem . number)
+       (args)))
+     (tramp-connection-local-default-shell-profile
+      (shell-file-name . "/bin/sh")
+      (shell-command-switch . "-c"))
+     (tramp-connection-local-default-system-profile
+      (path-separator . ":")
+      (null-device . "/dev/null"))))
+ '(display-line-numbers-width-start nil)
+ '(edebug-trace nil)
+ '(fill-column 80)
+ '(next-error-highlight t)
+ '(next-error-highlight-no-select t)
+ '(next-error-message-highlight t)
+ '(package-selected-packages
+   '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme))
+ '(recenter-positions '(middle top bottom))
+ '(safe-local-variable-values
+   '((indent-bars-spacing-override . 2)
+     (god-local-mode . t)
+     (completion-styles orderless basic partial-completion))))
+
+;; Run as daemon
+(server-start)
+
+;; Put this at the end otherwise `pcache' will still register itself
+(remove-hook 'kill-emacs-hook 'pcache-kill-emacs-hook)
 
 ;;; init.el ends here
