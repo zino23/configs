@@ -471,12 +471,7 @@ Save the buffer of the current window and kill it"
 (setq visible-bell nil)
 
 (use-package elisp-mode
-  :ensure nil
-  :hook
-  (emacs-lisp-mode . (lambda ()
-                       "Prevent sluggish in `emacs-lisp-mode'."
-                       (setq-local completion-at-point-functions (remove 'cape-dabbrev completion-at-point-functions)
-                                   completion-styles '(orderless basic partial-completion)))))
+  :ensure nil)
 
 (use-package eros
   :hook
@@ -2816,11 +2811,6 @@ Do not prompt me to create parent directory"
   :custom
   (cape-dabbrev-min-length 6))
 
-(add-hook 'minibuffer-setup-hook (lambda ()
-                                   "Enable autocompletion on files."
-                                   (add-to-list 'completion-at-point-functions 'cape-file)
-                                   (setq-local completion-styles '(flex orderless partial-completion basic))))
-
 ;; Optionally use the `orderless' completion style.
 (use-package orderless
   :init
@@ -2831,11 +2821,27 @@ Do not prompt me to create parent directory"
         completion-category-defaults nil
         completion-category-overrides '((file (styles . (partial-completion)))))
   :hook
-  (emacs-lisp-mode . (lambda ()
-                       (setq-local completion-styles '(orderless basic partial-completion))
-                       (setq-local corfu-auto-delay 0.2)))
   (sh-mode . (lambda ()
-               (setq-local completion-styles '(orderless basic partial-completion)))))
+               (setq-local completion-styles '(orderless basic partial-completion))))
+  (lua-mode . (lambda ()
+                (setq-local completion-styles '(orderless basic partial-completion))))
+  (emacs-lisp-mode . (lambda ()
+                       "Prevent sluggish in `emacs-lisp-mode'."
+                       (setq-local completion-at-point-functions (remove 'cape-dabbrev completion-at-point-functions)
+                                   completion-styles '(orderless basic partial-completion)
+                                   corfu-auto-delay 0.2)))
+
+  ;; flex completion style is too sluggish with `eval-expression' so use
+  ;; orderless by default. This works coz `eval-expression-minibuffer-setup-hook'
+  ;; is run after `minibuffer-mode-hook'. NOTE: `minibuffer-setup-hook' is run
+  ;; after entry to minibuffer, and hence is not suitable to set completion
+  ;; styles as it cannot differentiate `eval-expression' from `M-x'.
+  (eval-expression-minibuffer-setup . (lambda ()
+                                        (setq-local completion-styles '(orderless partial-completion basic))))
+  (minibuffer-mode . (lambda ()
+                       "Enable autocompletion on files."
+                       (add-to-list 'completion-at-point-functions 'cape-file)
+                       (setq-local completion-styles '(flex orderless partial-completion basic)))))
 
 (use-package kind-icon
   :ensure t
