@@ -18,12 +18,12 @@ set -gx LANG en_US.UTF-8
 # Homebrew
 set -gx HOMEBREW_NO_AUTO_UPDATE 1
 set -gx HOMEBREW_AUTO_UPDATING 0
-set -gx HOMEBREW_UPDATE_PREINSTALL 0 
+set -gx HOMEBREW_UPDATE_PREINSTALL 0
 
-# for pkg-config to find libxml2 
-set -gx PKG_CONFIG_PATH "/usr/local/opt/libxml2/lib/pkgconfig"
 
 set -gx EDITOR emacsclient
+# for pkg-config to find libxml2
+set -gx PKG_CONFIG_PATH /usr/local/opt/libxml2/lib/pkgconfig
 
 # abbreviations
 abbr -aU ec emacsclient -n
@@ -81,11 +81,11 @@ if test -d "$HOME/.pyenv"
 end
 
 # For compilers to find libffi you may need to set:
-set -gx LDFLAGS "-L/usr/local/opt/libffi/lib"
-set -gx CPPFLAGS "-I/usr/local/opt/libffi/include"
+set -gx LDFLAGS -L/usr/local/opt/libffi/lib
+set -gx CPPFLAGS -I/usr/local/opt/libffi/include
 
 # For pkg-config to find libffi you may need to set:
-set -gx PKG_CONFIG_PATH "/usr/local/opt/libffi/lib/pkgconfig"
+set -gx PKG_CONFIG_PATH /usr/local/opt/libffi/lib/pkgconfig
 
 ## let's fish
 function display_fish_user_paths -d 'Display contents $fish_user_paths with indexes'
@@ -141,8 +141,10 @@ if test ! -d "$HOME/.tmux/plugins/tpm"
 end
 
 ## vterm
-function vterm_printf;
-    if begin; [  -n "$TMUX" ]  ; and  string match -q -r "screen|tmux" "$TERM"; end
+function vterm_printf
+    if begin
+            [ -n "$TMUX" ]; and string match -q -r "screen|tmux" "$TERM"
+        end
         # tell tmux to pass the escape sequences through
         printf "\ePtmux;\e\e]%s\007\e\\" "$argv"
     else if string match -q -- "screen*" "$TERM"
