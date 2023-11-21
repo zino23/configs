@@ -1996,17 +1996,59 @@ Do not prompt me to create parent directory"
 (delete-selection-mode 1)
 
 (use-package consult
+  :preface
+  (defun zino/consult-imenu-thing-at-point (prompt items)
+    "Select from imenu ITEMS given PROMPT string with the symbol at point as
+initial input."
+    (consult-imenu--deduplicate items)
+    (consult-imenu--jump
+     (consult--read
+      (or items (user-error "Imenu is empty"))
+      :state
+      (let ((preview (consult--jump-preview)))
+        (lambda (action cand)
+          ;; Only preview simple menu items which are markers,
+          ;; in order to avoid any bad side effects.
+          (funcall preview action (and (markerp (cdr cand)) (cdr cand)))))
+      :narrow
+      (when-let (narrow (consult-imenu--narrow))
+        (list :predicate
+              (lambda (cand)
+                (eq (get-text-property 0 'consult--type (car cand)) consult--narrow))
+              :keys narrow))
+      :group (consult-imenu--group)
+      :prompt prompt
+      :require-match t
+      :category 'imenu
+      :lookup #'consult--lookup-cons
+      :history 'consult-imenu--history
+      :add-history (thing-at-point 'symbol)
+      :initial (thing-at-point 'symbol)
+      :sort nil)))
+
   :custom
   ;; Maually and immidiate
   (consult-preview-key "M-.")
   (consult-narrow-key "<")
   :bind
   ("M-i" . consult-imenu)
+  ("C-s-i" . (lambda ()
+               (interactive)
+               (zino/consult-imenu-thing-at-point
+                "Go to item: "
+                (consult--slow-operation "Building Imenu..."
+                  (consult-imenu--items)))))
+  ("M-s-i" . consult-imenu-multi)
   ("s-s" . consult-line)
   ("C-x b" . consult-buffer)
   ("C-M-y" . consult-yank-from-kill-ring)
   ("s-5" . consult-kmacro)
-  ([remap bookmark-jump] . consult-bookmark))
+  ([remap bookmark-jump] . consult-bookmark)
+
+  :config
+  (advice-add 'consult-bookmark :around (lambda (oldfun &rest args)
+                                          (apply oldfun args)
+                                          (recenter))))
 
 (use-package consult-todo
   :load-path "~/.config/emacs/manually_installed/consult-todo/")
