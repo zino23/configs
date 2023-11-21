@@ -3074,7 +3074,27 @@ initial input."
      ("_Gleam" gleam)
      ("_Ledger" ledger-mode)
      ("_Nginx" nginxfmt)
-     ("_Snakemake" snakefmt))))
+     ("_Snakemake" snakefmt)))
+  :config
+  (defun format-all-ensure-formatter ()
+    "Ensure current buffer has a formatter, using default if not."
+    (interactive)
+    (let ((language (format-all--language-id-buffer)))
+      (unless (format-all--get-chain language)
+        (cond ((not language)
+               (message "No formatter for this language"))
+              ((not (gethash language format-all--language-table))
+               (message "No formatter for %s" language))
+              (t
+               (let ((default (format-all--get-default-chain language)))
+                 (cond ((not default)
+                        (message "No default formatter for %s" language))
+                       (t
+                        ;; (message "Using default formatter%s"
+                        ;;          (with-temp-buffer
+                        ;;            (dolist (formatter default (buffer-string))
+                        ;;              (insert (format " %S" formatter)))))
+                        (format-all--set-chain language default))))))))))
 
 (use-package better-jumper
   :preface
