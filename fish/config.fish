@@ -20,8 +20,6 @@ set -gx HOMEBREW_NO_AUTO_UPDATE 1
 set -gx HOMEBREW_AUTO_UPDATING 0
 set -gx HOMEBREW_UPDATE_PREINSTALL 0
 
-
-set -gx EDITOR emacsclient
 # for pkg-config to find libxml2
 set -gx PKG_CONFIG_PATH /usr/local/opt/libxml2/lib/pkgconfig
 
@@ -130,6 +128,12 @@ set -gx PKG_CONFIG_PATH "/usr/local/opt/openssl@3/lib/pkgconfig"
 
 ## emacs
 set -gx XDG_CONFIG_HOME $HOME/.config
+
+switch $(uname -s)
+    case Darwin
+        set -gx EMACS_SOCKET_NAME "$TMPDIR/emacs$(id -u)/server"
+        set -gx EDITOR "emacsclient --socket-name $EMACS_SOCKET_NAME"
+end
 
 ## cmake
 
