@@ -115,7 +115,9 @@
   (setq read-extended-command-predicate 'command-completion-default-include-p)
 
   ;; Enable recursive minibuffers
-  (setq enable-recursive-minibuffers t))
+  (setq enable-recursive-minibuffers t)
+  :hook
+  (next-error . recenter))
 
 (use-package desktop
   :ensure nil
@@ -330,8 +332,7 @@ point reaches the beginning or end of the buffer, stop there."
     (skip-syntax-forward " " (line-end-position))
     (backward-prefix-chars)
     (when (= old-point (point))
-      (beginning-of-visual-line))
-    ))
+      (beginning-of-visual-line))))
 
 (defun copy-line (arg)
   "Copy ARG lines."
@@ -517,6 +518,7 @@ Save the buffer of the current window and kill it"
   (setq-default abbrev-mode t)
   :bind
   ("_" . self-insert-no-abbrev)
+  ("," . self-insert-no-abbrev)
   ("." . self-insert-no-abbrev)
   ("-" . self-insert-no-abbrev)
   ("\"" . self-insert-no-abbrev)
@@ -705,7 +707,7 @@ Save the buffer of the current window and kill it"
   (eldoc-echo-area-use-multiline-p t)
   (eldoc-idle-delay 0.05)
   (eldoc-echo-area-prefer-doc-buffer t)
-  (max-mini-window-height 0.25))
+  (max-mini-window-height 0.2))
 
 (use-package eldoc-box
   :bind
@@ -743,7 +745,7 @@ Save the buffer of the current window and kill it"
       (set-fontset-font t charset cn))
     (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
 
-(zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 16 1)
+(zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 14 1)
 
 ;; Automatically trim trailing whitespaces.
 (use-package ws-butler
@@ -1332,7 +1334,7 @@ respectively."
   (org-deadline-warning-days 5)
   (org-imenu-depth 4)
   (org-list-demote-modify-bullet '(("+" . "-") ("-" . "+")) "Only use - and +")
-  (org-cycle-include-plain-lists t)
+  (org-cycle-include-plain-lists 'integrate)
   (org-list-indent-offset 2)
   (org-safe-remote-resources
    '("\\`https://fniessen\\.github\\.io/org-html-themes/org/theme-readtheorg\\.setup\\'"))
@@ -1394,7 +1396,10 @@ respectively."
    ("C-S-j" . org-return-and-maybe-indent)
    ("C-," . nil)
    ("s-<up>" . org-priority-up)
-   ("s-<down>" . org-priority-down)))
+   ("s-<down>" . org-priority-down)
+   :repeat-map
+   org-repeat-map
+   ("-" . org-ctrl-c-minus)))
 
 ;; `org-babel' support for evaluating go code
 (use-package ob-go)
@@ -2260,7 +2265,13 @@ Do not prompt me to create parent directory"
 (use-package markdown-mode
   :custom-face
   ;; Remove the default udnerline indicating line breaks
-  (markdown-line-break-face ((t (:underline nil :inherit font-lock-constant-face)))))
+  (markdown-line-break-face ((t (:underline nil :inherit font-lock-constant-face))))
+  :config
+  ;; \` matches beginning of string
+  ;; \' matches end of string
+  ;; ^ matches beginning of (buffer || string || line)
+  ;; $ matches end of (buffer || string || line)
+  (add-to-list 'auto-mode-alist '("\\`README\\'" . markdown-mode)))
 
 (use-package eglot
   ;;; Performance tweaking
@@ -2494,8 +2505,16 @@ Do not prompt me to create parent directory"
     (setq flycheck-display-errors-function nil)
     (setq flycheck-help-echo-function nil))
 
+  (defun zino/flycheck-next-error-advice (oldfun &rest args)
+    (apply oldfun args)
+    (recenter))
+
   :hook
   (prog-mode . flycheck-mode)
+  ;; MAYBE: use directory variables to configure per project
+  (c++-mode . (lambda ()
+                (setq flycheck-clang-language-standard "c++17")))
+
   ;; NOTE: this will slow emacs down
   ;; :config
   ;; (push 'rustic-clippy flycheck-checkers)
@@ -2514,11 +2533,7 @@ Do not prompt me to create parent directory"
                        (flycheck-list-errors)
                        (pop-to-buffer "*Flycheck errors*"))))
   :config
-  ;; MAYBE: use directory variables to configure per project
-  (add-hook 'c++-mode-hook (lambda ()
-                             (setq flycheck-clang-language-standard "c++17")))
-  (add-hook 'c++-mode-hook (lambda ()
-                             (setq flycheck-clang-language-standard "c++17"))))
+  (advice-add 'flycheck-next-error :around 'zino/flycheck-next-error-advice))
 
 (use-package flycheck-rust
   :hook
@@ -2673,10 +2688,7 @@ Do not prompt me to create parent directory"
         ([remap beginning-of-defun] . lua-beginning-of-proc)
         ([remap end-of-defun] . lua-end-of-proc))
   :custom
-  (lua-indent-level 4)
-  :hook
-  (lua-mode . (lambda ()
-                (setq-local completion-styles '(orderless basic partial-completion)))))
+  (lua-indent-level 4))
 
 (add-to-list 'load-path "~/.config/emacs/manually_installed/lua-mode")
 (autoload 'lua-mode "lua-mode" "Lua editing mode." t)
@@ -2851,17 +2863,6 @@ Do not prompt me to create parent directory"
   :config
   (add-to-list 'corfu-margin-formatters 'kind-icon-margin-formatter))
 
-;; Emacs 28: Hide commands in M-x which do not apply to the current mode.
-;; Corfu commands are hidden, since they are not supposed to be used via M-x.
-;; (setq read-extended-command-predicate
-;;       #'command-completion-default-include-p)
-
-;; \` matches beginning of string
-;; \' matches end of string
-;; ^ matches beginning of (buffer || string || line)
-;; $ matches end of (buffer || string || line)
-(add-to-list 'auto-mode-alist '("\\`README\\'" . markdown-mode))
-
 (add-hook 'conf-mode-hook (lambda ()
                             "Set tab width to four spacess."
                             (setq tab-width 4)))
@@ -2872,15 +2873,15 @@ Do not prompt me to create parent directory"
   :load-path "~/.config/emacs/manually_installed/lsp-bridge"
   ;; Use `eglot' for now
   :hook
-  statically typed
+  ;; statically typed
   (c-mode . lsp-bridge-mode)
   (c++-mode . lsp-bridge-mode)
-  dynamically typed
+  ;; dynamically typed
   (python-mode . lsp-bridge-mode)
   (lua-mode . lsp-bridge-mode)
   (go-mode . lsp-bridge-mode)
   (sh-mode . lsp-bridge-mode)
-  DSL
+  ;; DSL
   (cmake-mode . lsp-bridge-mode)
   (css-mode . lsp-bridge-mode)
   (html-mode . lsp-bridge-mode)
@@ -3080,7 +3081,8 @@ Do not prompt me to create parent directory"
   (advice-add 'avy-goto-char-timer :around 'zino/better-jumper-advice)
   (advice-add 'helm-maybe-exit-minibuffer :around 'zino/better-jumper-advice)
   (advice-add 'consult-imenu :around 'zino/better-jumper-advice)
-  (advice-add 'consult-line :around 'zino/better-jumper-advice))
+  (advice-add 'consult-line :around 'zino/better-jumper-advice)
+  (advice-add 'symbols-outline-move-depth-up :around 'zino/better-jumper-advice))
 
 (use-package org-remark
   :config
@@ -3235,8 +3237,9 @@ Do not prompt me to create parent directory"
     (setq python-shell-interpreter "jupyter"
           python-shell-interpreter-args "console --simple-prompt"
           python-shell-prompt-detect-failure-warning nil))
+  (add-to-list 'auto-mode-alist '("\\.py[iw]?\\'" . python-mode))
   :custom
-  (python-eldoc-function-timeout 1))
+  (python-eldoc-function-timeout 0.2))
 
 ;; Google's gn meta build system
 (use-package gn-mode
@@ -3342,7 +3345,9 @@ Do not prompt me to create parent directory"
 (use-package god-mode
   :bind
   ("S-<escape>" . god-mode-all)
-  ("C-c g" . god-local-mode))
+  ("C-c g" . god-local-mode)
+  (:map god-local-mode-map
+        ("C-<f14>" . scroll-lock-mode)))
 
 ;; deal with terminal escape characters correctly in compilation buffer
 (use-package ansi-color
@@ -3364,10 +3369,10 @@ Do not prompt me to create parent directory"
 
 (use-package avy-zap
   :config
-  ;; Redefine `zap-up-to-char' to use `read-char' instead of
+  ;; Customized `zap-up-to-char' to use `read-char' instead of
   ;; `read-char-from-minibuffer' to read from minibuffer. The latter one does not
   ;; support reading a double quote.
-  (defun zap-up-to-char (arg char &optional interactive)
+  (defun zino/zap-up-to-char (arg char &optional interactive)
     "Kill up to, but not including ARGth occurrence of CHAR.
 When run interactively, the argument INTERACTIVE is non-nil.
 Case is ignored if `case-fold-search' is non-nil in the current buffer.
@@ -3389,10 +3394,10 @@ is an upper-case character."
 		                     (search-forward (char-to-string char) nil nil arg)
 		                   (backward-char direction))
 		                 (point)))))
-  (global-set-key (kbd "C-z") 'zap-up-to-char)
   :bind
   ("M-z" . avy-zap-up-to-char-dwim)
-  ("M-Z" . avy-zap-to-char-dwim))
+  ("M-Z" . avy-zap-to-char-dwim)
+  ("C-z" . zino/zap-up-to-char))
 
 (use-package crux
   :preface
@@ -3448,6 +3453,7 @@ is an upper-case character."
   :hook
   (xref-after-jump . beacon-blink)
   (xref-after-return . beacon-blink)
+  (xref-after-return . recenter)
   ;; :config
   ;; (remove-hook 'xref-after-jump-hook 'beacon-blink)
   ;; (remove-hook 'xref-after-return-hook 'beacon-blink)
@@ -3479,7 +3485,8 @@ is an upper-case character."
 ;;   :load-path "~/.config/emacs/manually_installed/emacs-eat/")
 
 (use-package vterm
-  :ensure t)
+  :custom
+  (vterm-timer-delay 0.01))
 
 (use-package vterm-toggle
   :bind
@@ -3499,6 +3506,8 @@ is an upper-case character."
   ;;                (window-height . 0.3)))
   :custom
   (vterm-toggle-scope 'project))
+
+(use-package fish-mode)
 
 (use-package fish-completion
   ;; `fish-completion-mode' is unbearably slow
@@ -3651,6 +3660,8 @@ is an upper-case character."
   (gdb-window-configuratin-directory user-emacs-directory)
   (gdb-default-window-configuration-file "gdb_window_configurations")
   (gdb-many-windows t)
+  (gdb-restore-window-configuration-after-quit 'if-gdb-many-windows)
+
   :bind
   ("C-c ; b" . gud-break)
   ("C-c ; d" . gud-remove)
@@ -3722,6 +3733,7 @@ is an upper-case character."
   (go-mode . indent-bars-mode)
   (go-ts-mode . indent-bars-mode)
   (python-ts-mode . indent-bars-mode)
+  (python-mode . indent-bars-mode)
   (sh-mode . indent-bars-mode)
   :custom
   (indent-bars-color-by-depth
@@ -3906,6 +3918,11 @@ Insert full path if prefix argument `FULL-PATH' is sent."
   :custom
   (outline-minor-mode-cycle t)
   (outline-minor-mode-highlight t))
+
+(use-package conf-mode
+  :ensure nil
+  :config
+  (add-to-list 'auto-mode-alist '("Cargo.lock\\'" . conf-toml-mode)))
 
 ;; Try it some time.
 ;; (use-package sideline)
