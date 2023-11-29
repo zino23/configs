@@ -198,8 +198,6 @@
 (global-set-key (kbd "s-3") 'kmacro-start-macro-or-insert-counter)
 (global-set-key (kbd "s-4") 'kmacro-end-or-call-macro)
 
-;; Rebind bc by default `list-buffers' list buffers in another window
-(global-set-key "\C-x\C-b" 'ibuffer)
 (global-set-key (kbd "s-b") 'zino/switch-other-buffer)
 
 (global-set-key (kbd "M-s-3") (lambda ()
@@ -218,7 +216,7 @@
                   (interactive)
                   (join-line -1)))
 
-(defun toggle-window-split ()
+(defun zino/toggle-window-split ()
   "Toggle between vertical and horizontal split when therea are only two window."
   (interactive)
   (if (= (count-windows) 2)
@@ -244,7 +242,7 @@
           (select-window first-win)
           (if this-win-2nd (other-window 1))))))
 
-(define-key ctl-x-4-map "t" 'toggle-window-split)
+(define-key ctl-x-4-map "t" 'zino/toggle-window-split)
 
 ;; The following only undoes remapping instead of remapping to nil
 ;; (define-key global-map [remap ns-print-buffer] nil)
@@ -485,13 +483,12 @@ Save the buffer of the current window and kill it"
   :config
   (auto-fill-mode nil)
   :hook
-  ;; to toggle automatic line breaking, M-x `auto-fill-mode'
+  ;; To toggle automatic line breaking, M-x `auto-fill-mode'
   (prog-mode . (lambda ()
-                 "Set/unset `auto-fill-mode' for comments."
+                 "Set `auto-fill-mode' for comments except for `emacs-lisp-mode'."
                  (auto-fill-mode 1)
-                 (setq-local
-                  comment-auto-fill-only-comments t
-                  fill-column 80))))
+                 (setq-local comment-auto-fill-only-comments (if (not (derived-mode-p 'emacs-lisp-mode)) t)
+                             fill-column (if (derived-mode-p 'emacs-lisp-mode) 110 80)))))
 
 (global-visual-line-mode 1)
 
@@ -582,7 +579,18 @@ Save the buffer of the current window and kill it"
            (filename-and-process 16 70 :left :elide))
      (mark " "
            (name 80 -1)
-           " " filename))))
+           " " filename)))
+  :config
+  (add-to-list 'display-buffer-alist
+               '("\\*Ibuffer\\*" display-buffer-full-frame))
+  :bind
+  ("C-x C-b" . ibuffer)
+  (:map ibuffer-mode-map
+        ("q" . (lambda ()
+                 (interactive)
+                 (quit-window)
+                 (let ((inhibit-message t))
+                   (winner-undo))))))
 
 (use-package dired
   :ensure nil
@@ -624,17 +632,18 @@ Save the buffer of the current window and kill it"
   :hook
   (ibuffer-mode . nerd-icons-ibuffer-mode)
   :custom
-  ;; `ibuffer-formats' does not take effects when `nerd-icons-ibuffer-mode' is on.
+  ;; `ibuffer-formats' does not take effects when `nerd-icons-ibuffer-mode' is on. These numbers are fine-tuned
+  ;; to fit nicely in a 27" monitor.
   (nerd-icons-ibuffer-formats
    '((mark modified read-only locked " "
            (icon 2 2)
-           (name 64 64 :left :elide)
+           (name 80 80 :left :elide)
            " "
            (size-h 9 -1 :right)
            " "
            (mode+ 16 -1 :left :elide)
            " "
-           (filename-and-process 16 70 :left :elide))
+           (filename-and-process 16 120 :left :elide))
      (mark " "
            (name 80 -1)
            " " filename))))
@@ -651,8 +660,9 @@ Save the buffer of the current window and kill it"
         ("C-x M-p" ("make keybinding align with `dired-omit-mode' 'C-x M-o'" . dired-preview-mode))))
 
 (use-package dired-rsync
-  :config
-  (bind-key "C-c C-r" 'dired-rsync dired-mode-map))
+  :bind
+  (:map dired-mode-map
+        ("C-c C-r" . dired-rsync)))
 
 ;; (use-package dirvish
 ;;   :disabled
@@ -1060,7 +1070,14 @@ respectively."
   ([remap describe-variable] . helpful-variable)
   ([remap describe-key] . helpful-key)
   ([remap describe-command] . helpful-command)
-  ("C-c C-d" . helpful-at-point))
+  ("C-c C-d" . helpful-at-point)
+  (:map helpful-mode-map
+        ;; Already got <tab> for `next-button'. Often times being able to
+        ;; scroll the screen with single hand is nice.
+        ("n" . next-line)
+        ("p" . previous-line)
+        ("f" . forward-char)
+        ("b" . backward-char)))
 
 (use-package projectile
   :config
@@ -3414,10 +3431,11 @@ initial input."
 ;; deal with terminal escape characters correctly in compilation buffer
 (use-package ansi-color
   :ensure nil
-  :preface
+  :config
   (defun zino/ansi-colorize-buffer ()
     (let ((buffer-read-only nil))
-      (ansi-color-apply-on-region (point-min) (point-max))))
+      (ansi-color-apply-on-region (point-min) (point-max) t)))
+  (add-to-list 'auto-mode-alist '("\\.log\\(\\.[0-9]*-[0-9]*-[0-9]*\\)?" . zino/ansi-colorize-buffer))
   :hook
   (compilation-filter . zino/ansi-colorize-buffer))
 
@@ -3431,20 +3449,18 @@ initial input."
 
 (use-package avy-zap
   :config
-  ;; Customized `zap-up-to-char' to use `read-char' instead of
-  ;; `read-char-from-minibuffer' to read from minibuffer. The latter one does not
-  ;; support reading a double quote.
   (defun zino/zap-up-to-char (arg char &optional interactive)
-    "Kill up to, but not including ARGth occurrence of CHAR.
-When run interactively, the argument INTERACTIVE is non-nil.
-Case is ignored if `case-fold-search' is non-nil in the current buffer.
-Goes backward if ARG is negative; error if CHAR not found.
-Ignores CHAR at point.
-If called interactively, do a case sensitive search if CHAR
-is an upper-case character."
-    (interactive (list (prefix-numeric-value current-prefix-arg)
-		                   (read-char "Zap up to char: " t)
-                       t))
+    "Customized `zap-up-to-char' to support reading a double quote from the
+mibuffer. The only difference is this function uses `read-char' instead of
+`read-char-from-minibuffer'. The rest of the doc is copied from the original
+function.
+
+Kill up to, but not including ARGth occurrence of CHAR.  When run
+interactively, the argument INTERACTIVE is non-nil.  Case is ignored if
+`case-fold-search' is non-nil in the current buffer.  Goes backward if ARG is
+negative; error if CHAR not found.  Ignores CHAR at point.  If called
+interactively, do a case sensitive search if CHAR is an upper-case character."
+    (interactive "p\ncZap up to char: ")
     (let ((direction (if (>= arg 0) 1 -1))
           (case-fold-search (if (and interactive (char-uppercase-p char))
                                 nil
@@ -3471,7 +3487,7 @@ is an upper-case character."
       (find-file user-init-file)))
 
   :bind
-  ("s-o" . crux-smart-open-line-above)
+  ("C-s-o" . crux-smart-open-line-above)
   ("s-d" . crux-duplicate-current-line-or-region)
   ("C-<backspace>" . crux-kill-line-backwards)
   ;; ("s-r" . crux-recentf-find-file)
@@ -3506,27 +3522,28 @@ is an upper-case character."
   (add-to-list
    'display-buffer-alist
    '("\\*xref\\*"
-     (display-buffer-in-side-window)
+     display-buffer-in-side-window
      (side . bottom)
      (slot . 0)
      (window-height . 20)
      (window-parameters
       (no-delete-other-windows . t))))
   :hook
-  (xref-after-jump . beacon-blink)
-  (xref-after-return . beacon-blink)
+  ;; (xref-after-jump . beacon-blink)
+  ;; (xref-after-return . beacon-blink)
   (xref-after-return . recenter)
-  ;; :config
+  :config
   ;; (remove-hook 'xref-after-jump-hook 'beacon-blink)
   ;; (remove-hook 'xref-after-return-hook 'beacon-blink)
   )
+
 
 (use-package eshell
   :disabled
   :ensure nil
   :hook
-  (eshell-mode .  (lambda ()
-                    (setq-local corfu-auto nil)))
+  (eshell-mode . (lambda ()
+                   (setq-local corfu-auto nil)))
 
   :config
   (with-eval-after-load 'esh-mode
@@ -3785,8 +3802,11 @@ is an upper-case character."
 (use-package indent-bars
   :load-path "manually_installed/indent-bars/"
   :hook
-  (rust-mode . indent-bars-mode)
-  (rust-ts-mode . indent-bars-mode)
+  (hack-local-variables . (lambda ()
+                            ;; Read `indent-bars-space-override' from
+                            ;; `.dir-locals.el' first.
+                            (when (derived-mode-p 'rust-mode)
+                              (indent-bars-mode))))
   (lua-mode . indent-bars-mode)
   (json-mode . indent-bars-mode)
   (js-mode . indent-bars-mode)
@@ -3840,18 +3860,22 @@ is an upper-case character."
                 (face-remap-add-relative 'indent-bars-30 '(:foreground nil)))))
 
 (use-package embark
-  :disabled
   :config
   (eval-when-compile
-    (defmacro my/embark-ace-action (fn)
-      `(defun ,(intern (concat "my/embark-ace-" (symbol-name fn))) ()
+    (defmacro zino/embark-ace-action (fn)
+      `(defun ,(intern (concat "zino/embark-ace-" (symbol-name fn))) ()
          (interactive)
          (with-demoted-errors "%s"
            (require 'ace-window)
            (let ((aw-dispatch-always t))
              (aw-switch-to-window (aw-select nil))
              (call-interactively (symbol-function ',fn)))))))
-  (define-key embark-buffer-map (kbd "o") (my/embark-ace-action xref-find-references)))
+  (define-key embark-general-map (kbd "p") (zino/embark-ace-action projectile-find-file))
+  (define-key embark-buffer-map (kbd "o") (zino/embark-ace-action switch-to-buffer))
+  :bind
+  ("s-o" . embark-act))
+
+(use-package embark-consult)
 
 (use-package visual-regexp
   :bind
@@ -3967,7 +3991,7 @@ Insert full path if prefix argument `FULL-PATH' is sent."
 
 (use-package ascii
   :load-path "~/.config/emacs/manually_installed"
-  :commands (ascii-off ascii-on)
+  :commands (ascii-off ascii-on ascii-display)
   :bind ("C-c e" . ascii-toggle)
   :preface
   (defun ascii-toggle ()
@@ -3985,6 +4009,46 @@ Insert full path if prefix argument `FULL-PATH' is sent."
   :ensure nil
   :config
   (add-to-list 'auto-mode-alist '("Cargo.lock\\'" . conf-toml-mode)))
+
+(use-package window
+  :ensure nil
+  :custom
+  (split-height-threshold 60)
+  (split-width-threshold 160)
+  (split-window-preferred-function 'zino/split-window-sensibly)
+  :config
+  (defun zino/split-window-sensibly (&optional window)
+    ;; Customized `split-window-sensibly' to prefer split horizontally.
+    (let ((window (or window (selected-window))))
+      (or (and (window-splittable-p window t)
+	             ;; Try to split window horizontally first.
+	             (with-selected-window window
+	               (split-window-right)))
+	        (and (window-splittable-p window)
+	             ;; Split window vertically.
+	             (with-selected-window window
+	               (split-window-below)))
+	        (and
+           ;; If WINDOW is the only usable window on its frame (it is
+           ;; the only one or, not being the only one, all the other
+           ;; ones are dedicated) and is not the minibuffer window, try
+           ;; to split it vertically disregarding the value of
+           ;; `split-height-threshold'.
+           (let ((frame (window-frame window)))
+             (or
+              (eq window (frame-root-window frame))
+              (catch 'done
+                (walk-window-tree (lambda (w)
+                                    (unless (or (eq w window)
+                                                (window-dedicated-p w))
+                                      (throw 'done nil)))
+                                  frame nil 'nomini)
+                t)))
+	         (not (window-minibuffer-p window))
+	         (let ((split-height-threshold 0))
+	           (when (window-splittable-p window)
+	             (with-selected-window window
+	               (split-window-below)))))))))
 
 ;; Try it some time.
 ;; (use-package sideline)
@@ -4011,6 +4075,7 @@ Insert full path if prefix argument `FULL-PATH' is sent."
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(completions-common-part ((t (:background "#2c3946" :foreground "#7bb6e2" :weight bold))))
+ '(dictionary-word-definition-face ((t (:family "Fira Code"))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
  '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
  '(next-error ((t (:inherit (bold region)))))
@@ -4120,9 +4185,13 @@ Insert full path if prefix argument `FULL-PATH' is sent."
  '(next-error-message-highlight t)
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme))
+ '(pulse-delay 0.04)
  '(recenter-positions '(middle top bottom))
  '(safe-local-variable-values
-   '((indent-bars-spacing-override . 2)
+   '((comment-style quote box)
+     (indent-bars-spacing-overide . 2)
+     (indent-bars--offset . 2)
+     (indent-bars-spacing-override . 2)
      (god-local-mode . t)
      (completion-styles orderless basic partial-completion))))
 
