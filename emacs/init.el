@@ -105,19 +105,41 @@
           (cdr args)))
   (advice-add #'completing-read-multiple :filter-args #'crm-indicator)
 
-  ;; Do not allow the cursor in the minibuffer prompt
-  (setq minibuffer-prompt-properties
-        '(read-only t cursor-intangible t face minibuffer-prompt))
-  (add-hook 'minibuffer-setup-hook #'cursor-intangible-mode)
-
+  :hook
+  (minibuffer-setup . cursor-intangible-mode)
+  (next-error . recenter)
+  :custom
   ;; Emacs 28: Hide commands in M-x which do not work in the current mode.
   ;; Vertico commands are hidden in normal buffers.
-  (setq read-extended-command-predicate 'command-completion-default-include-p)
-
+  (read-extended-command-predicate 'command-completion-default-include-p)
+  ;; Do not allow the cursor in the minibuffer prompt
+  (minibuffer-prompt-properties '(read-only t cursor-intangible t face minibuffer-prompt))
   ;; Enable recursive minibuffers
-  (setq enable-recursive-minibuffers t)
-  :hook
-  (next-error . recenter))
+  (enable-recursive-minibuffers t)
+  (x-stretch-cursor t)
+  (prettify-symbols-unprettify-at-point 'right-edge)
+  (pulse-delay 0.04)
+  (pulse-iterations 15)
+  :custom-face
+  (variable-pitch ((t (:height 1.2 :family "Bookerly")))))
+
+(use-package emacs
+  :config
+  (defun zino/toggle-window-dedication ()
+    "Toggle window dedication in the selected window."
+    (interactive)
+    (set-window-dedicated-p (selected-window)
+                            (not (window-dedicated-p (selected-window))))
+    (if (window-dedicated-p (selected-window))
+        (message "The current window is dedicated")
+      (message "The current window is not dedicated")))
+
+  (defun delete-to-end-of-buffer ()
+    (interactive)
+    (kill-region (point) (point-max)))
+  :bind
+  ("C-c d" . zino/toggle-window-dedication)
+  ("C-c C-z" . delete-to-end-of-buffer))
 
 (use-package desktop
   :ensure nil
@@ -139,6 +161,7 @@
                  :cleanup-frames (not (eq desktop-restore-reuses-frames 'keep))
                  :force-display desktop-restore-in-current-display
                  :force-onscreen desktop-restore-forces-onscreen)))))
+
 (setq save-silently t)
 
 ;; Keep buffers up to date
@@ -791,7 +814,9 @@ Save the buffer of the current window and kill it"
   :config
   (global-command-log-mode -1)
   :bind
-  ("C-c C-o" . clm/toggle-command-log-buffer))
+  ("C-c C-o" . clm/toggle-command-log-buffer)
+  :custom
+  (command-log-mode-window-font-size 3))
 
 (use-package keycast
   :config
@@ -918,7 +943,7 @@ Save the buffer of the current window and kill it"
    ("p" . sp-previous-sexp)
    ("B" . sp-forward-barf-sexp)
    ("s" . sp-forward-slurp-sexp)
-   ("k" . sp-change-enclosing)
+   ;; ("k" . sp-change-enclosing)
    ("c" . sp-splice-sexp)
    :repeat-map
    walk-defun-repeat-map
@@ -1054,7 +1079,7 @@ respectively."
   :init
   (which-key-mode)
   :config
-  (setq which-key-idle-delay 0.1)
+  (setq which-key-idle-delay 0.2)
   (setq which-key-idle-secondary-delay 0.05)
   (setq which-key-show-docstrings nil)
   :custom
@@ -1101,7 +1126,9 @@ respectively."
 
 ;; Boost performance of `magit'
 (use-package libgit
-  :load-path "~/.config/emacs/manually_installed/libegit2/")
+  :load-path "~/.config/emacs/manually_installed/libegit2/"
+  :custom
+  (libgit-auto-rebuild t))
 
 (use-package magit
   :bind
@@ -1113,15 +1140,70 @@ respectively."
    ("M-s-n" . magit-section-forward-sibling)
    ("M-s-p" . magit-section-backward-sibling))
   :custom
-  (magit-git-executable "/usr/local/bin/git")
+  (magit-git-executable "/usr/bin/git")
   (magit-display-buffer-function 'magit-display-buffer-same-window-except-diff-v1)
   ;; `ediff' on a hunk only shows two window. Hide the one displaying common parts.
   (magit-ediff-dwim-show-on-hunks t)
   (ediff-split-window-function 'split-window-horizontally)
   ;; [use] magit-log-buffer-file: show a region or buffer's commit history
   (magit-diff-refine-hunk 'all)
+  (magit-diff-highlight-trailing nil)
+  (magit-pre-refresh-hook nil)
+  (magit-process-popup-time -1)
+  ;; Only refresh the current magit buffer
+  (magit-refresh-status-buffer nil)
   :config
-  (put 'magit-diff-edit-hunk-commit 'disabled nil))
+  (put 'magit-diff-edit-hunk-commit 'disabled nil)
+  (dolist (section '((untracked . hide)
+                     (magit-unpushed-section . show)))
+    (add-to-list 'magit-section-initial-visibility-alist section))
+
+  ;; When you initiate a commit, then Magit by default automatically shows a
+  ;; diff of the changes you are about to commit. For large commits this can
+  ;; take a long time, which is especially distracting when you are committing
+  ;; large amounts of generated data which you don’t actually intend to
+  ;; inspect before committing. This behavior can be turned off using:
+  (remove-hook 'server-switch-hook 'magit-commit-diff)
+  (remove-hook 'with-editor-filter-visit-hook 'magit-commit-diff))
+
+(use-package magit-pull
+  :ensure nil
+  :after magit
+  :config
+  (transient-insert-suffix 'magit-pull "p"
+    '("F" "default" magit-fetch-from-upstream)))
+
+(use-package magit-push
+  :ensure nil
+  :after magit
+  :config
+  (transient-insert-suffix 'magit-push "p"
+    '("P" "default" magit-push-current-to-upstream)))
+
+(use-package magit-status
+  :ensure nil
+  :after magit
+  :config
+  ;; Speed up Magit status by not generating all of the available sections.
+  (dolist (func '(
+                  ;; magit-insert-status-headers
+                  ;; magit-insert-merge-log
+                  ;; magit-insert-rebase-sequence
+                  ;; magit-insert-am-sequence
+                  ;; magit-insert-sequencer-sequence
+                  ;; magit-insert-bisect-output
+                  ;; magit-insert-bisect-rest
+                  ;; magit-insert-bisect-log
+                  ;; magit-insert-untracked-files
+                  ;; magit-insert-unstaged-changes
+                  ;; magit-insert-staged-changes
+                  ;; magit-insert-stashes
+                  ;; magit-insert-unpushed-to-pushremote
+                  ;; magit-insert-unpushed-to-upstream-or-recent
+                  ;; magit-insert-unpulled-from-pushremote
+                  ;; magit-insert-unpulled-from-upstream
+                  ))
+    (remove-hook 'magit-status-sections-hook func)))
 
 (use-package diff-hl
   :custom
@@ -2337,8 +2419,6 @@ initial input."
   :init
   ;; Disable logging.
   (fset #'jsonrpc--log-event #'ignore)
-  :custom
-  (eglot-events-buffer-size 0)
   :preface
   (defun mp-eglot-eldoc ()
     (setq eldoc-documentation-strategy
@@ -2406,6 +2486,8 @@ initial input."
   ;; (eglot-highlight-symbol-face ((t (:foreground "#DFDFDF" :background "#34536c" :weight bold))))
   (eglot-highlight-symbol-face ((t (:weight bold))))
   :custom
+  (eglot-events-buffer-size 0)
+  (eglot-sync-connect nil)
   ;; NOTE: Important. The default is nil, and will cause `xref-find-definitions'
   ;; to fail in rust crates. (TODO: find out why it failed.)
   (eglot-extend-to-xref t)
@@ -2909,10 +2991,11 @@ initial input."
   ;; styles as it cannot differentiate `eval-expression' from `M-x'.
   (eval-expression-minibuffer-setup . (lambda ()
                                         (setq-local completion-styles '(orderless partial-completion basic))))
-  (minibuffer-mode . (lambda ()
-                       "Enable autocompletion on files."
-                       (add-to-list 'completion-at-point-functions 'cape-file)
-                       (setq-local completion-styles '(flex orderless partial-completion basic)))))
+  :config
+  (add-hook 'minibuffer-mode-hook (defun completion-styles-for-minibuffer ()
+                                    "Enable autocompletion on files."
+                                    (add-to-list 'completion-at-point-functions 'cape-file)
+                                    (setq-local completion-styles '(orderless partial-completion basic)))))
 
 (use-package kind-icon
   :ensure t
@@ -3378,15 +3461,6 @@ initial input."
   (:map c-mode-base-map
         ([remap c-indent-line-or-region] . indent-for-tab-command)))
 
-(defun zino/toggle-window-dedication ()
-  "Toggle window dedication in the selected window."
-  (interactive)
-  (set-window-dedicated-p (selected-window)
-                          (not (window-dedicated-p (selected-window))))
-  (if (window-dedicated-p (selected-window))
-      (message "The current window is dedicated")
-    (message "The current window is not dedicated")))
-
 (use-package org-present
   :init
   (defun zino/org-present-on-start ()
@@ -3515,7 +3589,7 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   :custom
   (xref-history-storage 'xref-window-local-history)
   (xref-search-program 'ripgrep)
-  (xref-auto-jump-to-first-xref 'show)
+  (xref-auto-jump-to-first-xref nil)
   :custom-face
   (xref-file-header ((t (:inherit orderless-match-face-0))))
   :config
@@ -3529,8 +3603,8 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
      (window-parameters
       (no-delete-other-windows . t))))
   :hook
-  ;; (xref-after-jump . beacon-blink)
-  ;; (xref-after-return . beacon-blink)
+  (xref-after-jump . beacon-blink)
+  (xref-after-return . beacon-blink)
   (xref-after-return . recenter)
   :config
   ;; (remove-hook 'xref-after-jump-hook 'beacon-blink)
@@ -3621,6 +3695,8 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   :disabled
   :ensure nil
   :load-path "~/.config/emacs/manually_installed"
+  ;; :custom
+  ;; (pp^L-^L-string "                                            ")
   :config
   (pretty-control-l-mode))
 
@@ -3870,7 +3946,7 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
            (let ((aw-dispatch-always t))
              (aw-switch-to-window (aw-select nil))
              (call-interactively (symbol-function ',fn)))))))
-  (define-key embark-general-map (kbd "p") (zino/embark-ace-action projectile-find-file))
+  (define-key embark-general-map (kbd "o") (zino/embark-ace-action projectile-find-file))
   (define-key embark-buffer-map (kbd "o") (zino/embark-ace-action switch-to-buffer))
   :bind
   ("s-o" . embark-act))
@@ -4050,6 +4126,23 @@ Insert full path if prefix argument `FULL-PATH' is sent."
 	             (with-selected-window window
 	               (split-window-below)))))))))
 
+(use-package ediff
+  :bind (("C-c = b" . ediff-buffers)
+         ("C-c = B" . ediff-buffers3)
+         ("C-c = c" . compare-windows)
+         ("C-c = =" . ediff-files)
+         ("C-c = f" . ediff-files)
+         ("C-c = F" . ediff-files3)
+         ("C-c = m" . count-matches)
+         ("C-c = r" . ediff-revision)
+         ("C-c = p" . ediff-patch-file)
+         ("C-c = P" . ediff-patch-buffer)
+         ("C-c = l" . ediff-regions-linewise)
+         ("C-c = w" . ediff-regions-wordwise))
+  :custom
+  (ediff-combination-pattern
+   '("<<<<<<< A: HEAD" A "||||||| Ancestor" Ancestor "=======" B ">>>>>>> B: Incoming")))
+
 ;; Try it some time.
 ;; (use-package sideline)
 ;; (use-package imenu-everywhere)
@@ -4185,7 +4278,6 @@ Insert full path if prefix argument `FULL-PATH' is sent."
  '(next-error-message-highlight t)
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme))
- '(pulse-delay 0.04)
  '(recenter-positions '(middle top bottom))
  '(safe-local-variable-values
    '((comment-style quote box)
