@@ -2270,6 +2270,13 @@ initial input."
                                           (apply oldfun args)
                                           (recenter))))
 
+;;; Freeze emacs after each `save-buffer' and out of nowhere when I am just scrolling. It must've done some
+;;; heavy background work.
+;; (use-package consult-projectile
+;;   :bind
+;;   ([remap projectile-file-file] . consult-project-find-file)
+;;   ([remap projectile-switch-project] . consult-projectile-switch-project))
+
 (use-package consult-todo
   :load-path "~/.config/emacs/manually_installed/consult-todo/")
 
@@ -4406,14 +4413,12 @@ Insert full path if prefix argument `FULL-PATH' is sent."
  '(display-line-numbers-width-start nil)
  '(edebug-trace nil)
  '(fill-column 80)
- '(next-error-highlight t)
- '(next-error-highlight-no-select t)
- '(next-error-message-highlight t)
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme))
  '(recenter-positions '(middle top bottom))
  '(safe-local-variable-values
-   '((comment-style quote box)
+   '((read-only . t)
+     (comment-style quote box)
      (indent-bars-spacing-overide . 2)
      (indent-bars--offset . 2)
      (indent-bars-spacing-override . 2)
