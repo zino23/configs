@@ -2412,15 +2412,35 @@ initial input."
   ;; (remove-hook 'rustic-mode-hook 'flycheck-mode)
   :bind
   (
-   :map rust-mode-map ("C-c C-p" . rustic-popup)
-   :map rust-ts-mode-map ("C-c C-p" . rustic-popup)
+   :map rust-mode-map ("C-c C-p" . zino/rustic-popup)
+   :map rust-ts-mode-map ("C-c C-p" . zino/rustic-popup)
    :map rustic-compilation-mode-map ("p" . previous-error-no-select))
   :config
   ;; Reverse the action of making `rustic-mode' default for rust files in
   ;; `rustic.el'.
   ;; (setq auto-mode-alist (delete '("\\.rs\\'" . rustic-mode) auto-mode-alist))
   ;; (setf (alist-get "\\.rs\\'" auto-mode-alist nil nil 'string=) 'rust-mode)
-  )
+  (defun zino/rustic-popup (&optional args)
+    "Setup popup.
+If directory is not in a rust project call `read-directory-name'."
+    (interactive "P")
+    (rustic--inheritenv
+     (setq rustic--popup-rust-src-name buffer-file-name)
+     (let ((func (lambda ()
+                   (let ((buf (get-buffer-create rustic-popup-buffer-name))
+                         (win (split-window-below))
+                         (inhibit-read-only t))
+                     (rustic-popup-insert-contents buf)
+                     (set-window-buffer win buf)
+                     (select-window win)
+                     ;; (fit-window-to-buffer nil nil nil nil nil t)
+                     ;; (set-window-text-height win (+ (window-height) 1))
+                     ))))
+       (if args
+           (let ((dir (read-directory-name "Rust project:")))
+             (let ((default-directory dir))
+               (funcall func)))
+         (funcall func))))))
 
 (use-package cmake-mode)
 
@@ -2580,6 +2600,7 @@ initial input."
   (add-to-list 'eglot-server-programs '(beancount-mode . ("beancount-language-server")))
   (add-to-list 'eglot-server-programs '(rust-ts-mode . ("rust-analyzer")))
   (add-to-list 'eglot-server-programs '(go-ts-mode . ("gopls")))
+  ;; (add-to-list 'eglot-server-programs '(conf-toml-mode . ("taplo")))
 
   (defclass eglot-deno (eglot-lsp-server) ()
     :documentation "A custom class for deno lsp.")
