@@ -93,6 +93,16 @@
       gc-cons-threshold (* 300 1024 1024))
 
 (use-package emacs
+  ;; Performance tuning
+  :config
+  (setq-default bidi-display-reordering t)
+  (setq-default bidi-paragraph-direction 'left-to-right)
+
+  ;; (setq-default cursor-in-non-selected-windows nil)
+  (setq highlight-nonselected-windows nil)
+  (setq fast-but-imprecise-scrolling t))
+
+(use-package emacs
   :init
   ;; Add prompt indicator to `completing-read-multiple'.
   ;; We display [CRM<separator>], e.g., [CRM,] if the separator is a comma.
