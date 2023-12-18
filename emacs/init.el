@@ -1544,6 +1544,7 @@ respectively."
    '("\\`https://fniessen\\.github\\.io/org-html-themes/org/theme-readtheorg\\.setup\\'"))
   (org-refile-targets '((nil . (:level . 1))
                         (org-agenda-files . (:maxlevel . 1))))
+  (org-attach-id-dir "org-attach")
 
   :custom-face
   (org-level-1 ((t (:inherit outline-1 :extend nil :height 1.3 :width normal :family "Iosevka"))))
@@ -1604,6 +1605,23 @@ respectively."
    :repeat-map
    org-repeat-map
    ("-" . org-ctrl-c-minus)))
+
+(use-package org-mac-image-paste
+  :load-path "~/.config/emacs/manually_installed/org-mac-image-paste" ; or wherever you cloned to
+  :config (org-mac-image-paste-mode 1)
+  :bind (:map org-mode-map ("<f6>" . org-mac-image-paste-refresh-this-node)))
+
+(use-package org-appear
+  :hook
+  (org-mode . org-appear-mode))
+
+(use-package ultra-scroll-mac
+  :if (eq window-system 'mac)
+  :load-path "~/.config/emacs/manually_installed/ultra-scroll-mac" ; if you git clone'd
+  :init
+  (setq scroll-conservatively 101) ; important for jumbo images
+  :config
+  (ultra-scroll-mac-mode 1))
 
 ;; `org-babel' support for evaluating go code
 (use-package ob-go)
