@@ -120,6 +120,27 @@
   (prettify-symbols-unprettify-at-point 'right-edge)
   (pulse-delay 0.04)
   (pulse-iterations 15)
+  (indicate-buffer-boundaries t)
+  (indicate-empty-lines nil)
+  (echo-keystrokes 0.01)
+  (scroll-margin 0 "needed to work well with `ultra-scroll-mac-mode'")
+  (scroll-preserve-screen-position 'always)
+  (scroll-error-top-bottom nil)
+  (next-screen-context-lines 2)
+  ;; Scroll one line at a time (less "jumpy" than defaults)
+  (mouse-wheel-scroll-amount '(1 ((shift) . 1)))
+  ;; Don't accelerate scrolling
+  (mouse-wheel-progressive-speed nil)
+  ;; Keyboard scroll one line at a time
+  (scroll-step 0)
+  ;; Never recenter when scrolling off-screen
+  (scroll-conservatively 10000)
+  ;; Disable the visible bell
+  (visible-bell nil)
+  (next-error-found-function 'next-error-quit-window)
+  (next-error-highlight t)
+  (next-error-highlight-no-select t)
+  (next-error-message-highlight t)
   :custom-face
   (variable-pitch ((t (:height 1.2 :family "Bookerly")))))
 
@@ -133,13 +154,21 @@
     (if (window-dedicated-p (selected-window))
         (message "The current window is dedicated")
       (message "The current window is not dedicated")))
+  (defun zino/toggle-scratch ()
+    "Toggle `scratch' buffer."
+    (interactive)
+    (switch-to-buffer-other-window (get-buffer-create "*scratch*"))
+    (lisp-interaction-mode))
 
   (defun delete-to-end-of-buffer ()
     (interactive)
     (kill-region (point) (point-max)))
+  (add-function :before after-focus-change-function 'garbage-collect)
+
   :bind
-  ("C-c d" . zino/toggle-window-dedication)
-  ("C-c C-z" . delete-to-end-of-buffer))
+  ("C-S-d" . zino/toggle-window-dedication)
+  ("C-c C-z" . delete-to-end-of-buffer)
+  ("C-c r" . zino/toggle-scratch))
 
 (use-package desktop
   :ensure nil
@@ -481,17 +510,6 @@ Save the buffer of the current window and kill it"
   ("C-c f s" . select-frame-by-name)
   ("C-M-<tab>" . select-frame-by-name))
 
-;; Scroll one line at a time (less "jumpy" than defaults)
-(setq mouse-wheel-scroll-amount '(1 ((shift) . 1)))
-;; Don't accelerate scrolling
-(setq mouse-wheel-progressive-speed nil)
-;; Keyboard scroll one line at a time
-(setq scroll-step 1)
-;; Never recenter when scrolling off-screen
-(setq scroll-conservatively 10000)
-;; Disable the visible bell
-(setq visible-bell nil)
-
 (use-package elisp-mode
   :ensure nil)
 
@@ -807,7 +825,8 @@ Save the buffer of the current window and kill it"
   (lispy-data-mode . rainbow-delimiters-mode)
   (debugger-mode . rainbow-delimiters-mode)
   (helpful-mode . rainbow-delimiters-mode)
-  (dired-preview-mode . rainbow-delimiters-mode))
+  (dired-preview-mode . rainbow-delimiters-mode)
+  (conf-toml-mode . rainbow-delimiters-mode))
 
 ;; Display keybindings in another buffer
 (use-package command-log-mode
@@ -847,8 +866,7 @@ Save the buffer of the current window and kill it"
   (doom-modeline-highlight-modified-buffer-name t)
   :custom-face
   ;; (doom-modeline-buffer-modified ((t (:background unspecified :inherit (warning bold)))))
-  (doom-modeline-buffer-modified ((t (:background unspecified :inherit (bold)))))
-  )
+  (doom-modeline-buffer-modified ((t (:background unspecified :inherit (bold))))))
 
 ;; (use-package spaceline
 ;;   :config
@@ -1146,7 +1164,7 @@ respectively."
   (magit-ediff-dwim-show-on-hunks t)
   (ediff-split-window-function 'split-window-horizontally)
   ;; [use] magit-log-buffer-file: show a region or buffer's commit history
-  (magit-diff-refine-hunk 'all)
+  (magit-diff-refine-hunk t)
   (magit-diff-highlight-trailing nil)
   (magit-pre-refresh-hook nil)
   (magit-process-popup-time -1)
@@ -1838,6 +1856,14 @@ Similar to `org-capture' like behavior"
   ;; (define-key pdf-links-minor-mode-map [remap pdf-links-isearch-link] 'image-forward-hscroll)
   )
 
+(use-package pdf-links-minor-mode
+  :after pdf-tools
+  :ensure nil
+  :bind
+  (:map pdf-links-minor-mode-map
+        ("f" . image-forward-hscroll)
+        ("S" . pdf-links-isearch-link)))
+
 (use-package doc-toc
   :ensure nil
   :load-path "~/.config/emacs/manually_installed/doc-tools-toc")
@@ -1910,16 +1936,6 @@ Similar to `org-capture' like behavior"
 ;;        (progn
 ;;          (ad-set-args 0 `("%s" ,formatted-string))
 ;;          ad-do-it)))))
-
-(setq indicate-buffer-boundaries t
-      indicate-empty-lines nil)
-
-(setq echo-keystrokes 0.01)
-
-(setq scroll-margin 0
-      scroll-preserve-screen-position 'always
-      scroll-error-top-bottom t
-      next-screen-context-lines 5)
 
 ;; (custom-theme-set-faces
 ;;  'user
@@ -2276,6 +2292,7 @@ initial input."
   :load-path "~/.config/emacs/manually_installed/rustic/"
   :custom
   (rustic-lsp-client 'eglot)
+  (rustic-default-test-arguments nil)
   ;; :config
   ;; NOTE: These hooks are added in `rustic.el'. Remove them if intend to use
   ;; `flymake'.
@@ -2849,7 +2866,9 @@ initial input."
         ([remap beginning-of-defun] . c-beginning-of-defun)
         ([remap end-of-defun] . c-end-of-defun)
         ("C-M-a" . sp-backward-up-sexp)
-        ("C-M-e" . sp-up-sexp)))
+        ("C-M-e" . sp-up-sexp)
+        ("M-a" . ace-swap-window)
+        ("M-e" . forward-word)))
 
 (use-package dabbrev
   ;; Swap M-/ and C-M-/
@@ -2995,7 +3014,7 @@ initial input."
   (add-hook 'minibuffer-mode-hook (defun completion-styles-for-minibuffer ()
                                     "Enable autocompletion on files."
                                     (add-to-list 'completion-at-point-functions 'cape-file)
-                                    (setq-local completion-styles '(orderless partial-completion basic)))))
+                                    (setq-local completion-styles '(flex orderless partial-completion basic)))))
 
 (use-package kind-icon
   :ensure t
@@ -3004,11 +3023,6 @@ initial input."
   (kind-icon-default-face 'corfu-default) ; to compute blended backgrounds correctly
   :config
   (add-to-list 'corfu-margin-formatters 'kind-icon-margin-formatter))
-
-(add-hook 'conf-mode-hook (lambda ()
-                            "Set tab width to four spacess."
-                            (setq tab-width 4)))
-(setq tab-stop-list '(4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64 68 72 76 80))
 
 (use-package lsp-bridge
   :disabled
@@ -3090,7 +3104,7 @@ initial input."
   (prog-mode . format-all-ensure-formatter)
   (prog-mode . format-all-mode)
   :custom
-  (format-all-show-errors 'errors)
+  (format-all-show-errors 'never)
   (format-all-default-formatters
    '(("Assembly" asmfmt)
      ("ATS" atsfmt)
@@ -3426,6 +3440,8 @@ initial input."
   (isearch-lazy-count t)
   (lazy-count-prefix-format nil)
   (lazy-count-suffix-format "  (%s/%s)")
+  (isearch-allow-scroll 'unlimited)
+
   :bind
   ("C-s-s" . zino/isearch-region-or-forward)
   :config
@@ -3606,11 +3622,10 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   (xref-after-jump . beacon-blink)
   (xref-after-return . beacon-blink)
   (xref-after-return . recenter)
-  :config
+  ;; :config
   ;; (remove-hook 'xref-after-jump-hook 'beacon-blink)
   ;; (remove-hook 'xref-after-return-hook 'beacon-blink)
   )
-
 
 (use-package eshell
   :disabled
@@ -3638,6 +3653,14 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
 ;;   :load-path "~/.config/emacs/manually_installed/emacs-eat/")
 
 (use-package vterm
+  :bind
+  (:map vterm-mode-map
+        ("s-<return>" . vterm-send-return)
+        ("C-<return>" . vterm-send-return)
+        ("C-s-t" . vterm-copy-mode))
+  (:map vterm-copy-mode-map
+        ("q" . vterm-copy-mode)
+        ("C-s-t" . vterm-copy-mode))
   :custom
   (vterm-timer-delay 0.01))
 
@@ -3947,6 +3970,7 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
              (aw-switch-to-window (aw-select nil))
              (call-interactively (symbol-function ',fn)))))))
   (define-key embark-general-map (kbd "o") (zino/embark-ace-action projectile-find-file))
+  (define-key embark-general-map (kbd "n") (zino/embark-ace-action org-roam-node-find))
   (define-key embark-buffer-map (kbd "o") (zino/embark-ace-action switch-to-buffer))
   :bind
   ("s-o" . embark-act))
@@ -4084,13 +4108,17 @@ Insert full path if prefix argument `FULL-PATH' is sent."
 (use-package conf-mode
   :ensure nil
   :config
-  (add-to-list 'auto-mode-alist '("Cargo.lock\\'" . conf-toml-mode)))
+  (add-to-list 'auto-mode-alist '("Cargo.lock\\'" . conf-toml-mode))
+  (add-hook 'conf-mode-hook (lambda ()
+                              "Set tab width to four spacess."
+                              (setq-local tab-width 4)))
+  (setq tab-stop-list '(4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64 68 72 76 80)))
 
 (use-package window
   :ensure nil
   :custom
   (split-height-threshold 60)
-  (split-width-threshold 160)
+  (split-width-threshold 170)
   (split-window-preferred-function 'zino/split-window-sensibly)
   :config
   (defun zino/split-window-sensibly (&optional window)
