@@ -89,8 +89,14 @@
 
 (setq custom-file "~/.config/emacs/init.el")
 
+;; Raise gc threshold to boost startup.
 (setq gc-cons-percentage 0.5
       gc-cons-threshold (* 300 1024 1024))
+
+(add-hook 'after-init-hook (lambda ()
+                             ;; Fallback to normal gc values.
+                             (setq gc-cons-percentage 0.1)
+                             (setq gc-cons-threshold (* 1000 1000))))
 
 (use-package emacs
   ;; Performance tuning
@@ -178,7 +184,7 @@
   :bind
   ("C-S-d" . zino/toggle-window-dedication)
   ("C-c C-z" . delete-to-end-of-buffer)
-  ("C-c r" . zino/toggle-scratch))
+  ("C-c C-s" . zino/toggle-scratch))
 
 (use-package desktop
   :ensure nil
@@ -461,7 +467,35 @@ Save the buffer of the current window and kill it"
 ;; A better way: add ((nil . ((buffer-read-only . t)))) in `.dir-locals.el' at
 ;; the directory whose files should be opened in read-only buffers.
 
-;; https://emacs.stackexchange.com/a/7670/37427
+(use-package edebug
+  :ensure nil
+  :config
+  (require 'eros)
+
+  (defun adviced:edebug-previous-result (_ &rest r)
+    "Adviced `edebug-previous-result'."
+    (eros--make-result-overlay edebug-previous-result
+      :where (point)
+      :duration eros-eval-result-duration))
+
+  (advice-add #'edebug-previous-result
+              :around
+              #'adviced:edebug-previous-result)
+
+  (defun adviced:edebug-compute-previous-result (_ &rest r)
+    "Adviced `edebug-compute-previous-result'."
+    (let ((previous-value (nth 0 r)))
+      (if edebug-unwrap-results
+          (setq previous-value
+                (edebug-unwrap* previous-value)))
+      (setq edebug-previous-result
+            (edebug-safe-prin1-to-string previous-value))))
+
+  (advice-add #'edebug-compute-previous-result
+              :around
+              #'adviced:edebug-compute-previous-result))
+
+;; Reference: https://emacs.stackexchange.com/a/7670/37427
 ;; Edebug a defun or defmacro
 (defvar zino/fns-in-edebug nil
   "List of functions for which `edebug' is instrumented.")
@@ -472,6 +506,7 @@ Save the buffer of the current window and kill it"
   "Regexp to find defun or defmacro definition.")
 
 (defun zino/toggle-edebug-defun ()
+  "Toggle instrumenting a function or macro for edebug."
   (interactive)
   (let (fn)
     (save-excursion
@@ -715,6 +750,12 @@ Save the buffer of the current window and kill it"
   (:map dired-mode-map
         ("C-c C-r" . dired-rsync)))
 
+(use-package dired-subtree
+  :after dired
+  :bind
+  (:map dired-mode-map
+        ("<tab>" . dired-subtree-toggle)))
+
 ;; (use-package dirvish
 ;;   :disabled
 ;;   :init
@@ -765,8 +806,8 @@ Save the buffer of the current window and kill it"
 (use-package eldoc
   :ensure nil
   :custom
-  (eldoc-echo-area-use-multiline-p t)
-  (eldoc-idle-delay 0.05)
+  (eldoc-echo-area-use-multiline-p 'truncate-sym-name-if-fit)
+  (eldoc-idle-delay 0.1)
   (eldoc-echo-area-prefer-doc-buffer t)
   (max-mini-window-height 0.2))
 
@@ -954,7 +995,15 @@ Save the buffer of the current window and kill it"
 
   (sp-pair "(" ")" :wrap "C-(")
   (sp-pair "{" "}" :wrap "C-{")
-  (sp-pair "{" nil :post-handlers '(("||\n[i]" "RET")))
+  (defun indent-between-pair (&rest _ignored)
+    (newline)
+    (indent-according-to-mode)
+    (forward-line -1)
+    (indent-according-to-mode))
+
+  (sp-local-pair 'prog-mode "{" nil :post-handlers '((indent-between-pair "RET")))
+  (sp-local-pair 'prog-mode "[" nil :post-handlers '((indent-between-pair "RET")))
+  (sp-local-pair 'prog-mode "(" nil :post-handlers '((indent-between-pair "RET")))
 
   :bind
   (:repeat-map
@@ -1180,6 +1229,7 @@ respectively."
   (magit-process-popup-time -1)
   ;; Only refresh the current magit buffer
   (magit-refresh-status-buffer nil)
+  (magit-save-repository-buffers 'dontask)
   :config
   (put 'magit-diff-edit-hunk-commit 'disabled nil)
   (dolist (section '((untracked . hide)
@@ -1231,7 +1281,29 @@ respectively."
                   ;; magit-insert-unpulled-from-pushremote
                   ;; magit-insert-unpulled-from-upstream
                   ))
-    (remove-hook 'magit-status-sections-hook func)))
+    (remove-hook 'magit-status-sections-hook func))
+
+  (dolist (func '(
+                  ;; magit-insert-status-headers
+                  ;; magit-insert-merge-log
+                  ;; magit-insert-rebase-sequence
+                  ;; magit-insert-am-sequence
+                  ;; magit-insert-sequencer-sequence
+                  ;; magit-insert-bisect-output
+                  ;; magit-insert-bisect-rest
+                  ;; magit-insert-bisect-log
+                  ;; magit-insert-untracked-files
+                  ;; magit-insert-unstaged-changes
+                  ;; magit-insert-staged-changes
+                  ;; magit-insert-stashes
+                  ;; magit-insert-unpushed-to-pushremote
+                  ;; magit-insert-unpushed-to-upstream-or-recent
+                  ;; magit-insert-unpulled-from-pushremote
+                  ;; magit-insert-unpulled-from-upstream
+                  ;; magit-insert-recent-commits
+                  ))
+    (add-hook 'magit-status-sections-hook func))
+  )
 
 (use-package diff-hl
   :custom
@@ -1614,6 +1686,13 @@ respectively."
 (use-package org-appear
   :hook
   (org-mode . org-appear-mode))
+
+(use-package org-sticky-header
+  :hook
+  (org-mode . org-sticky-header-mode)
+  :custom
+  (org-sticky-header-always-show-header nil)
+  (org-sticky-header-full-path 'full))
 
 (use-package ultra-scroll-mac
   :if (eq window-system 'mac)
@@ -2092,6 +2171,10 @@ Similar to `org-capture' like behavior"
   :custom
   (aw-char-position 'top-left))
 
+(use-package zoom
+  :custom
+  (zoom-mode t))
+
 (setq next-screen-context-lines 2)
 
 (blink-cursor-mode)
@@ -2393,7 +2476,9 @@ initial input."
   ;; name pattern "\\.rs\\'". Currently use `rust-mode' in rust files.
   ;; :after rust-ts-mode
   :custom
-  (rust-indent-offset 4))
+  (rust-indent-offset 4)
+  :config
+  (add-to-list 'auto-mode-alist '("\\.rs\\.~\\(.*\\)~" . rust-mode)))
 
 (use-package rust-ts-mode
   ;; :after tree-sitter-rust
@@ -2411,7 +2496,7 @@ initial input."
   ;; (remove-hook 'rustic-mode-hook 'flymake-mode-off)
   ;; (remove-hook 'rustic-mode-hook 'flycheck-mode)
   :bind
-  (
+  (nil
    :map rust-mode-map ("C-c C-p" . zino/rustic-popup)
    :map rust-ts-mode-map ("C-c C-p" . zino/rustic-popup)
    :map rustic-compilation-mode-map ("p" . previous-error-no-select))
@@ -2576,14 +2661,6 @@ If directory is not in a rust project call `read-directory-name'."
     (setq eldoc-documentation-functions '(flymake-eldoc-function
                                           eglot-signature-eldoc-function
                                           eglot-hover-eldoc-function)))
-
-  :hook
-  ;; Don't integrate flycheck's error messages and eglot's documentation for
-  ;; now. Use `flycheck-display-error-messages'.
-  ;; (eglot-managed-mode . mp-flycheck-prefer-eldoc)
-  (eglot-managed-mode . (lambda ()
-                          (flymake-mode -1)))
-
   :init
   ;; eglot use this variable to determine if `company-mode' ignores case
   (setq completion-ignore-case t)
@@ -2634,14 +2711,18 @@ If directory is not in a rust project call `read-directory-name'."
   (go-ts-mode . eglot-ensure)
   :custom-face
   ;; (eglot-highlight-symbol-face ((t (:foreground "#DFDFDF" :background "#34536c" :weight bold))))
-  (eglot-highlight-symbol-face ((t (:weight bold))))
+  (eglot-highlight-symbol-face ((t (:inherit bold))))
   :custom
   (eglot-events-buffer-size 0)
   (eglot-sync-connect nil)
   ;; NOTE: Important. The default is nil, and will cause `xref-find-definitions'
   ;; to fail in rust crates. (TODO: find out why it failed.)
   (eglot-extend-to-xref t)
-  (eglot-autoshutdown t))
+  (eglot-autoshutdown nil)
+  :config
+  ;; Don't enable `flymake-mode' by default cos we use `flycheck-mode' for now.
+  ;; (add-to-list 'eglot-stay-out-of 'flymake)
+  )
 
 (use-package eglot
   :config
@@ -2747,9 +2828,6 @@ If directory is not in a rust project call `read-directory-name'."
 
 (use-package yasnippet-snippets)
 
-(use-package flymake-cursor
-  :load-path "~/.config/emacs/manually_installed/emacs-flymake-cursor")
-
 (use-package flymake
   :bind
   (:map flymake-mode-map
@@ -2760,17 +2838,45 @@ If directory is not in a rust project call `read-directory-name'."
            "Open the window listing errors and switch to it."
            (interactive)
            (flymake-show-buffer-diagnostics)
-           (pop-to-buffer "*Flymake diagnostics*"))))
-  :config
-  (eval-after-load 'flymake '(require 'flymake-cursor))
-  (defun flymake--diagnostics-buffer-name ()
-    (format "*Flymake diagnostics*"))
+           (pop-to-buffer (flymake--diagnostics-buffer-name)))))
+  (:repeat-map flymake-repeat-map
+               ("[" . flymake-goto-prev-error)
+               ("]" . flymake-goto-next-error))
   :hook
-  (prog-mode . (lambda ()
-                 (flymake-mode -1))))
+  (prog-mode . flymake-mode)
+  :custom
+  (help-at-pt-display-when-idle t)
+  (next-error-function 'flymake-goto-next-error))
+
+(use-package flymake-cursor
+  :after flymake
+  :load-path "~/.config/emacs/manually_installed/emacs-flymake-cursor"
+  :config (flymake-cursor-mode 1)
+  :bind
+  ("s-." . flymake-cursor-show-errors-at-point-now))
+
+(use-package flymake-clippy
+  :disabled
+  :after flymake
+  :config
+  ;; Instruct Eglot to stop managing Flymake.
+  (add-to-list 'eglot-stay-out-of 'flymake)
+  ;; Manually re-enable Eglot's Flymake backend
+  (defun manually-activate-flymake ()
+    (add-hook 'flymake-diagnostic-functions #'eglot-flymake-backend nil t)
+    (flymake-mode 1))
+  :hook
+  (rust-mode . flymake-clippy-setup-backend)
+  (eglot-managed-mode . manually-activate-flymake))
+
+(use-package flymake-popon
+  :after flymake
+  :straight (:repo "https://codeberg.org/akib/emacs-flymake-popon.git"))
 
 (use-package flycheck
-  :preface
+  ;; Does not provide diagnostics while editing in `rust-mode'.
+  :disabled
+  :config
   (defun mp-flycheck-eldoc (callback &rest _ignored)
     "Print flycheck messages at point by calling CALLBACK."
     (when-let ((flycheck-errors (and flycheck-mode (flycheck-overlay-errors-at (point)))))
@@ -2789,22 +2895,21 @@ If directory is not in a rust project call `read-directory-name'."
                              (flycheck-error-group err))
                   :face 'font-lock-doc-face))
        flycheck-errors)))
-
   (defun mp-flycheck-prefer-eldoc ()
     (add-hook 'eldoc-documentation-functions 'mp-flycheck-eldoc nil t)
     (setq eldoc-documentation-strategy 'eldoc-documentation-compose-eagerly)
     (setq flycheck-display-errors-function nil)
     (setq flycheck-help-echo-function nil))
-
   (defun zino/flycheck-next-error-advice (oldfun &rest args)
     (apply oldfun args)
     (recenter))
 
   :hook
   (prog-mode . flycheck-mode)
-  ;; MAYBE: use directory variables to configure per project
-  (c++-mode . (lambda ()
-                (setq flycheck-clang-language-standard "c++17")))
+
+  ;; Don't integrate flycheck's error messages and eglot's documentation for
+  ;; now. Use `flycheck-display-error-messages'.
+  ;; (eglot-managed-mode . mp-flycheck-prefer-eldoc)
 
   ;; NOTE: this will slow emacs down
   ;; :config
@@ -2813,6 +2918,18 @@ If directory is not in a rust project call `read-directory-name'."
   (flycheck-display-errors-delay 0.6)
   (flycheck-indication-mode 'left-fringe)
   (flycheck-go-golint-executable "go-staticcheck")
+  (flycheck-clang-language-standard "c++17")
+  (flycheck-check-syntax-automatically '(save idle-change new-line mode-enabled))
+  (flycheck-error-list-format [("File" 9)
+                               ("Line" 4 flycheck-error-list-entry-< :right-align t)
+                               ("Col" 3 nil :right-align t)
+                               ("Level" 7 flycheck-error-list-entry-level-<)
+                               ("ID" 16 t)
+                               (#("Message (Checker)" 0 7
+                                  (face flycheck-error-list-error-message)
+                                  9 16
+                                  (face flycheck-error-list-checker-name))
+                                0 t)])
   :bind
   (:map flycheck-mode-map
         ("C-c [" . flycheck-previous-error)
@@ -2823,16 +2940,22 @@ If directory is not in a rust project call `read-directory-name'."
                        (interactive)
                        (flycheck-list-errors)
                        (pop-to-buffer "*Flycheck errors*"))))
+  (:repeat-map flycheck-repeat-mode-map
+               ("[" . flycheck-previous-error)
+               ("]" . flycheck-next-error))
   :config
   (advice-add 'flycheck-next-error :around 'zino/flycheck-next-error-advice))
 
-(use-package flycheck-rust
-  :hook
-  (flycheck-mode . flycheck-rust-setup))
+;; (use-package flycheck-rust
+;;   :after flycheck
+;;   :hook
+;;   (flycheck-mode . flycheck-rust-setup))
 
 ;; (use-package flycheck-eglot
+;;   :disabled
+;;   :after flycheck
 ;;   :config
-;;   (global-flycheck-eglot-mode -1))
+;;   (global-flycheck-eglot-mode 1))
 
 (defun repeatize (keymap)
   "Add `repeat-mode' support to a KEYMAP."
@@ -2841,20 +2964,6 @@ If directory is not in a rust project call `read-directory-name'."
      (when (symbolp cmd)
        (put cmd 'repeat-map keymap)))
    (symbol-value keymap)))
-
-(defvar flycheck-repeat-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "[" #'flycheck-previous-error)
-    (define-key map "]" #'flycheck-next-error)
-    map)
-  "Repeat map for flycheck.")
-
-(defvar flymake-repeat-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "[" #'flymake-goto-prev-error)
-    (define-key map "]" #'flymake-goto-next-error)
-    map)
-  "Repeat map for flymake.")
 
 (defvar isearch-repeat-map
   (let ((map (make-sparse-keymap)))
@@ -2878,9 +2987,7 @@ If directory is not in a rust project call `read-directory-name'."
   "Repeat map for `org-remark'.")
 
 (repeatize 'isearch-repeat-map)
-(repeatize 'flycheck-repeat-map)
 (repeatize 'winner-repeat-map)
-(repeatize 'flymake-repeat-map)
 (repeatize 'org-remark-repeat-map)
 
 ;; Show matching parenthesis
@@ -3122,7 +3229,7 @@ If directory is not in a rust project call `read-directory-name'."
   ;; Configure a custom style dispatcher (see the Consult wiki)
   ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
   ;;       orderless-component-separator #'orderless-escapable-split-on-space)
-  (setq completion-styles '(flex orderless basic)
+  (setq completion-styles '(orderless flex basic)
         completion-category-defaults nil
         completion-category-overrides '((file (styles . (partial-completion)))))
   :hook
@@ -3195,6 +3302,7 @@ If directory is not in a rust project call `read-directory-name'."
      lsp-bridge-not-complete-manually)))
 
 (use-package clipetty
+  :disabled
   :ensure t
   :hook (after-init . global-clipetty-mode))
 
@@ -3651,16 +3759,27 @@ If directory is not in a rust project call `read-directory-name'."
   (:map god-local-mode-map
         ("C-<f14>" . scroll-lock-mode)))
 
-;; deal with terminal escape characters correctly in compilation buffer
+;; Deal with terminal escape characters correctly in compilation buffer.
 (use-package ansi-color
   :ensure nil
   :config
-  (defun zino/ansi-colorize-buffer ()
-    (let ((buffer-read-only nil))
-      (ansi-color-apply-on-region (point-min) (point-max) t)))
-  (add-to-list 'auto-mode-alist '("\\.log\\(\\.[0-9]*-[0-9]*-[0-9]*\\)?" . zino/ansi-colorize-buffer))
+  (defun zino/ansi-colorize-region (&optional beg end _len)
+    (interactive)
+    (let ((beg (or beg (point-min)))
+          (end (or end (point-max)))
+          (buffer-read-only nil))
+      (ansi-color-apply-on-region beg end t)))
+  (defun zino/text-mode-and-ansi-colorize-buffer ()
+    (text-mode)
+    (zino/ansi-colorize-region (point-min) (point-max) 0)
+    (setq-local after-change-functions (add-to-list 'after-change-functions 'zino/ansi-colorize-region)))
+  (add-to-list 'auto-mode-alist '("\\.log\\(\\.[0-9]*-[0-9]*-[0-9]*\\)?" . zino/text-mode-and-ansi-colorize-buffer))
   :hook
-  (compilation-filter . zino/ansi-colorize-buffer))
+  (compilation-filter . zino/ansi-colorize-region))
+
+;; (use-package xterm-color
+;;   :custom
+;;   (xterm-color-render t))
 
 (use-package avy
   :bind
@@ -3741,16 +3860,17 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   (xref-auto-jump-to-first-xref nil)
   :custom-face
   (xref-file-header ((t (:inherit orderless-match-face-0))))
-  :config
-  (add-to-list
-   'display-buffer-alist
-   '("\\*xref\\*"
-     display-buffer-in-side-window
-     (side . bottom)
-     (slot . 0)
-     (window-height . 20)
-     (window-parameters
-      (no-delete-other-windows . t))))
+  ;;; `zoom-mode' does not work well with side window. Use `xref''s default `display-buffer' action for now.
+  ;; :config
+  ;; (add-to-list
+  ;;  'display-buffer-alist
+  ;;  '("^\\*xref\\*"
+  ;;    display-buffer-in-side-window
+  ;;    (side . bottom)
+  ;;    (slot . 0)
+  ;;    (window-height . 20)
+  ;;    (window-parameters
+  ;;     (no-delete-other-windows . t))))
   :hook
   (xref-after-jump . beacon-blink)
   (xref-after-return . beacon-blink)
@@ -4301,8 +4421,21 @@ Insert full path if prefix argument `FULL-PATH' is sent."
          ("C-c = l" . ediff-regions-linewise)
          ("C-c = w" . ediff-regions-wordwise))
   :custom
-  (ediff-combination-pattern
-   '("<<<<<<< A: HEAD" A "||||||| Ancestor" Ancestor "=======" B ">>>>>>> B: Incoming")))
+  (ediff-combination-pattern '("<<<<<<< variant A" A ">>>>>>> variant B" B "####### Ancestor" Ancestor
+                               "======= end"))
+  :config
+  (defun ediff-copy-both-to-C ()
+    (interactive)
+    (ediff-copy-diff ediff-current-difference nil 'C nil
+                     (concat
+                      (ediff-get-region-contents ediff-current-difference 'A ediff-control-buffer)
+                      (ediff-get-region-contents ediff-current-difference 'B ediff-control-buffer))))
+  (defun add-d-to-ediff-mode-map () (define-key ediff-mode-map "d" 'ediff-copy-both-to-C))
+  (add-hook 'ediff-keymap-setup-hook 'add-d-to-ediff-mode-map))
+
+(use-package gcmh
+  :straight (:host gitlab :repo "koral/gcmh")
+  :config (gcmh-mode 1))
 
 ;; Try it some time.
 ;; (use-package sideline)
