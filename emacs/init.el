@@ -11,20 +11,10 @@
 
 (require 'package)
 
-(if (and (fboundp 'native-comp-available-p)
-         (native-comp-available-p))
-    (progn
-      (message "Native compilation is available"))
-  (message "Native complation is *not* available"))
-
-(setq native-comp-jit-compilation t)
-(setq native-comp-async-report-warnings-errors nil)
-
 ;; Initialize package sources
 (setq package-archives '(("melpa" . "https://melpa.org/packages/")
                          ("elpa" . "https://elpa.gnu.org/packages/")
                          ("nongnu" . "https://elpa.nongnu.org/nongnu/")))
-(setq user-emacs-directory "~/.config/emacs/")
 
 (package-initialize)
 (unless package-archive-contents (package-refresh-contents))
@@ -55,48 +45,114 @@
 
 (use-package use-package-ensure-system-package)
 
-(setenv "path" (concat "/library/tex/texbin" (getenv "path")))
-(setq exec-path (append '("/Library/TeX/texbin") exec-path))
+(use-package emacs
+  :config
+  ;; UI
+  ;; Display line numbers in mode line
+  (line-number-mode 1)
+  (size-indication-mode -1)
+  (scroll-bar-mode -1)
+  (tool-bar-mode -1)
+  (tooltip-mode nil)
+  (set-fringe-mode '(7 . 0))
+  (menu-bar-mode -1)
+  (column-number-mode)
+  (global-display-line-numbers-mode -1)
+  (set-default-coding-systems 'utf-8)
+  (global-visual-line-mode 1)
+  ;; On macos, treat option key as meta and command as super.
+  (when (eq system-type 'darwin)
+    (setq mac-option-modifier 'meta
+          mac-command-modifier 'super))
+  (setenv "path" (concat "/library/tex/texbin" (getenv "path")))
+  (setq exec-path (append '("/Library/TeX/texbin") exec-path))
+  (if (and (fboundp 'native-comp-available-p)
+           (native-comp-available-p))
+      (progn
+        (message "Native compilation is available"))
+    (message "Native complation is *not* available"))
+  (setq native-comp-jit-compilation t)
+  (setq native-comp-async-report-warnings-errors nil)
+  ;; Keep buffers up to date
+  (global-auto-revert-mode t)
+  ;; Remember and restore the last cursor location of opened files
+  (save-place-mode 1)
+  (savehist-mode t)
+  (recentf-mode t)
+  (setq-default tab-width 2)
+  (setq-default indent-tabs-mode nil)
 
-;; On macos, treat option key as meta and command as super
-(when (eq system-type 'darwin)
-  (setq mac-option-modifier 'meta
-        mac-command-modifier 'super))
+  ;; Disable line numbers for some modes
+  (dolist (mode '(term-mode-hook shell-mode-hook eshell-mode-hook pdf-view-mode-hook))
+    (add-hook mode (lambda ()
+                     (display-line-numbers-mode 0))))
 
-(setq confirm-kill-emacs 'yes-or-no-p)
-(setq read-process-output-max (* 1024 1024)) ;; 1MB
+  (setq next-screen-context-lines 2)
+  (blink-cursor-mode)
+  (setq blink-cursor-blinks 0)
+  (repeat-mode)
+  (pixel-scroll-mode 1)
 
-(set-default-coding-systems 'utf-8)
-(setq inhibit-startup-screen t)
-(size-indication-mode -1)
-(scroll-bar-mode -1)
-(tool-bar-mode -1)
-(tooltip-mode nil)
-(set-fringe-mode '(7 . 0))
-(menu-bar-mode -1)
-(column-number-mode)
-(global-display-line-numbers-mode -1)
+  ;; autosave file-visiting buffer but not non-file-visiting e.g. *scratch*
+  (setq-default auto-save-default t)
+  (setq auto-save-timeout 15)
+  (setq auto-save-interval 100)
+  (setq-default auto-save-no-message t)
+  (setq
+   auto-save-file-name-transforms
+   `(("\\`/[^/]*:\\([^/]*/\\)*\\([^/]*\\)\\'" "~/.config/emacs/autosave/\\2" t)))
+  (setq
+   ;; turn on backup functionality
+   make-backup-files t
+   ;; also backup files that are version controlled
+   vc-make-backup-files t
+   ;; backup by renaming will make the existing file the backup, and so all old
+   ;; links to the original file now links to the backup and not the edited file
+   backup-by-copying t
+   ;; control the naming of different versions ourselves
+   version-control nil
+   ;; don't ask to delete old version
+   delete-old-versions t
+   kept-new-versions 20
+   kept-old-versions 20)
 
-;; Dynamically adjust width
-(setq display-line-numbers-width nil)
+  ;; by default emacs create backup on first buffer save since the file is visited
+  ;; C-u to save backup in second save (test above)
+  ;; C-u C-u to immediately save into backup
+  (setq backup-directory-alist nil)
 
-;; Display line numbers in mode line
-(line-number-mode 1)
-(setq help-window-select t)
+  (defun make-backup-file-name (file)
+    (let ((dirname (concat "~/.config/emacs/backup/"
+                           (format-time-string "%Y-%m-%d/"))))
+      (unless (file-exists-p dirname)
+        (make-directory dirname t))
+      ;; new backups in the same minute will overwrite the old backups. Append
+      ;; second infomation if needed
+      (concat dirname (concat (replace-regexp-in-string "/" "!" (buffer-file-name)) (format-time-string "T%H:%M~")))))
 
-;; Treat manual buffer switching the same as programmatic switching
-(setq switch-to-buffer-obey-display-actions t)
+  (defun force-backup-of-buffer ()
+    "Utilize the standard backup system to make a backup everytime a buffer is saved."
+    (setq buffer-backed-up nil))
 
-(setq custom-file "~/.config/emacs/init.el")
+  (add-hook 'before-save-hook 'force-backup-of-buffer)
+  ;; Put this at the end otherwise `pcache' will still register itself
+  ;; (remove-hook 'kill-emacs-hook 'pcache-kill-emacs-hook)
 
-;; Raise gc threshold to boost startup.
-(setq gc-cons-percentage 0.5
-      gc-cons-threshold (* 300 1024 1024))
-
-(add-hook 'after-init-hook (lambda ()
-                             ;; Fallback to normal gc values.
-                             (setq gc-cons-percentage 0.1)
-                             (setq gc-cons-threshold (* 1000 1000))))
+  :custom
+  (confirm-kill-emacs 'yes-or-no-p)
+  (read-process-output-max (* 1024 1024)) ;; 1MB
+  (inhibit-startup-screen t)
+  ;; Dynamically adjust width
+  (display-line-numbers-width nil)
+  (display-line-numbers-width-start 0)
+  (recenter-positions '(middle top bottom))
+  (fill-column 80)
+  (auto-revert-interval 5)
+  (comment-style 'indent)
+  ;; Set limit for prompt opening large files higher, 100 M
+  (large-file-warning-threshold 100000000)
+  (custom-safe-themes t)
+  (apropos-sort-by-scores t))
 
 (use-package emacs
   ;; Performance tuning
@@ -106,7 +162,15 @@
 
   ;; (setq-default cursor-in-non-selected-windows nil)
   (setq highlight-nonselected-windows nil)
-  (setq fast-but-imprecise-scrolling t))
+  (setq fast-but-imprecise-scrolling t)
+  ;; Raise gc threshold to boost startup.
+  (setq gc-cons-percentage 0.5
+        gc-cons-threshold (* 300 1024 1024))
+
+  (add-hook 'after-init-hook (lambda ()
+                               ;; Fallback to normal gc values.
+                               (setq gc-cons-percentage 0.1)
+                               (setq gc-cons-threshold (* 1000 1000)))))
 
 (use-package emacs
   :init
@@ -125,6 +189,11 @@
   (minibuffer-setup . cursor-intangible-mode)
   (next-error . recenter)
   :custom
+  (help-window-select t)
+  ;; Treat manual buffer switching the same as programmatic switching
+  (switch-to-buffer-obey-display-actions t)
+  (custom-file "~/.config/emacs/init.el")
+  (user-emacs-directory "~/.config/emacs/")
   ;; Emacs 28: Hide commands in M-x which do not work in the current mode.
   ;; Vertico commands are hidden in normal buffers.
   (read-extended-command-predicate 'command-completion-default-include-p)
@@ -157,8 +226,43 @@
   (next-error-highlight t)
   (next-error-highlight-no-select t)
   (next-error-message-highlight t)
+  (save-silently t)
+  ;; Revert Dired and other buffers
+  (global-auto-revert-non-file-buffers t)
+  ;; Save minibuffer's history inputs
+  (enable-recursive-minibuffers t)
+  (history-length 25)
+  ;; Delete files into trashbin
+  (delete-by-moving-to-trash t)
+  (trash-directory "~/.Trash")
+
   :custom-face
-  (variable-pitch ((t (:height 1.2 :family "Bookerly")))))
+  (variable-pitch ((t (:height 1.2 :family "Bookerly"))))
+  :config
+  ;;; Check if a font exist:
+  ;;; (member "Sarasa Mono SC Nerd" (font-family-list))
+  ;; Set up fonts for different charsets.
+  (defun zino/set-font (font-name cn-font-name &optional initial-size cn-font-rescale-ratio)
+    "Set different font-family for Latin and Chinese charactors."
+    (let* ((size (or initial-size 14))
+           (ratio (or cn-font-rescale-ratio 0.0))
+           (main (font-spec :name font-name :size size))
+           (cn (font-spec :name cn-font-name)))
+      (set-face-attribute 'default nil :font main)
+      (dolist (charset '(kana han symbol cjk-misc bopomofo))
+        (set-fontset-font t charset cn))
+      (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
+
+  (zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 13 1)
+
+  (set-fontset-font
+   t 'symbol
+   (font-spec
+    :family "Apple Color Emoji"
+    :size 16
+    :weight 'normal
+    :width 'normal
+    :slant 'normal)))
 
 (use-package emacs
   :config
@@ -206,27 +310,6 @@
                  :cleanup-frames (not (eq desktop-restore-reuses-frames 'keep))
                  :force-display desktop-restore-in-current-display
                  :force-onscreen desktop-restore-forces-onscreen)))))
-
-(setq save-silently t)
-
-;; Keep buffers up to date
-(global-auto-revert-mode 1)
-
-;; Revert Dired and other buffers
-(setq global-auto-revert-non-file-buffers t)
-
-;; Remember and restore the last cursor location of opened files
-(save-place-mode 1)
-
-;; Save minibuffer's history inputs
-(setq enable-recursive-minibuffers t)
-(setq history-length 25)
-(savehist-mode t)
-(recentf-mode t)
-
-;; Delete files into trashbin
-(setq delete-by-moving-to-trash t)
-(setq trash-directory "~/.Trash")
 
 ;; Change all prompts to y or n
 (fset 'yes-or-no-p 'y-or-n-p)
@@ -576,8 +659,6 @@ Save the buffer of the current window and kill it"
                  (setq-local comment-auto-fill-only-comments (if (not (derived-mode-p 'emacs-lisp-mode)) t)
                              fill-column (if (derived-mode-p 'emacs-lisp-mode) 110 80)))))
 
-(global-visual-line-mode 1)
-
 (use-package hl-line
   :ensure nil
   :init
@@ -648,9 +729,6 @@ Save the buffer of the current window and kill it"
       (let ((from (car pair))
             (to (car (cdr pair))))
         (define-abbrev global-abbrev-table from to)))))
-
-(setq-default tab-width 2)
-(setq-default indent-tabs-mode nil)
 
 (use-package ibuffer
   :custom
@@ -809,11 +887,18 @@ Save the buffer of the current window and kill it"
   (eldoc-echo-area-use-multiline-p 'truncate-sym-name-if-fit)
   (eldoc-idle-delay 0.1)
   (eldoc-echo-area-prefer-doc-buffer t)
-  (max-mini-window-height 0.2))
+  (max-mini-window-height 0.2)
+  (eldoc-display-functions (remove 'eldoc-display-in-buffer eldoc-display-functions))
+  (help-at-pt-timer-delay 1)
+  (help-at-pt-display-when-idle '(flymake-iagnostics)))
 
 (use-package eldoc-box
   :bind
-  ("M-." . eldoc-box-help-at-point))
+  (:map eglot-mode-map
+        ("C-c C-d" . eldoc-box-help-at-point))
+  :custom-face
+  (eldoc-box-border ((t (:background "#3c586f" :weight heavy))))
+  (eldoc-box-border ((t (:background "#51afef" :weight bold)))))
 
 (defun copy-full-path-to-kill-ring ()
   "Copy buffer's full path to kill ring."
@@ -832,32 +917,10 @@ Save the buffer of the current window and kill it"
 ;; (setq ns-use-proxy-icon nil)
 ;; (setq frame-title-format nil)
 
-;; Check if a font exist:
-;; (member "Sarasa Mono SC Nerd" (font-family-list))
-
-;; Set up fonts for different charsets.
-(defun zino/set-font (font-name cn-font-name &optional initial-size cn-font-rescale-ratio)
-  "Set different font-family for Latin and Chinese charactors."
-  (let* ((size (or initial-size 14))
-         (ratio (or cn-font-rescale-ratio 0.0))
-         (main (font-spec :name font-name :size size))
-         (cn (font-spec :name cn-font-name)))
-    (set-face-attribute 'default nil :font main)
-    (dolist (charset '(kana han symbol cjk-misc bopomofo))
-      (set-fontset-font t charset cn))
-    (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
-
-(zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 14 1)
-
 ;; Automatically trim trailing whitespaces.
 (use-package ws-butler
   :config
   (ws-butler-global-mode))
-
-;; Disable line numbers for some modes
-(dolist (mode '(term-mode-hook shell-mode-hook eshell-mode-hook pdf-view-mode-hook))
-  (add-hook mode (lambda ()
-                   (display-line-numbers-mode 0))))
 
 ;; Format code while editing lisp code
 (use-package aggressive-indent
@@ -1225,7 +1288,6 @@ respectively."
   ;; [use] magit-log-buffer-file: show a region or buffer's commit history
   (magit-diff-refine-hunk t)
   (magit-diff-highlight-trailing nil)
-  (magit-pre-refresh-hook nil)
   (magit-process-popup-time -1)
   ;; Only refresh the current magit buffer
   (magit-refresh-status-buffer nil)
@@ -1283,6 +1345,7 @@ respectively."
                   ))
     (remove-hook 'magit-status-sections-hook func))
 
+  ;; Reverse the removal.
   (dolist (func '(
                   ;; magit-insert-status-headers
                   ;; magit-insert-merge-log
@@ -1302,8 +1365,7 @@ respectively."
                   ;; magit-insert-unpulled-from-upstream
                   ;; magit-insert-recent-commits
                   ))
-    (add-hook 'magit-status-sections-hook func))
-  )
+    (add-hook 'magit-status-sections-hook func)))
 
 (use-package diff-hl
   :custom
@@ -1312,26 +1374,6 @@ respectively."
   :config
   (advice-add 'diff-hl-next-hunk :after (lambda (&optional backward)
                                           (recenter))))
-
-;; https://github.com/dandavison/magit-delta/issues/6
-;; (with-eval-after-load 'magit-delta
-;;   (set-face-attribute 'magit-diff-added-highlight nil
-;;                       :background "#3e493d") ;; #002800
-;;   (set-face-attribute 'magit-diff-added nil
-;;                       :background "#3e493d")
-;;   (set-face-attribute 'magit-diff-removed-highlight nil
-;;                       :background "#4f343a") ;; #3f0001
-;;   (set-face-attribute 'magit-diff-removed nil
-;;                       :background "#4f343a"))
-
-;; (add-hook 'magit-delta-mode-hook
-;;           (lambda ()
-;;             (setq face-remapping-alist
-;;                   (seq-difference face-remapping-alist
-;;                                   '((magit-diff-removed . default)
-;;                                     (magit-diff-removed-highlight . default)
-;;                                     (magit-diff-added . default)
-;;                                     (magit-diff-added-highlight . default))))))
 
 (use-package org-roam
   :custom
@@ -1380,7 +1422,28 @@ respectively."
   (magit-mode . magit-delta-mode)
   :custom
   (magit-delta-default-dark-theme "Solarized (dark)")
-  (magit-delta-hide-plus-minus-markers nil))
+  (magit-delta-hide-plus-minus-markers nil)
+  ;; :config
+  ;; https://github.com/dandavison/magit-delta/issues/6
+  ;; (with-eval-after-load 'magit-delta
+  ;;   (set-face-attribute 'magit-diff-added-highlight nil
+  ;;                       :background "#3e493d") ;; #002800
+  ;;   (set-face-attribute 'magit-diff-added nil
+  ;;                       :background "#3e493d")
+  ;;   (set-face-attribute 'magit-diff-removed-highlight nil
+  ;;                       :background "#4f343a") ;; #3f0001
+  ;;   (set-face-attribute 'magit-diff-removed nil
+  ;;                       :background "#4f343a"))
+
+  ;; (add-hook 'magit-delta-mode-hook
+  ;;           (lambda ()
+  ;;             (setq face-remapping-alist
+  ;;                   (seq-difference face-remapping-alist
+  ;;                                   '((magit-diff-removed . default)
+  ;;                                     (magit-diff-removed-highlight . default)
+  ;;                                     (magit-diff-added . default)
+  ;;                                     (magit-diff-added-highlight . default))))))
+  )
 
 (use-package git-timemachine)
 
@@ -1490,6 +1553,9 @@ respectively."
   (setq org-babel-tangle-use-relative-file-links nil)
 
   :config
+  ;; Make sure org-indent face is available
+  (require 'org-indent)
+
   ;;  Make backtick work as inline `org-vertatim' delimiter.
   (add-to-list 'org-emphasis-alist '("`" org-verbatim verbatim))
   (defun org-set-emph-re (var val)
@@ -1723,9 +1789,6 @@ respectively."
   ;; (org-bullets-bullet-list '("⊛" "◎" "◉" "⊚" "○" "●"))
   (org-bullets-bullet-list '("⊛" "◇" "✳" "○" "⊚" "●")))
 
-;; Make sure org-indent face is available
-(require 'org-indent)
-
 (use-package org-download
   :after org
   :defer nil
@@ -1924,10 +1987,6 @@ Similar to `org-capture' like behavior"
          :jump-to-captured t
          :after-finalize org-fold-hide-drawer-all)))
 
-;; Temporary workaround.
-;; REVIEW See Wilfred/elisp-refs#35. Remove once fixed upstream.
-(defvar read-symbol-positions-list nil)
-
 (use-package rime
   :custom
   (default-input-method "rime")
@@ -1953,52 +2012,12 @@ Similar to `org-capture' like behavior"
   :bind
   ("C-s-r" . rime-force-enable))
 
-;; https://emacs-china.org/t/auctex-setup-synctex-with-pdf-tools-not-working/11257
-;; (use-package auctex
-;;   :ensure t
-;;   :no-require t
-;;   :commands (TeX-latex-mode)
-;;   :config
-;;   (setq TeX-auto-save t)
-;;   (setq TeX-parse-self t)
-;;   (setq-default TeX-master nil)
-
-;;   ;; Use `xetex' engine for better TeX compilation for Chinese.
-;;   ;; `TeX-engine-alist', `TeX-engine-in-engine-alist'
-;;   (setq-default TeX-engine 'xetex)
-;;   (with-eval-after-load 'tex-mode
-;;     ;; "latexmk -shell-escape -bibtex -xelatex -g -f %f"
-;;     (add-to-list 'tex-compile-commands '("xelatex %f" t "%r.pdf"))
-;;     (add-to-list 'TeX-command-list '("XeLaTeX" "%`xelatex%(mode)%' %t" TeX-run-TeX nil t))
-;;     (setq TeX-command "xelatex"))
-
-;;   (setq-default LaTeX-command  "latex -shell-escape --synctex=1")
-
-;;   (setq TeX-show-compilation t)
-
-;;   ;; view generated PDF with `pdf-tools'. (this is built-in now.)
-;;   (unless (assoc "PDF Tools" TeX-view-program-list-builtin)
-;;     (add-to-list 'TeX-view-program-list-builtin '("PDF Tools" TeX-pdf-tools-sync-view)))
-;;   (unless (equalp "PDF Tools" (car (cdr (assoc 'output-pdf TeX-view-program-selection))))
-;;     (add-to-list 'TeX-view-program-selection '(output-pdf "PDF Tools")))
-
-;;   ;; [ SyncTeX ] -- Sync (forward and inverse search) PDF with TeX/LaTeX.
-;;   (setq TeX-source-correlate-mode t)
-;;   (setq TeX-source-correlate-method '((dvi . source-specials) (pdf . synctex))) ; default
-;;   ;; [C-c C-g] switch between LaTeX source code and PDF positions.
-;;   (setq TeX-source-correlate-start-server t)
-;;   (TeX-source-correlate-mode t)
-;;   ;; update PDF buffers after successful LaTeX runs.
-;;   (add-hook 'TeX-after-TeX-LaTeX-command-finished-hook #'TeX-revert-document-buffer))
-
-;; (add-to-list 'TeX-command-list '("XeLaTeX" "%`xelatex --synctex=1%(mode)%' %t" TeX-run-TeX nil t))
-
-;;; arch
-;; epdfinfo runs poppler in server mode, receives request from emacs
-;; poppler render pdf into PNGs on the go and return them to emacs
-;; poppler can provide rich information about the pdf and also the
-;; ability to modify
-;; Download `pdf-tools' from melpa handles dependencies for us
+;;; Architecture
+;;; epdfinfo runs poppler in server mode, receives request from emacs
+;;; poppler render pdf into PNGs on the go and return them to emacs
+;;; poppler can provide rich information about the pdf and also the
+;;; ability to modify
+;;; Download `pdf-tools' from melpa handles dependencies for us.
 (use-package pdf-tools
   :init
   (pdf-tools-install)
@@ -2062,79 +2081,6 @@ Similar to `org-capture' like behavior"
         ("f" . forward-char)
         ("b" . backward-char)))
 
-;;(defun my-nov-font-setup ()
-;;  (variable-pitch-mode)
-;;  (display-line-numbers-mode -1)
-;;  (face-remap-add-relative 'variable-pitch :family "ETBembo" :height 1.1))
-;;(add-hook 'nov-mode-hook 'my-nov-font-setup)
-
-;;(require 'justify-kp)
-;;(setq nov-text-width t)
-;;
-;;(defun my-nov-window-configuration-change-hook ()
-;;  (my-nov-post-html-render-hook)
-;;  (remove-hook 'window-configuration-change-hook
-;;               'my-nov-window-configuration-change-hook
-;;               t))
-;;
-;;(defun my-nov-post-html-render-hook ()
-;;  (if (get-buffer-window)
-;;      (let ((max-width (pj-line-width))
-;;            buffer-read-only)
-;;        (save-excursion
-;;          (goto-char (point-min))
-;;          (while (not (eobp))
-;;            (when (not (looking-at "^[[:space:]]*$"))
-;;              (goto-char (line-end-position))
-;;              (when (> (shr-pixel-column) max-width)
-;;                (goto-char (line-beginning-position))
-;;                (pj-justify)))
-;;            (forward-line 1))))
-;;    (add-hook 'window-configuration-change-hook
-;;              'my-nov-window-configuration-change-hook
-;;              nil t)))
-
-;;(add-hook 'nov-post-html-render-hook 'my-nov-post-html-render-hook)
-
-;;(defvar message-filter-regexp-list '("^Starting new Ispell process \\[.+\\] \\.\\.\\.$"
-;;                                     "^Ispell process killed$"
-;;                                     ;;"^down-mouse"
-;;                                     "^down-mouse-.*"
-;;                                     "down-mouse-1"
-;;                                     "^double-down-mouse.*"
-;;                                     "double-down-mouse-1"
-;;                                     ;;" . *mouse.*")
-;;                                     )
-;;  "filter formatted message string to remove noisy messages")
-
-;;(defadvice message (around message-filter-by-regexp activate)
-;;  (if (not (ad-get-args 0))
-;;      ad-do-it
-;;    (let ((formatted-string (apply 'format (ad-get-args 0))))
-;;      (if (and (stringp formatted-string)
-;;               (some (lambda (re) (string-match re formatted-string)) message-filter-regexp-list))
-;;          (save-excursion
-;;            (set-buffer "*Messages*")
-;;            (goto-char (point-max))
-;;            (insert formatted-string "\n"))
-;;        (progn
-;;          (ad-set-args 0 `("%s" ,formatted-string))
-;;          ad-do-it)))))
-
-;; (custom-theme-set-faces
-;;  'user
-;;  '(variable-pitch ((t (:family "ETBembo" :height 250 :weight regular))))
-;;  '(fixed-pitch ((t ( :family "Fira Code" :height 250)))))
-
-(set-fontset-font
- t 'symbol
- (font-spec
-  :family "Apple Color Emoji"
-  :size 16
-  :weight 'normal
-  :width 'normal
-  :slant 'normal))
-
 (use-package beacon
   :config
   (beacon-mode -1)
@@ -2149,13 +2095,6 @@ Similar to `org-capture' like behavior"
   (beacon-blink-when-point-moves-vertically 50)
   :custom-face
   (beacon-fallback-background ((t (:background "#a8dadc")))))
-
-(setq custom-safe-themes t)
-
-(setq display-line-numbers-width 0)
-(setq display-line-numbers-width-start 0)
-
-(setq apropos-sort-by-scores t)
 
 (use-package ace-window
   :config
@@ -2173,12 +2112,7 @@ Similar to `org-capture' like behavior"
 
 (use-package zoom
   :custom
-  (zoom-mode t))
-
-(setq next-screen-context-lines 2)
-
-(blink-cursor-mode)
-(setq blink-cursor-blinks 0)
+  (zoom-mode nil))
 
 (use-package bookmark
   :ensure nil
@@ -2234,56 +2168,6 @@ Similar to `org-capture' like behavior"
   ;; (global-set-key (kbd "C-c f") #'fzf)
   ;; (global-set-key (kbd "C-c d") #'fzf-directory)
   )
-
-(repeat-mode)
-
-(pixel-scroll-mode 1)
-
-;; autosave file-visiting buffer but not non-file-visiting e.g. *scratch*
-(setq-default auto-save-default t)
-(setq auto-save-timeout 15)
-(setq auto-save-interval 100)
-(setq-default auto-save-no-message t)
-
-(setq
- auto-save-file-name-transforms
- `(("\\`/[^/]*:\\([^/]*/\\)*\\([^/]*\\)\\'" "~/.config/emacs/autosave/\\2" t)))
-
-(setq
- ;; turn on backup functionality
- make-backup-files t
- ;; also backup files that are version controlled
- vc-make-backup-files t
- ;; backup by renaming will make the existing file the backup, and so all old
- ;; links to the original file now links to the backup and not the edited file
- backup-by-copying t
- ;; control the naming of different versions ourselves
- version-control nil
- ;; don't ask to delete old version
- delete-old-versions t
- kept-new-versions 20
- kept-old-versions 20)
-
-;; by default emacs create backup on first buffer save since the file is visited
-;; C-u to save backup in second save (test above)
-;; C-u C-u to immediately save into backup
-(setq backup-directory-alist nil)
-
-(defun make-backup-file-name (file)
-  (let ((dirname (concat "~/.config/emacs/backup/"
-                         (format-time-string "%Y-%m-%d/"))))
-    (unless (file-exists-p dirname)
-      (make-directory dirname t))
-    ;; new backups in the same minute will overwrite the old backups. Append
-    ;; second infomation if needed
-    (concat dirname (concat (replace-regexp-in-string "/" "!" (buffer-file-name)) (format-time-string "T%H:%M~")))))
-
-(defun force-backup-of-buffer ()
-  "Utilize the standard backup system to make a backup everytime a buffer is saved."
-  (setq buffer-backed-up nil))
-
-(add-hook 'before-save-hook 'force-backup-of-buffer)
-
 (use-package super-save)
 
 (defun find-file--auto-create-dir (filename &optional wildcards)
@@ -2688,7 +2572,7 @@ If directory is not in a rust project call `read-directory-name'."
           :lint t))
   :bind
   (:map eglot-mode-map
-        ("C-c C-d" . xref-find-definitions)
+        ("M-." . xref-find-definitions)
         ("C-c d" . xref-find-definitions-other-window)
         ("C-c r"   . eglot-rename)
         ("C-c C-r" . xref-find-references)
@@ -3337,9 +3221,6 @@ If directory is not in a rust project call `read-directory-name'."
   :custom
   (comint-prompt-read-only t))
 
-;; Set limit for prompt opening large files higher, 100 M
-(setq large-file-warning-threshold 100000000)
-
 (use-package format-all
   :hook
   (prog-mode . format-all-ensure-formatter)
@@ -3860,17 +3741,17 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   (xref-auto-jump-to-first-xref nil)
   :custom-face
   (xref-file-header ((t (:inherit orderless-match-face-0))))
-  ;;; `zoom-mode' does not work well with side window. Use `xref''s default `display-buffer' action for now.
-  ;; :config
-  ;; (add-to-list
-  ;;  'display-buffer-alist
-  ;;  '("^\\*xref\\*"
-  ;;    display-buffer-in-side-window
-  ;;    (side . bottom)
-  ;;    (slot . 0)
-  ;;    (window-height . 20)
-  ;;    (window-parameters
-  ;;     (no-delete-other-windows . t))))
+  ;;; `zoom-mode' does not work well with side window. Comment below if using `zoom-mode'.
+  :config
+  (add-to-list
+   'display-buffer-alist
+   '("^\\*xref\\*"
+     display-buffer-in-side-window
+     (side . bottom)
+     (slot . 0)
+     (window-height . 20)
+     (window-parameters
+      (no-delete-other-windows . t))))
   :hook
   (xref-after-jump . beacon-blink)
   (xref-after-return . beacon-blink)
@@ -3910,7 +3791,8 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   (:map vterm-mode-map
         ("s-<return>" . vterm-send-return)
         ("C-<return>" . vterm-send-return)
-        ("C-s-t" . vterm-copy-mode))
+        ("C-s-t" . vterm-copy-mode)
+        ("C-/" . vterm-undo))
   (:map vterm-copy-mode-map
         ("q" . vterm-copy-mode)
         ("C-s-t" . vterm-copy-mode))
@@ -4268,7 +4150,8 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   :bind
   ("C-s-z" . zoom-window-zoom)
   :custom
-  (zoom-window-mode-line-color "black"))
+  (zoom-window-mode-line-color "black")
+  (zoom-window-mode-line-color "#3c586f"))
 
 (use-package simple
   :ensure nil
@@ -4443,7 +4326,6 @@ Insert full path if prefix argument `FULL-PATH' is sent."
 ;; (use-package visual-regexp-steroids)
 ;; (use-package emacs-color-theme-solarized)
 ;; (use-package restclient)  ;; Test HTTP REST webservices
-;; (use-package eros)
 ;; (use-package burly)
 ;; (use-package dired+)  ;; different colors for different file permissions
 ;; (use-package org-ioslide) ;; presentation
@@ -4477,9 +4359,6 @@ Insert full path if prefix argument `FULL-PATH' is sent."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(auto-revert-interval 5)
- '(bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks" nil nil "Customized with use-package bookmark+")
- '(comment-style 'indent)
  '(connection-local-criteria-alist
    '(((:application eshell)
       eshell-connection-default-profile)
@@ -4564,14 +4443,11 @@ Insert full path if prefix argument `FULL-PATH' is sent."
      (tramp-connection-local-default-system-profile
       (path-separator . ":")
       (null-device . "/dev/null"))))
- '(display-line-numbers-width-start nil)
- '(edebug-trace nil)
- '(fill-column 80)
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme))
- '(recenter-positions '(middle top bottom))
  '(safe-local-variable-values
-   '((read-only . t)
+   '((eval remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
+     (read-only . t)
      (comment-style quote box)
      (indent-bars-spacing-overide . 2)
      (indent-bars--offset . 2)
@@ -4581,8 +4457,5 @@ Insert full path if prefix argument `FULL-PATH' is sent."
 
 ;; Run as daemon
 (server-start)
-
-;; Put this at the end otherwise `pcache' will still register itself
-(remove-hook 'kill-emacs-hook 'pcache-kill-emacs-hook)
 
 ;;; init.el ends here
