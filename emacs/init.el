@@ -3310,7 +3310,7 @@ If directory is not in a rust project call `read-directory-name'."
   ;; See also `corfu-exclude-modes'.
   :init
   (if (display-graphic-p)
-      global-corfu-mode)
+      (global-corfu-mode))
   (corfu-history-mode)
   (corfu-popupinfo-mode) ; Popup completion info
   :custom-face
