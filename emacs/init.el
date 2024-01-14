@@ -51,10 +51,12 @@
   ;; Display line numbers in mode line
   (line-number-mode 1)
   (size-indication-mode -1)
-  (scroll-bar-mode -1)
-  (tool-bar-mode -1)
-  (tooltip-mode nil)
-  (set-fringe-mode '(7 . 0))
+  (if (display-graphic-p)
+      (progn
+        (scroll-bar-mode -1)
+        (tool-bar-mode -1)
+        (set-fringe-mode '(7 . 0))))
+  (tooltip-mode -1)
   (menu-bar-mode -1)
   (column-number-mode)
   (global-display-line-numbers-mode -1)
@@ -92,6 +94,7 @@
   (setq blink-cursor-blinks 0)
   (repeat-mode)
   (pixel-scroll-mode 1)
+  (delete-selection-mode 1)
 
   ;; autosave file-visiting buffer but not non-file-visiting e.g. *scratch*
   (setq-default auto-save-default t)
@@ -152,7 +155,35 @@
   ;; Set limit for prompt opening large files higher, 100 M
   (large-file-warning-threshold 100000000)
   (custom-safe-themes t)
-  (apropos-sort-by-scores t))
+  (apropos-sort-by-scores t)
+
+  :config
+  ;;; Check if a font exist:
+  ;;; (member "Sarasa Mono SC Nerd" (font-family-list))
+  ;; Set up fonts for different charsets.
+  (defun zino/set-font (font-name cn-font-name &optional initial-size cn-font-rescale-ratio)
+    "Set different font-family for Latin and Chinese charactors."
+    (let* ((size (or initial-size 14))
+           (ratio (or cn-font-rescale-ratio 0.0))
+           (main (font-spec :name font-name :size size))
+           (cn (font-spec :name cn-font-name)))
+      (set-face-attribute 'default nil :font main)
+      (dolist (charset '(kana han symbol cjk-misc bopomofo))
+        (set-fontset-font t charset cn))
+      (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
+
+  (zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 14 1)
+
+  (set-fontset-font
+   t 'symbol
+   (font-spec
+    :family "Apple Color Emoji"
+    :size 16
+    :weight 'normal
+    :width 'normal
+    :slant 'normal))
+
+  )
 
 (use-package emacs
   ;; Performance tuning
@@ -239,30 +270,27 @@
   :custom-face
   (variable-pitch ((t (:height 1.2 :family "Bookerly"))))
   :config
-  ;;; Check if a font exist:
-  ;;; (member "Sarasa Mono SC Nerd" (font-family-list))
-  ;; Set up fonts for different charsets.
-  (defun zino/set-font (font-name cn-font-name &optional initial-size cn-font-rescale-ratio)
-    "Set different font-family for Latin and Chinese charactors."
-    (let* ((size (or initial-size 14))
-           (ratio (or cn-font-rescale-ratio 0.0))
-           (main (font-spec :name font-name :size size))
-           (cn (font-spec :name cn-font-name)))
-      (set-face-attribute 'default nil :font main)
-      (dolist (charset '(kana han symbol cjk-misc bopomofo))
-        (set-fontset-font t charset cn))
-      (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
+  (setq remote-file-name-inhibit-cache nil)
+  (setq vc-ignore-dir-regexp
+        (format "%s\\|%s"
+                vc-ignore-dir-regexp
+                tramp-file-name-regexp))
 
-  (zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 13 1)
+  (if (display-graphic-p)
+      ;; https://stackoverflow.com/questions/4512075/how-to-use-ctrl-i-for-an-emacs-shortcut-without-breaking-tabs
+      (keyboard-translate ?\C-i ?\H-i))
 
-  (set-fontset-font
-   t 'symbol
-   (font-spec
-    :family "Apple Color Emoji"
-    :size 16
-    :weight 'normal
-    :width 'normal
-    :slant 'normal)))
+  ;; Customizing colors used in diff mode
+  ;; (defun custom-diff-colors ()
+  ;;   "update the colors for diff faces"
+  ;;   (set-face-attribute
+  ;;    'diff-added nil :foreground "green")
+  ;;   (set-face-attribute
+  ;;    'diff-removed nil :foreground "red")
+  ;;   (set-face-attribute
+  ;;    'diff-changed nil :foreground "purple"))
+  ;; (eval-after-load "diff-mode" '(custom-diff-colors))
+  )
 
 (use-package emacs
   :config
@@ -285,10 +313,138 @@
     (kill-region (point) (point-max)))
   (add-function :before after-focus-change-function 'garbage-collect)
 
+  ;; Boxes comment
+  ;; Site: https://boxes.thomasjensen.com/
+  (defun boxes-create ()
+    "Convert a region into box comments specified by `-d' option."
+    (interactive)
+    (shell-command-on-region (region-beginning)
+                             (region-end) "boxes -d c-cmt2" nil 1 nil))
+
+  (defun boxes-remove ()
+    "Convert a region of box comments into plain code."
+    (interactive)
+    (shell-command-on-region (region-beginning)
+                             (region-end) "boxes -r -d c-cmt2" nil 1 nil))
+
+  ;;; File manipulation
+  (defun zino/insert-buffer-file-name (full-path)
+    "Insert file name of the buffer at point.
+Insert full path if prefix argument `FULL-PATH' is sent."
+    (interactive "P")
+    (let ((f (buffer-file-name)))
+      (if (not full-path)
+          (setq f (file-name-nondirectory f)))
+      (insert f)))
+
+  (defun zino/inhibit-buffer-messages ()
+    "Set `inhibit-message' buffer-locally."
+    (setq-local inhibit-message t))
+
   :bind
   ("C-S-d" . zino/toggle-window-dedication)
   ("C-c C-z" . delete-to-end-of-buffer)
-  ("C-c C-s" . zino/toggle-scratch))
+  ("C-c C-s" . zino/toggle-scratch)
+  :config
+  ;; Mandatory, as the dictionary misbehaves!
+  (add-to-list 'display-buffer-alist
+               '("^\\*Dictionary\\*" display-buffer-in-side-window
+                 (side . left)
+                 (window-width . 50))))
+
+(use-package emacs
+  :config
+  ;; TERMINAL MAPPINGS TO SUPPORT ITERM2 FOR MAC
+  ;; reference: https://www.emacswiki.org/emacs/iTerm2
+  (unless window-system
+    (let ((map (if (boundp 'input-decode-map)
+                   input-decode-map
+                 function-key-map)))
+      ;; Self-defined escape sequences so that:
+      ;; 1. iterm2 send escape sequences when "s-p" is pressed;
+      ;; 2. emacs interpret the sequences as the kbd defined.
+      (define-key map "\e[1;P0"  (kbd "s-l"))
+      (define-key map "\e[1;P1"  (kbd "s-a"))
+      (define-key map "\e[1;P2"  (kbd "s-d"))
+      (define-key map "\e[1;P3"  (kbd "s-p"))
+      (define-key map "\e[1;P4"  (kbd "s-."))
+      (define-key map "\e[1;P5"  (kbd "s-j"))
+      (define-key map "\e[1;P6"  (kbd "C-S-k"))
+      (define-key map "\e[1;P7"  (kbd "C-s-<tab>"))
+      (define-key map "\e[1;P8"  (kbd "s-b"))
+      (define-key map "\e[1;P9"  (kbd "s-k"))
+      (define-key map "\e[1;Q0"  (kbd "s-s"))
+      (define-key map "\e[1;Q1"  (kbd "M-s-s"))
+      (define-key map "\e[1;Q2"  (kbd "H-i"))
+      (define-key map "\e[1;Q3"  (kbd "s-;"))
+      (define-key map "\e[1;Q4"  (kbd "C-;"))
+      ;; Use iterm2's builtin feature:
+      ;; xterm control sequence can enable modifyOtherKeysMode
+      (define-key map "\e[97;7u" (kbd "C-M-a"))
+      (define-key map "\e[98;7u" (kbd "C-M-b"))
+      (define-key map "\e[100;7u" (kbd "C-M-d"))
+      (define-key map "\e[101;7u" (kbd "C-M-e"))
+      (define-key map "\e[102;7u" (kbd "C-M-f"))
+      (define-key map "\e[117;7u" (kbd "C-M-u"))
+      (define-key map "\e[118;7u" (kbd "C-M-i"))
+      ;; (define-key map "\e[1;P12" (kbd "H-d"))
+      ;; (define-key map "\e[1;P13" (kbd "H-e"))
+      ;; (define-key map "\e[1;P14" (kbd "H-f"))
+      ;; (define-key map "\e[1;P15" (kbd "H-g"))
+      ;; (define-key map "\e[1;P16" (kbd "H-h"))
+      ;; (define-key map "\e[1;P17" (kbd "H-i"))
+      ;; (define-key map "\e[1;P18" (kbd "H-j"))
+      ;; (define-key map "\e[1;P19" (kbd "H-k"))
+      ;; (define-key map "\e[1;P20" (kbd "H-l"))
+      ;; (define-key map "\e[1;P21" (kbd "H-m"))
+      ;; (define-key map "\e[1;P22" (kbd "H-n"))
+      ;; (define-key map "\e[1;P23" (kbd "H-o"))
+      ;; (define-key map "\e[1;P24" (kbd "H-p"))
+      ;; (define-key map "\e[1;P25" (kbd "H-q"))
+      ;; (define-key map "\e[1;P26" (kbd "H-r"))
+      ;; (define-key map "\e[1;P27" (kbd "H-s"))
+      ;; (define-key map "\e[1;P28" (kbd "H-t"))
+      ;; (define-key map "\e[1;P29" (kbd "H-u"))
+      ;; (define-key map "\e[1;P30" (kbd "H-v"))
+      ;; (define-key map "\e[1;P31" (kbd "H-w"))
+      ;; (define-key map "\e[1;P32" (kbd "H-x"))
+      ;; (define-key map "\e[1;P33" (kbd "H-y"))
+      ;; (define-key map "\e[1;P34" (kbd "H-z"))
+      ;; (define-key map "\e[1;P35" (kbd "H-0"))
+      ;; (define-key map "\e[1;P36" (kbd "H-1"))
+      ;; (define-key map "\e[1;P37" (kbd "H-2"))
+      ;; (define-key map "\e[1;P38" (kbd "H-3"))
+      ;; (define-key map "\e[1;P39" (kbd "H-4"))
+      ;; (define-key map "\e[1;P40" (kbd "H-5"))
+      ;; (define-key map "\e[1;P41" (kbd "H-6"))
+      ;; (define-key map "\e[1;P42" (kbd "H-7"))
+      ;; (define-key map "\e[1;P43" (kbd "H-8"))
+      ;; (define-key map "\e[1;P44" (kbd "H-9"))
+      ;; (define-key map "\e[1;P45" (kbd "H-<f1>"))
+      ;; (define-key map "\e[1;P46" (kbd "H-<f2>"))
+      ;; (define-key map "\e[1;P47" (kbd "H-<f3>"))
+      ;; (define-key map "\e[1;P48" (kbd "H-<f4>"))
+      ;; (define-key map "\e[1;P49" (kbd "H-<f5>"))
+      ;; (define-key map "\e[1;P50" (kbd "H-<f6>"))
+      ;; (define-key map "\e[1;P51" (kbd "H-<f7>"))
+      ;; (define-key map "\e[1;P52" (kbd "H-<f8>"))
+      ;; (define-key map "\e[1;P53" (kbd "H-<f9>"))
+      ;; (define-key map "\e[1;P54" (kbd "H-<f10>"))
+      ;; (define-key map "\e[1;P55" (kbd "H-<f11>"))
+      ;; (define-key map "\e[1;P56" (kbd "H-<f12>"))
+      ))
+  )
+
+(use-package pixel-scroll
+  :disabled
+  :ensure nil
+  :bind
+  ([remap scroll-up-command]   . pixel-scroll-interpolate-down)
+  ([remap scroll-down-command] . pixel-scroll-interpolate-up)
+  :custom
+  (pixel-scroll-precision-interpolate-page t)
+  :init
+  (pixel-scroll-precision-mode 1))
 
 (use-package desktop
   :ensure nil
@@ -327,6 +483,7 @@
 (global-set-key (kbd "s-c") 'kill-ring-save)
 (global-set-key (kbd "s-v") 'yank)
 (global-set-key (kbd "s-k") 'kill-current-buffer)
+(global-set-key (kbd "C-s-k") 'delete-window)
 (global-set-key (kbd "s-u") 'revert-buffer)
 (global-set-key (kbd "s--") 'text-scale-adjust)
 (global-set-key (kbd "s-=") 'text-scale-adjust)
@@ -614,6 +771,10 @@ Save the buffer of the current window and kill it"
           (message "Edebug: %s" fn)))
       (widen))))
 
+(defun zino/md5-of-current-buffer-file ()
+  (interactive)
+  (message (md5 (current-buffer))))
+
 (use-package windmove
   :ensure nil
   :bind
@@ -764,7 +925,7 @@ Save the buffer of the current window and kill it"
   (("C-x C-j" . dired-jump)
    :map dired-mode-map
    ("(" . dired-hide-details-mode)
-   ("<backspace>" . dired-up-directory))
+   ("<DEL>" . dired-up-directory))
   :hook
   (dired-mode . auto-revert-mode)
   (dired-mode . dired-hide-details-mode)
@@ -781,14 +942,16 @@ Save the buffer of the current window and kill it"
   (dired-omit-verbose nil)
   :config
   (setq ls-lisp-use-insert-directory-program t)
-  ;; `ls' does not have `--group-directories-first' option, use `gls'.
-  (setq insert-directory-program "/usr/local/bin/gls"))
+  ;; In MacOS `ls' does not have `--group-directories-first' option, use `gls'.
+  (if (eq system-type 'darwin)
+      (setq insert-directory-program (string-trim (shell-command-to-string "which gls")))))
 
 (use-package nerd-icons-dired
   :hook
   (dired-mode . nerd-icons-dired-mode))
 
 (use-package diredfl
+  :commands (diredfl-global-mode)
   :init
   (diredfl-global-mode))
 
@@ -888,9 +1051,10 @@ Save the buffer of the current window and kill it"
   (eldoc-idle-delay 0.1)
   (eldoc-echo-area-prefer-doc-buffer t)
   (max-mini-window-height 0.2)
-  (eldoc-display-functions (remove 'eldoc-display-in-buffer eldoc-display-functions))
   (help-at-pt-timer-delay 1)
-  (help-at-pt-display-when-idle '(flymake-iagnostics)))
+  (help-at-pt-display-when-idle '(flymake-iagnostics))
+  :config
+  (delete 'eldoc-display-in-buffer eldoc-display-functions))
 
 (use-package eldoc-box
   :bind
@@ -1041,7 +1205,9 @@ Save the buffer of the current window and kill it"
    ("C-c s s" ("eat the next sexp into current one". sp-forward-slurp-sexp))
    ("C-c s n" ("unwrap the next sexp. 'n' as in 'next'". sp-unwrap-sexp))
    ("C-c s c" ("unwrap the current list. 'c' as in 'current'". sp-splice-sexp))
-   ("C-c s k" ("clear the inside of the enclosing sexp, like vim's <ci)>". sp-change-enclosing)))
+   ("C-c s k" ("clear the inside of the enclosing sexp, like vim's <ci)>". sp-change-enclosing))
+
+   )
 
   :config
   (smartparens-global-mode)
@@ -1182,13 +1348,23 @@ respectively."
 (use-package vertico-multiform
   :after vertico
   :ensure nil
-  :config
-  (vertico-multiform-mode)
+  :init
+  (vertico-multiform-mode 1)
   :custom
   ;; Configure the display per command.
   ;; Use a buffer with indices for imenu
   ;; and a flat (Ido-like) menu for M-x.
-  (vertico-multiform-commands '((consult-imenu buffer indexed))))
+  (vertico-multiform-commands '((consult-imenu buffer indexed)
+                                (consult-ripgrep buffer indexed)
+                                (zino/consult-ripgrep-thing-at-point buffer indexed)
+                                (consult-imenu-multi buffer indexed)))
+  :bind
+  (:map vertico-multiform-map
+        ("M-B" . vertico-multiform-buffer)
+        ("M-F" . vertico-multiform-flat)
+        ("M-G" . vertico-multiform-grid)
+        ("M-U" . vertico-multiform-unobstrusive)
+        ("M-V" . vertico-multiform-vertical)))
 
 (use-package vertico-quick
   :after vertico
@@ -1255,8 +1431,6 @@ respectively."
   (projectile-globally-ignored-directories nil) ; quick fix for bbatsov/projectile#1777
   :bind-keymap
   ("s-p" . projectile-command-map)
-  :bind
-  ([remap projectile-switch-to-buffer] . consult-project-buffer)
   :init
   ;; NOTE: Set this to the folder where you keep your Git repos!
   (when (file-directory-p "~/dev")
@@ -1292,6 +1466,9 @@ respectively."
   ;; Only refresh the current magit buffer
   (magit-refresh-status-buffer nil)
   (magit-save-repository-buffers 'dontask)
+  (magit-process-popup-time 10 "pop up process buffer is a command takes longer than this many seconds")
+  (magit-no-confirm
+   '(stage-all-changes unstage-all-changes rename set-and-push))
   :config
   (put 'magit-diff-edit-hunk-commit 'disabled nil)
   (dolist (section '((untracked . hide)
@@ -1365,7 +1542,17 @@ respectively."
                   ;; magit-insert-unpulled-from-upstream
                   ;; magit-insert-recent-commits
                   ))
-    (add-hook 'magit-status-sections-hook func)))
+    (add-hook 'magit-status-sections-hook func))
+
+  (dolist (func '(
+                  ;; magit-insert-error-header
+                  magit-insert-diff-filter-header
+                  ;; magit-insert-head-branch-header
+                  ;; magit-insert-upstream-branch-header
+                  ;; magit-insert-push-branch-header
+                  magit-insert-tags-header
+                  ))
+    (remove-hook 'magit-status-headers-hook func)))
 
 (use-package diff-hl
   :custom
@@ -1458,6 +1645,8 @@ respectively."
      ("PROG" . "#7cb8bb")
      ("OKAY" . "#7cb8bb")
      ("MAYBE" . "#7cb8bb")
+     ("QUESTION" . "#7cb8bb")
+     ("WHY" . "#7cb8bb")
      ("DONT" . "#5f7f5f")
      ("FAIL" . "#8c5353")
      ("DONE" . "#afd8af")
@@ -1469,6 +1658,7 @@ respectively."
      ("XXXX*" . "#cc9393")))
   :hook
   (prog-mode . hl-todo-mode)
+  (org-mode . hl-todo-mode)
   :bind
   ("M-s-[" . hl-todo-previous)
   ("M-s-]" . hl-todo-next))
@@ -1491,7 +1681,7 @@ respectively."
   (git-gutter:window-width 1))
 
 (use-package org
-  :preface
+  :config
   (defun org-mode-setup ()
     "Run after `org-mode' is initiated."
     (org-indent-mode)
@@ -1538,6 +1728,55 @@ respectively."
     (apply oldfun args)
     (setq-local completion-at-point-functions (remove 'cape-dabbrev completion-at-point-functions)))
 
+  ;; Refactor to make it work in org indirect buffer.
+  (defun org-babel-result-to-file (result &optional description type)
+    "Convert RESULT into an Org link with optional DESCRIPTION.
+If the `default-directory' is different from the containing
+file's directory then expand relative links.
+
+If the optional TYPE is passed as `attachment' and the path is a
+descendant of the DEFAULT-DIRECTORY, the generated link will be
+specified as an an \"attachment:\" style link."
+    (when (stringp result)
+      (let* ((result-file-name (expand-file-name result))
+             (base-file-name (buffer-file-name (buffer-base-buffer)))
+             ;; begin_modify
+             (base-directory (file-name-directory base-file-name))
+             ;; end_mordify
+             (same-directory?
+	            (and base-file-name
+	                 (not (string= (expand-file-name default-directory)
+			                           (expand-file-name
+			                            base-directory)))))
+             (request-attachment (eq type 'attachment))
+             (attach-dir (let* ((default-directory base-directory)
+                                (dir (org-attach-dir nil t)))
+                           (when dir
+                             (expand-file-name dir))))
+             (in-attach-dir (and request-attachment
+                                 attach-dir
+                                 (string-prefix-p
+                                  attach-dir
+                                  result-file-name))))
+        (format "[[%s:%s]%s]"
+                (pcase type
+                  ((and 'attachment (guard in-attach-dir)) "attachment")
+                  (_ "file"))
+                (if (and request-attachment in-attach-dir)
+                    (file-relative-name
+                     result-file-name
+                     (file-name-as-directory attach-dir))
+	                (if (and default-directory
+		                       base-file-name same-directory?)
+		                  (if (eq org-link-file-path-type 'adaptive)
+		                      (file-relative-name
+		                       result-file-name
+                           (file-name-directory
+			                      base-file-name))
+		                    result-file-name)
+		                result))
+	              (if description (concat "[" description "]") "")))))
+
   :config
   ;; `cape-dabbrev' slows Emacs down
   (advice-add 'org-edit-src-code :around 'zino/org-edit-src-code-advice)
@@ -1554,7 +1793,7 @@ respectively."
 
   :config
   ;; Make sure org-indent face is available
-  (require 'org-indent)
+
 
   ;;  Make backtick work as inline `org-vertatim' delimiter.
   (add-to-list 'org-emphasis-alist '("`" org-verbatim verbatim))
@@ -1740,6 +1979,10 @@ respectively."
    ("C-," . nil)
    ("s-<up>" . org-priority-up)
    ("s-<down>" . org-priority-down)
+   ("M-i" . consult-org-heading)
+   ("C-c C-x H-i" . org-clock-in)
+   :map c-mode-base-map
+   ("C-c C-l" . org-store-link)
    :repeat-map
    org-repeat-map
    ("-" . org-ctrl-c-minus)))
@@ -1786,8 +2029,7 @@ respectively."
   :hook
   (org-mode . org-bullets-mode)
   :custom
-  ;; (org-bullets-bullet-list '("⊛" "◎" "◉" "⊚" "○" "●"))
-  (org-bullets-bullet-list '("⊛" "◇" "✳" "○" "⊚" "●")))
+  (org-bullets-bullet-list '("⊛" "◇" "✳" "◎" "○" "⊚" "●")))
 
 (use-package org-download
   :after org
@@ -1900,7 +2142,7 @@ Similar to `org-capture' like behavior"
         ("ab" "Basic card with a front and a back"
          entry
          (file+headline zino/anki-file "Dispatch Shelf")
-         "** %<%Y-%m-%d:%H:%M>  %^g\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Basic\n:ANKI_DECK: %^{Deck|Vocabulary}\n:END:\n*** Front\n%?\n*** Back\n%x\n")
+         "** %<%Y-%m-%d:%H:%M>\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Basic\n:ANKI_DECK: %^{Deck|Vocabulary}\n:END:\n*** Front\n%?\n*** Back\n%x\n")
         ("ac" "Cloze"
          entry
          (file+headline zino/anki-file "Dispatch Shelf")
@@ -2010,7 +2252,7 @@ Similar to `org-capture' like behavior"
         '("C-f" "C-b" "C-n" "C-p" "C-g" "<left>" "<right>" "<up>"
           "<down>" "<prior>" "<next>" "<delete>" "C-`" "C-v" "M-v"))
   :bind
-  ("C-s-r" . rime-force-enable))
+  ("M-s-r" . rime-force-enable))
 
 ;;; Architecture
 ;;; epdfinfo runs poppler in server mode, receives request from emacs
@@ -2126,9 +2368,12 @@ Similar to `org-capture' like behavior"
   :ensure nil
   :custom
   (register-preview-delay 0.1)
-  :bind
-  ("s-x" . copy-to-register)
-  ("s-i" . insert-register))
+  ;; Use register functions provided by `consult'.
+  ;; :bind
+  ;; ("s-x" . copy-to-register)
+  ;; ("s-i" . insert-register)
+  )
+
 
 (defun zino/increment-number-decimal (&optional arg)
   "Increment the number forward from point by ARG."
@@ -2180,8 +2425,6 @@ Do not prompt me to create parent directory"
 
 (advice-add 'find-file :before 'find-file--auto-create-dir)
 
-(delete-selection-mode 1)
-
 (use-package consult
   :preface
   (defun zino/consult-imenu-thing-at-point (prompt items)
@@ -2213,29 +2456,86 @@ initial input."
       :initial (thing-at-point 'symbol)
       :sort nil)))
 
+  (defun zino/consult-ripgrep-thing-at-point (dir)
+    "Search with `rg' for files in DIR with `thing-at-point' as initial input."
+    (interactive "P")
+    (consult--grep "Ripgrep" #'consult--ripgrep-make-builder dir (thing-at-point 'symbol t)))
+
   :custom
   ;; Maually and immidiate
-  (consult-preview-key "M-.")
+  (consult-preview-key 'any)
   (consult-narrow-key "<")
+  (xref-show-xrefs-function 'consult-xref)
+  (xref-show-definitions-function 'consult-xref)
   :bind
-  ("M-i" . consult-imenu)
-  ("C-s-i" . (lambda ()
-               (interactive)
-               (zino/consult-imenu-thing-at-point
-                "Go to item: "
-                (consult--slow-operation "Building Imenu..."
-                  (consult-imenu--items)))))
-  ("M-s-i" . consult-imenu-multi)
-  ("s-s" . consult-line)
-  ("C-x b" . consult-buffer)
-  ("C-M-y" . consult-yank-from-kill-ring)
-  ("s-5" . consult-kmacro)
-  ([remap bookmark-jump] . consult-bookmark)
+  (("M-i" . consult-imenu)
+   ("C-s-i" . (lambda ()
+                (interactive)
+                (zino/consult-imenu-thing-at-point
+                 "Go to item: "
+                 (consult--slow-operation "Building Imenu..."
+                   (consult-imenu--items)))))
+   ("M-s-i" . consult-imenu-multi)
+   ("s-s" . consult-line)
+   ("C-x b" . consult-buffer)
+   ("C-M-y" . consult-yank-from-kill-ring)
+   ("s-5" . consult-kmacro)
+   ([remap bookmark-jump] . consult-bookmark)
+   ("M-g f" . consult-flymake)
+   ;; M-s bindings in `search-map'
+   ("M-s d" . consult-find)                  ;; Alternative: consult-fd
+   ("M-s c" . consult-locate)
+   ("M-s g" . consult-grep)
+   ("M-s G" . consult-git-grep)
+   ("M-s r" . consult-ripgrep)
+   ("M-s M-r" . zino/consult-ripgrep-thing-at-point)
+   ("M-s l" . consult-line)
+   ("M-s L" . consult-line-multi)
+   ("M-s k" . consult-keep-lines)
+   ("M-s u" . consult-focus-lines)
+   ;; Isearch integration
+   ("M-s e" . consult-isearch-history)
+   ;; Register
+   ("s-r" . consult-register-store)
+   ("s-i" . consult-register-load)
+   ("C-s-r" . consult-register)
+   :map isearch-mode-map
+   ("M-s e" . consult-isearch-history)       ;; orig. isearch-edit-string
+   ("M-s l" . consult-line)                  ;; needed by consult-line to detect isearch
+   ("M-s L" . consult-line-multi)            ;; needed by consult-line to detect isearch
+   ;; Minibuffer history
+   :map minibuffer-local-map
+   ("M-s" . consult-history)                 ;; orig. next-matching-history-element
+   ("M-r" . consult-history)                ;; orig. previous-matching-history-element
+
+   :map global-map
+   ;; Remaps
+   ([remap switch-to-buffer-other-window] . consult-buffer-other-window)
+   ([remap switch-to-buffer-other-frame] . consult-buffer-other-frame)
+   ([remap switch-to-buffer-other-tab] . consult-buffer-other-tab)
+
+   ([remap projectile-switch-to-buffer] . consult-project-buffer)
+   ([remap projectile-find-file] . consult-projectile-find-file)
+   ([remap projectile-find-file-other-window] . consult-projectile-find-file-other-window)
+   ([remap projectile-find-file-other-frame] . consult-projectile-find-file-other-frame)
+   ([remap projectile-switch-project] . consult-projectile-switch-project))
 
   :config
   (advice-add 'consult-bookmark :around (lambda (oldfun &rest args)
                                           (apply oldfun args)
-                                          (recenter))))
+                                          (recenter)))
+
+  :init
+  ;; Optionally configure the register formatting. This improves the register
+  ;; preview for `consult-register', `consult-register-load',
+  ;; `consult-register-store' and the Emacs built-ins.
+  (setq register-preview-function #'consult-register-format)
+  ;; Optionally tweak the register preview window.
+  ;; This adds thin lines, sorting and hides the mode line of the window.
+  (advice-add #'register-preview :override #'consult-register-window)
+
+  :custom-face
+  (consult-file ((t (:inherit font-lock-constant-face)))))
 
 ;;; Freeze emacs after each `save-buffer' and out of nowhere when I am just scrolling. It must've done some
 ;;; heavy background work.
@@ -2244,8 +2544,7 @@ initial input."
 ;;   ([remap projectile-file-file] . consult-project-find-file)
 ;;   ([remap projectile-switch-project] . consult-projectile-switch-project))
 
-(use-package consult-todo
-  :load-path "~/.config/emacs/manually_installed/consult-todo/")
+(use-package consult-todo)
 
 (use-package hl-line
   :hook
@@ -2278,12 +2577,6 @@ initial input."
   (tramp-verbose 3)
   (tramp-auto-save-directory "~/tmp/tramp/")
   (tramp-chunksize 2000))
-
-(setq remote-file-name-inhibit-cache nil)
-(setq vc-ignore-dir-regexp
-      (format "%s\\|%s"
-              vc-ignore-dir-regexp
-              tramp-file-name-regexp))
 
 (defun my/tree-sitter-compile-grammar (destination &optional path)
   "Compile grammar at PATH, and place the resulting shared library in DESTINATION."
@@ -2330,25 +2623,27 @@ initial input."
 ;;   :init
 ;;   (setq treesit-extra-load-path '("~/.config/emacs/ts-grammars/")))
 
-(setq treesit-extra-load-path '("~/.config/emacs/ts-grammars/"))
-
-(setq treesit-language-source-alist
-      '((bash "https://github.com/tree-sitter/tree-sitter-bash")
-        (cmake "https://github.com/uyha/tree-sitter-cmake")
-        (css "https://github.com/tree-sitter/tree-sitter-css")
-        (elisp "https://github.com/Wilfred/tree-sitter-elisp")
-        (go "https://github.com/tree-sitter/tree-sitter-go")
-        (gomod "https://github.com/camdencheek/tree-sitter-go-mod")
-        (html "https://github.com/tree-sitter/tree-sitter-html")
-        (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
-        (json "https://github.com/tree-sitter/tree-sitter-json")
-        (make "https://github.com/alemuller/tree-sitter-make")
-        (markdown "https://github.com/ikatyang/tree-sitter-markdown")
-        (python "https://github.com/tree-sitter/tree-sitter-python")
-        (toml "https://github.com/tree-sitter/tree-sitter-toml")
-        (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
-        (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
-        (yaml "https://github.com/ikatyang/tree-sitter-yaml")))
+(use-package treesit
+  :ensure nil
+  :config
+  (setq treesit-extra-load-path '("~/.config/emacs/ts-grammars/"))
+  (setq treesit-language-source-alist
+        '((bash "https://github.com/tree-sitter/tree-sitter-bash")
+          (cmake "https://github.com/uyha/tree-sitter-cmake")
+          (css "https://github.com/tree-sitter/tree-sitter-css")
+          (elisp "https://github.com/Wilfred/tree-sitter-elisp")
+          (go "https://github.com/tree-sitter/tree-sitter-go")
+          (gomod "https://github.com/camdencheek/tree-sitter-go-mod")
+          (html "https://github.com/tree-sitter/tree-sitter-html")
+          (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
+          (json "https://github.com/tree-sitter/tree-sitter-json")
+          (make "https://github.com/alemuller/tree-sitter-make")
+          (markdown "https://github.com/ikatyang/tree-sitter-markdown")
+          (python "https://github.com/tree-sitter/tree-sitter-python")
+          (toml "https://github.com/tree-sitter/tree-sitter-toml")
+          (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
+          (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+          (yaml "https://github.com/ikatyang/tree-sitter-yaml"))))
 
 (use-package cargo
   :hook
@@ -2370,7 +2665,6 @@ initial input."
   (setq auto-mode-alist (delete '("\\.rs\\'" . rust-ts-mode) auto-mode-alist)))
 
 (use-package rustic
-  :load-path "~/.config/emacs/manually_installed/rustic/"
   :custom
   (rustic-lsp-client 'eglot)
   (rustic-default-test-arguments nil)
@@ -2418,7 +2712,9 @@ If directory is not in a rust project call `read-directory-name'."
   (setq js-indent-level 2)
   :hook
   (js-mode . (lambda ()
-               (setq format-all-formatters '(("JavaScript" deno))))))
+               (setq format-all-formatters '(("JavaScript" deno)))))
+  :bind
+  (:map js-mode-map ("C-c C-p" . zino/rustic-popup)))
 
 (use-package lsp-mode
   :disabled
@@ -2545,19 +2841,14 @@ If directory is not in a rust project call `read-directory-name'."
     (setq eldoc-documentation-functions '(flymake-eldoc-function
                                           eglot-signature-eldoc-function
                                           eglot-hover-eldoc-function)))
-  :init
-  ;; eglot use this variable to determine if `company-mode' ignores case
-  (setq completion-ignore-case t)
-
   :config
-  ;; NOTE: Change existing `eglot-server-programs'
-  ;; (setf (alist-get 'yaml-mode eglot-server-programs) "my/special/path/to/yaml/server")
-  (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
-  (add-to-list 'eglot-server-programs '(c-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
+  ;; Inlay hints require `clangd-15' and is enabled by default, go get it!
+  (add-to-list 'eglot-server-programs '(c++-mode . ("clangd-15" "--clang-tidy" "--header-insertion=iwyu")))
+  (add-to-list 'eglot-server-programs '(c-mode . ("clangd-15" "--clang-tidy" "--header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(cmake-mode . ("cmake-language-server")))
-  (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp")))
+  (add-to-list 'eglot-server-programs '((js-mode :language-id "javascript" typescript-mode :language-id "javascript") . (eglot-deno "deno" "lsp")))
   (add-to-list 'eglot-server-programs '(lua-mode . ("lua-language-server")))
-  (add-to-list 'eglot-server-programs '(rust-mode . ("rust-analyzer" "-v")))
+  (add-to-list 'eglot-server-programs '(rust-mode . ("rust-analyzer")))
   (add-to-list 'eglot-server-programs '(beancount-mode . ("beancount-language-server")))
   (add-to-list 'eglot-server-programs '(rust-ts-mode . ("rust-analyzer")))
   (add-to-list 'eglot-server-programs '(go-ts-mode . ("gopls")))
@@ -2596,15 +2887,21 @@ If directory is not in a rust project call `read-directory-name'."
   :custom-face
   ;; (eglot-highlight-symbol-face ((t (:foreground "#DFDFDF" :background "#34536c" :weight bold))))
   (eglot-highlight-symbol-face ((t (:inherit bold))))
+  ;; (eglot-inlay-hint-face ((t (:foreground "#5B6268" :height 1.0 :family "Iosevka"))))
+  (eglot-inlay-hint-face ((t (:foreground "#979797" :height 1.0 :family "Iosevka"))))
+  (eglot-parameter-hint-face ((t (:foreground "#979797" :height 1.0 :family "Iosevka"))))
+  (eglot-type-hint-face ((t (:foreground "#979797" :height 1.0 :family "Isoveka"))))
+
   :custom
   (eglot-events-buffer-size 0)
   (eglot-sync-connect nil)
   ;; NOTE: Important. The default is nil, and will cause `xref-find-definitions'
-  ;; to fail in rust crates. (TODO: find out why it failed.)
+  ;; to fail in external rust crates. (TODO: find out why it failed.)
   (eglot-extend-to-xref t)
   (eglot-autoshutdown nil)
+  (eglot-send-changes-idle-time 0.2)
   :config
-  ;; Don't enable `flymake-mode' by default cos we use `flycheck-mode' for now.
+  ;; Stop `eglot' from turning on `flymake-mode'. Useful when `flycheck-mode' is intended for use.
   ;; (add-to-list 'eglot-stay-out-of 'flymake)
   )
 
@@ -2619,88 +2916,95 @@ If directory is not in a rust project call `read-directory-name'."
   ;; Try rust projects before version-control (vc) projects
   (add-hook 'project-find-functions 'zino/project-try-cargo-toml nil nil))
 
-;; How to translate LSP configuration examples into Eglot’s format:
-;;
-;; Usually LSP servers will say something like
-;;
-;; rust-analyzer.procMacro.attributes.enable (default: true)
-;;
-;; Translate that into a JSON LSP configuration, you get
-;;
-;; {
-;;   "rust-analyzer": {
-;;     "procMacro": {
-;;       "attributes": {
-;;         "enable": true
-;;       }
-;;     }
-;;   }
-;; }
-;;
-;; In general the key at the root level must be the LSP server’s name,
-;; so that one configuration can cover multiple servers. If the LSP
-;; server’s documentation omitted the name part, remember to add it
-;; yourself.
-;;
-;; Translate that into plist format that Eglot uses, you get
-;;
-;; (:rust-analyzer (:procMacro (:attributes (:enable t))))
-;;
-;; Keys translate to keywords (with the same spelling and case),
-;; dictionaries translate to plists, arrays translate to vectors, true
-;; translates to t, false translates to a special keyword :json-false,
-;; null translates to nil, empty directory {} translates to eglot-{}.
+(use-package eglot
+  ;; How to translate LSP configuration examples into Eglot’s format:
+  ;;
+  ;; Usually LSP servers will say something like
+  ;;
+  ;; rust-analyzer.procMacro.attributes.enable (default: true)
+  ;;
+  ;; Translate that into a JSON LSP configuration, you get
+  ;;
+  ;; {
+  ;;   "rust-analyzer": {
+  ;;     "procMacro": {
+  ;;       "attributes": {
+  ;;         "enable": true
+  ;;       }
+  ;;     }
+  ;;   }
+  ;; }
+  ;;
+  ;; In general the key at the root level must be the LSP server’s name,
+  ;; so that one configuration can cover multiple servers. If the LSP
+  ;; server’s documentation omitted the name part, remember to add it
+  ;; yourself.
+  ;;
+  ;; Translate that into plist format that Eglot uses, you get
+  ;;
+  ;; (:rust-analyzer (:procMacro (:attributes (:enable t))))
+  ;;
+  ;; Keys translate to keywords (with the same spelling and case),
+  ;; dictionaries translate to plists, arrays translate to vectors, true
+  ;; translates to t, false translates to a special keyword :json-false,
+  ;; null translates to nil, empty directory {} translates to eglot-{}.
 
-;; Define a setup function that runs in the mode hook.
-;; (defun setup-rust ()
-;;   "Setup for ‘rust-mode’."
-;;   ;; Configuration taken from rust-analyzer’s manual:
-;;   ;; https://rust-analyzer.github.io/manual.html#configuration
-;;   (setq-local eglot-workspace-configuration
-;;               ;; Setting the workspace configuration for every
-;;               ;; rust-mode buffer, you can also set it with dir-local
-;;               ;; variables, should you want different configuration
-;;               ;; per project/directory.
-;;               '(:rust-analyzer
-;;                 ( :procMacro ( :attributes (:enable t)
-;;                                :enable t)
-;;                   :autoImport (:enable t)
-;;                   :cargo (:buildScripts (:enable t))
-;;                   :diagnostics (:disabled ["unresolved-proc-macro"
-;;                                            "unresolved-macro-call"])))))
+  ;; Define a setup function that runs in the mode hook.
+  ;; (defun setup-rust ()
+  ;;   "Setup for ‘rust-mode’."
+  ;;   ;; Configuration taken from rust-analyzer’s manual:
+  ;;   ;; https://rust-analyzer.github.io/manual.html#configuration
+  ;;   (setq-local eglot-workspace-configuration
+  ;;               ;; Setting the workspace configuration for every
+  ;;               ;; rust-mode buffer, you can also set it with dir-local
+  ;;               ;; variables, should you want different configuration
+  ;;               ;; per project/directory.
+  ;;               '(:rust-analyzer
+  ;;                 ( :procMacro ( :attributes (:enable t)
+  ;;                                :enable t)
+  ;;                   :autoImport (:enable t)
+  ;;                   :cargo (:buildScripts (:enable t))
+  ;;                   :diagnostics (:disabled ["unresolved-proc-macro"
+  ;;                                            "unresolved-macro-call"])))))
 
-;; Define a custom eglot LSP server for rust-analyzer because it
-;; expects initializationOptions done a bit differently (see below).
-;; (defclass eglot-rust-analyzer (eglot-lsp-server) ()
-;;   :documentation "A custom class for rust-analyzer.")
+  ;; Define a custom eglot LSP server for rust-analyzer because it
+  ;; expects initializationOptions done a bit differently (see below).
+  ;; (defclass eglot-rust-analyzer (eglot-lsp-server) ()
+  ;;   :documentation "A custom class for rust-analyzer.")
 
-;; Rust-analyzer requires the workspaceConfiguration sent as
-;; initializationOptions at startup time. See
-;; https://github.com/joaotavora/eglot/discussions/845 and
-;; rust-analyzer’s manual page.
-;; (cl-defmethod eglot-initialization-options ((server eglot-rust-analyzer))
-;;   eglot-workspace-configuration)
+  ;; Rust-analyzer requires the workspaceConfiguration sent as
+  ;; initializationOptions at startup time. See
+  ;; https://github.com/joaotavora/eglot/discussions/845 and
+  ;; rust-analyzer’s manual page.
+  ;; (cl-defmethod eglot-initialization-options ((server eglot-rust-analyzer))
+  ;;   eglot-workspace-configuration)
 
-;; Use our custom ‘eglot-rust-analyzer’ for ‘rust-mode’.
-;; (add-to-list 'eglot-server-programs
-;;              '(rust-mode . (eglot-rust-analyzer "rust-analyzer")))
+  ;; Use our custom ‘eglot-rust-analyzer’ for ‘rust-mode’.
+  ;; (add-to-list 'eglot-server-programs
+  ;;              '(rust-mode . (eglot-rust-analyzer "rust-analyzer")))
 
-;; Define a setup function that runs in the mode hook.
-;; (defun setup-rust ()
-;;   "Setup for ‘rust-mode’."
-;;   ;; Configuration taken from rust-analyzer’s manual:
-;;   ;; https://rust-analyzer.github.io/manual.html#configuration
-;;   (interactive)
-;;   (setq-local eglot-workspace-configuration
-;;               ;; Setting the workspace configuration for every
-;;               ;; rust-mode buffer, you can also set it with dir-local
-;;               ;; variables, should you want different configuration
-;;               ;; per project/directory.
-;;               '(:rust-analyzer
-;;                 (:autoImport (:enable t)))))
+  ;; Define a setup function that runs in the mode hook.
+  ;; (defun setup-rust ()
+  ;;   "Setup for ‘rust-mode’."
+  ;;   ;; Configuration taken from rust-analyzer’s manual:
+  ;;   ;; https://rust-analyzer.github.io/manual.html#configuration
+  ;;   (interactive)
+  ;;   (setq-local eglot-workspace-configuration
+  ;;               ;; Setting the workspace configuration for every
+  ;;               ;; rust-mode buffer, you can also set it with dir-local
+  ;;               ;; variables, should you want different configuration
+  ;;               ;; per project/directory.
+  ;;               '(:rust-analyzer
+  ;;                 (:autoImport (:enable t)))))
 
-;; Run our setup function in ‘rust-mode-hook’.
-;; (add-hook 'rust-mode-hook #'setup-rust)
+  ;; Run our setup function in ‘rust-mode-hook’.
+  ;; (add-hook 'rust-mode-hook #'setup-rust)
+  )
+
+(use-package eglot-booster
+  :load-path "~/.config/emacs/manually_installed/eglot-booster.el"
+  :hook
+  (eglot-managed-mode . eglot-booster))
 
 (use-package eglot-x
   :ensure nil
@@ -2712,17 +3016,17 @@ If directory is not in a rust project call `read-directory-name'."
 
 (use-package yasnippet-snippets)
 
+
 (use-package flymake
   :bind
   (:map flymake-mode-map
         ("C-c [" . flymake-goto-prev-error)
         ("C-c ]" . flymake-goto-next-error)
-        ("C-c C-e" .
-         (lambda ()
-           "Open the window listing errors and switch to it."
-           (interactive)
-           (flymake-show-buffer-diagnostics)
-           (pop-to-buffer (flymake--diagnostics-buffer-name)))))
+        ("C-c C-e" . (lambda ()
+                       "Open the window listing errors and switch to it."
+                       (interactive)
+                       (flymake-show-buffer-diagnostics)
+                       (pop-to-buffer (flymake--diagnostics-buffer-name)))))
   (:repeat-map flymake-repeat-map
                ("[" . flymake-goto-prev-error)
                ("]" . flymake-goto-next-error))
@@ -2730,7 +3034,8 @@ If directory is not in a rust project call `read-directory-name'."
   (prog-mode . flymake-mode)
   :custom
   (help-at-pt-display-when-idle t)
-  (next-error-function 'flymake-goto-next-error))
+  (next-error-function 'flymake-goto-next-error)
+  (flymake-no-changes-timeout 0.2))
 
 (use-package flymake-cursor
   :after flymake
@@ -2824,55 +3129,11 @@ If directory is not in a rust project call `read-directory-name'."
                        (interactive)
                        (flycheck-list-errors)
                        (pop-to-buffer "*Flycheck errors*"))))
-  (:repeat-map flycheck-repeat-mode-map
+  (:repeat-map flycheck-mode-repeat-map
                ("[" . flycheck-previous-error)
                ("]" . flycheck-next-error))
   :config
   (advice-add 'flycheck-next-error :around 'zino/flycheck-next-error-advice))
-
-;; (use-package flycheck-rust
-;;   :after flycheck
-;;   :hook
-;;   (flycheck-mode . flycheck-rust-setup))
-
-;; (use-package flycheck-eglot
-;;   :disabled
-;;   :after flycheck
-;;   :config
-;;   (global-flycheck-eglot-mode 1))
-
-(defun repeatize (keymap)
-  "Add `repeat-mode' support to a KEYMAP."
-  (map-keymap
-   (lambda (_key cmd)
-     (when (symbolp cmd)
-       (put cmd 'repeat-map keymap)))
-   (symbol-value keymap)))
-
-(defvar isearch-repeat-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "s" #'isearch-repeat-forward)
-    (define-key map "r" #'isearch-repeat-backward)
-    map)
-  "Repeat map for isearch.")
-
-(defvar winner-repeat-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "<left>") 'winner-undo)
-    (define-key map (kbd "<right>") 'winner-redo)
-    map)
-  "Repeat map for `winner-mode'.")
-
-(defvar org-remark-repeat-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "[") 'org-remark-view-prev)
-    (define-key map (kbd "]") 'org-remark-view-next)
-    map)
-  "Repeat map for `org-remark'.")
-
-(repeatize 'isearch-repeat-map)
-(repeatize 'winner-repeat-map)
-(repeatize 'org-remark-repeat-map)
 
 ;; Show matching parenthesis
 (use-package mic-paren
@@ -2882,20 +3143,6 @@ If directory is not in a rust project call `read-directory-name'."
   ;; (paren-activate)
   :custom
   (paren-display-message 'always))
-
-;; Boxes comment
-;; Site: https://boxes.thomasjensen.com/
-(defun boxes-create ()
-  "Convert a region into box comments specified by `-d' option."
-  (interactive)
-  (shell-command-on-region (region-beginning)
-                           (region-end) "boxes -d c-cmt2" nil 1 nil))
-
-(defun boxes-remove ()
-  "Convert a region of box comments into plain code."
-  (interactive)
-  (shell-command-on-region (region-beginning)
-                           (region-end) "boxes -r -d c-cmt2" nil 1 nil))
 
 (use-package button-lock)
 
@@ -2961,23 +3208,32 @@ If directory is not in a rust project call `read-directory-name'."
 
 (use-package winner
   :hook
-  (after-init . winner-mode))
+  (after-init . winner-mode)
+  :bind
+  (:map winner-repeat-map
+        ("<left>" . winner-undo)
+        ("<right>" . winner-redo)))
 
 ;; lua mode
 (use-package lua-mode
+  :load-path "~/.config/emacs/manually_installed/lua-mode"
   :bind
   (:map lua-mode-map
         ([remap beginning-of-defun] . lua-beginning-of-proc)
         ([remap end-of-defun] . lua-end-of-proc))
   :custom
-  (lua-indent-level 4))
+  (lua-indent-level 4)
+  :config
+  (add-to-list 'auto-mode-alist '("\\.lua$" . lua-mode))
+  (add-to-list 'interpreter-mode-alist '("lua" . lua-mode)))
 
-(add-to-list 'load-path "~/.config/emacs/manually_installed/lua-mode")
-(autoload 'lua-mode "lua-mode" "Lua editing mode." t)
-(add-to-list 'auto-mode-alist '("\\.lua$" . lua-mode))
-(add-to-list 'auto-mode-alist '("\\.t$" . perl-mode))
-(add-to-list 'interpreter-mode-alist '("lua" . lua-mode))
-(add-to-list 'auto-mode-alist '(".*Makefile" . makefile-gmake-mode))
+(use-package perl-mode
+  :config
+  (add-to-list 'auto-mode-alist '("\\.t$" . perl-mode)))
+
+(use-package make-mode
+  :config
+  (add-to-list 'auto-mode-alist '(".*Makefile" . makefile-gmake-mode)))
 
 (use-package cc-mode
   :ensure nil
@@ -3053,7 +3309,8 @@ If directory is not in a rust project call `read-directory-name'."
   ;; This is recommended since Dabbrev can be used globally (M-/s ).
   ;; See also `corfu-exclude-modes'.
   :init
-  (global-corfu-mode)
+  (if (display-graphic-p)
+      global-corfu-mode)
   (corfu-history-mode)
   (corfu-popupinfo-mode) ; Popup completion info
   :custom-face
@@ -3061,14 +3318,22 @@ If directory is not in a rust project call `read-directory-name'."
   (corfu-border ((t (:weight bold :width extra-expanded))))
   (corfu-current ((t (:background "#2c3946" :foreground "#bbc2cf")))))
 
-(defun corfu-enable-in-minibuffer ()
-  "Enable Corfu in the minibuffer if `completion-at-point' is bound."
-  (when (where-is-internal #'completion-at-point (list (current-local-map)))
-    ;; (setq-local corfu-auto nil) ;; Enable/disable auto completion
-    (setq-local corfu-echo-delay nil ;; Disable automatic echo and popup
-                corfu-popupinfo-delay nil)
-    (corfu-mode 1)))
-(add-hook 'minibuffer-setup-hook #'corfu-enable-in-minibuffer)
+(use-package corfu
+  :config
+  (defun corfu-enable-in-minibuffer ()
+    "Enable Corfu in the minibuffer if `completion-at-point' is bound."
+    (when (where-is-internal #'completion-at-point (list (current-local-map)))
+      ;; (setq-local corfu-auto nil) ;; Enable/disable auto completion
+      (setq-local corfu-echo-delay nil ;; Disable automatic echo and popup
+                  corfu-popupinfo-delay nil)
+      (corfu-mode 1)))
+  :hook
+  (minibuffer-setup . corfu-enable-in-minibuffer))
+
+(use-package corfu-terminal
+  :config
+  (unless (display-graphic-p)
+    (corfu-terminal-mode +1)))
 
 ;; Add extensions for `completion-at-point-functions'
 (use-package cape
@@ -3113,7 +3378,7 @@ If directory is not in a rust project call `read-directory-name'."
   ;; Configure a custom style dispatcher (see the Consult wiki)
   ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
   ;;       orderless-component-separator #'orderless-escapable-split-on-space)
-  (setq completion-styles '(orderless flex basic)
+  (setq completion-styles '(orderless flex basic partial-completion emacs22)
         completion-category-defaults nil
         completion-category-overrides '((file (styles . (partial-completion)))))
   :hook
@@ -3130,7 +3395,7 @@ If directory is not in a rust project call `read-directory-name'."
   ;; flex completion style is too sluggish with `eval-expression' so use
   ;; orderless by default. This works coz `eval-expression-minibuffer-setup-hook'
   ;; is run after `minibuffer-mode-hook'. NOTE: `minibuffer-setup-hook' is run
-  ;; after entry to minibuffer, and hence is not suitable to set completion
+  ;; after entry to minibuffer, hence is not suitable to set completion
   ;; styles as it cannot differentiate `eval-expression' from `M-x'.
   (eval-expression-minibuffer-setup . (lambda ()
                                         (setq-local completion-styles '(orderless partial-completion basic))))
@@ -3138,7 +3403,7 @@ If directory is not in a rust project call `read-directory-name'."
   (add-hook 'minibuffer-mode-hook (defun completion-styles-for-minibuffer ()
                                     "Enable autocompletion on files."
                                     (add-to-list 'completion-at-point-functions 'cape-file)
-                                    (setq-local completion-styles '(flex orderless partial-completion basic)))))
+                                    (setq-local completion-styles '(orderless flex basic partial-completion)))))
 
 (use-package kind-icon
   :ensure t
@@ -3186,9 +3451,10 @@ If directory is not in a rust project call `read-directory-name'."
      lsp-bridge-not-complete-manually)))
 
 (use-package clipetty
-  :disabled
   :ensure t
-  :hook (after-init . global-clipetty-mode))
+  :config
+  (unless (display-graphic-p)
+    (add-hook 'after-init-hook 'global-clipetty-mode)))
 
 ;; git-modes
 (use-package git-modes)
@@ -3344,16 +3610,12 @@ If directory is not in a rust project call `read-directory-name'."
       ))
 
   :init
-  ;; https://stackoverflow.com/questions/4512075/how-to-use-ctrl-i-for-an-emacs-shortcut-without-breaking-tabs
-  (keyboard-translate ?\C-i ?\H-i)
   :custom
   (better-jumper-context 'window)
   :bind
-  (("C-o" . better-jumper-jump-backward)
-   ("H-i" . better-jumper-jump-forward)
-   :map org-mode-map
-   ;; Not better jumpper related, but also use 'H-i' keybinding
-   ("C-c C-x H-i" . org-clock-in))
+  ("C-o" . better-jumper-jump-backward)
+  :config
+  (global-set-key (kbd "H-i") 'better-jumper-jump-forward)
 
   :config
   (better-jumper-mode 1)
@@ -3362,7 +3624,7 @@ If directory is not in a rust project call `read-directory-name'."
   (advice-add 'zino/switch-other-buffer :around 'zino/better-jumper-advice)
   (advice-add 'helm-imenu :around 'zino/better-jumper-advice)
   (advice-add 'widget-button-press :around 'zino/better-jumper-advice)
-  (advice-add 'org-open-at-point :around 'zino/better-jumper-advice)
+  (advice-add 'org-return :around 'zino/better-jumper-advice)
   (advice-add 'beginning-of-buffer :around 'zino/better-jumper-advice)
   (advice-add 'end-of-buffer :around 'zino/better-jumper-advice)
   (advice-add 'c-beginning-of-defun :around 'zino/better-jumper-advice)
@@ -3381,6 +3643,16 @@ If directory is not in a rust project call `read-directory-name'."
   (advice-add 'consult-imenu :around 'zino/better-jumper-advice)
   (advice-add 'consult-line :around 'zino/better-jumper-advice)
   (advice-add 'symbols-outline-move-depth-up :around 'zino/better-jumper-advice))
+
+(use-package dogears
+  :init (dogears-mode 1)
+  :bind
+  (:map global-map
+        ("M-g d" . dogears-go)
+        ("M-g M-b" . dogears-back)
+        ("M-g M-f" . dogears-forward)
+        ("M-g M-d" . dogears-list)
+        ("M-g M-D" . dogears-sidebar)))
 
 (use-package org-remark
   :config
@@ -3487,6 +3759,9 @@ If directory is not in a rust project call `read-directory-name'."
    ("C-x C-n l" . org-remark-mark-red-line)
    ("C-x C-n e" . zino/org-remark-mark-and-open)
    ("C-x C-n t" . org-remark-toggle))
+  (:repeat-map org-remark-repeat-map
+               ("[" . org-remark-view-prev)
+               ("]" . org-remark-view-next))
   :custom
   (org-remark-notes-display-buffer-action
    '((display-buffer-in-side-window)
@@ -3566,12 +3841,13 @@ If directory is not in a rust project call `read-directory-name'."
 
   :bind
   ("C-s-s" . zino/isearch-region-or-forward)
-  :config
-  (put 'zino/isearch-region-or-forward 'repeat-map isearch-repeat-map))
-
-(defun zino/inhibit-buffer-messages ()
-  "Set `inhibit-message' buffer-locally."
-  (setq-local inhibit-message t))
+  (:repeat-map isearch-repeat-map
+               ("s" . isearch-repeat-forward)
+               ("r" . isearch-repeat-backward))
+  ;; :hook
+  ;; Recenter after the match is selected, not recenter on every match.
+  ;; (isearch-mode-end . recenter-top-bottom)
+  )
 
 (use-package nasm-mode
   :init
@@ -3658,9 +3934,10 @@ If directory is not in a rust project call `read-directory-name'."
   :hook
   (compilation-filter . zino/ansi-colorize-region))
 
-;; (use-package xterm-color
-;;   :custom
-;;   (xterm-color-render t))
+(use-package xterm-color
+  :disabled
+  :custom
+  (xterm-color-render t))
 
 (use-package avy
   :bind
@@ -3727,7 +4004,7 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   (pulsar-face 'beacon-fallback-background)
   (pulsar-iterations 3)
   ;; :config
-  ;; (setq pulsar-pulse-functions (remove 'recenter-top-bottom pulsar-pulse-functions))
+  ;; (delete 'recenter-top-bottom pulsar-pulse-functions)
   )
 
 (use-package xref
@@ -3767,7 +4044,6 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   :hook
   (eshell-mode . (lambda ()
                    (setq-local corfu-auto nil)))
-
   :config
   (with-eval-after-load 'esh-mode
     (define-key eshell-mode-map (kbd "C-k") 'eshell-kill-input))
@@ -3783,8 +4059,9 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   :bind
   ("s-e" . eshell-toggle))
 
-;; (use-package eat
-;;   :load-path "~/.config/emacs/manually_installed/emacs-eat/")
+(use-package eat
+  :disabled
+  :load-path "~/.config/emacs/manually_installed/emacs-eat/")
 
 (use-package vterm
   :bind
@@ -3800,12 +4077,35 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   (vterm-timer-delay 0.01))
 
 (use-package vterm-toggle
+  :config
+  (defun zino/vterm-toggle(&optional args)
+    "Vterm toggle.
+Optional argument ARGS ."
+    (interactive "P")
+    (cond
+     ((or (derived-mode-p 'vterm-mode)
+          (and (vterm-toggle--get-window)
+               vterm-toggle-hide-method))
+      (if (equal (prefix-numeric-value args) 1)
+          (if (derived-mode-p 'vterm-mode)
+              (vterm-toggle-hide)
+            ;; A vterm window exists but is not focused, simply switch to it.
+            (vterm-toggle-show))
+        ;; Create a new vterm buffer window and switch to it.
+        (vterm vterm-buffer-name)))
+     ((equal (prefix-numeric-value args) 1)
+      (vterm-toggle-show))
+     ((equal (prefix-numeric-value args) 4)
+      (let ((vterm-toggle-fullscreen-p
+             (not vterm-toggle-fullscreen-p)))
+        (vterm-toggle-show)))))
+
   :bind
-  ("s-e" . vterm-toggle)
+  ("s-e" . zino/vterm-toggle)
   :config
   (setq vterm-toggle-fullscreen-p nil)
   ;; (add-to-list 'display-buffer-alist
-  ;;              '((lambda (buffer-or-name _)
+
   ;;                  (let ((buffer (get-buffer buffer-or-name)))
   ;;                    (with-current-buffer buffer
   ;;                      (or (equal major-mode 'vterm-mode)
@@ -3831,10 +4131,10 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   :config
   (nyan-mode -1)
   :custom
-  (nyan-cat-face-number 1)
-  )
+  (nyan-cat-face-number 1))
 
 (use-package screenshot
+  :disabled
   :load-path "~/.config/emacs/manually_installed/screenshot/"
   :custom
   (screenshot-line-numbers-p t))
@@ -3843,10 +4143,17 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   :straight (explain-pause-mode :type git :host github :repo "lastquestion/explain-pause-mode"))
 
 (use-package breadcrumb
+  :disabled
   :load-path "~/.config/emacs/manually_installed/breadcrumb/"
   :custom
   (breadcrumb-project-max-length 0)
   (breadcrumb-imenu-max-length 80))
+
+(use-package window-stool
+  :disabled
+  :straight (:type git :host github :repo "jaszhe/window-stool")
+  :hook
+  (prog-mode . window-stool-mode))
 
 ;; This will mess up `org-ellipsis', don't use it for now.
 (use-package pp-c-l
@@ -3858,12 +4165,15 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   :config
   (pretty-control-l-mode))
 
-(use-package prism)
+(use-package prism
+  :disabled)
 
 (use-package bookmark+
   :load-path "~/.config/emacs/manually_installed/bookmark-plus"
   :custom
-  (bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks"))
+  (bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks")
+  :custom-face
+  (bmkp-local-file-without-region ((t (:foreground "#bbc2cf")))))
 
 (use-package tla-mode
   :load-path "~/.config/emacs/manually_installed/tla-mode")
@@ -3881,60 +4191,10 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   (tree-sitter-hl-use-font-lock-keywords t)
   :custom-face
   (tree-sitter-hl-face:function.call ((t (:inherit (link font-lock-function-name-face) :underline nil :weight normal))))
-  (tree-sitter-hl-face:property ((t (:inherit font-lock-constant-face)))))
-
-(add-to-list 'tree-sitter-major-mode-language-alist '(go-ts-mode . go))
-(add-to-list 'tree-sitter-major-mode-language-alist '(rust-ts-mode . go))
-
-;; (use-package treesit-auto
-;;   :config
-;;   (global-treesit-auto-mode))
-
-;; (use-package tree-sitter-rust
-;;   :straight
-;;   (:host github
-;;          :repo "tree-sitter/tree-sitter-rust"
-;;          :post-build
-;;          (my/tree-sitter-compile-grammar
-;;           (expand-file-name "ts-grammars" user-emacs-directory)))
-;;   :init
-;;   (setq treesit-extra-load-path '("~/.config/emacs/ts-grammars/"))
-;;   (defun my/tree-sitter-compile-grammar (destination &optional path)
-;;     "Compile grammar at PATH, and place the resulting shared library in DESTINATION."
-;;     (interactive "fWhere should we put the shared library? \nfWhat tree-sitter grammar are we compiling? \n")
-;;     (make-directory destination 'parents)
-
-;;     (let* ((default-directory
-;;             (expand-file-name "src/" (or path default-directory)))
-;;            (parser-name
-;;             (thread-last (expand-file-name "grammar.json" default-directory)
-;;                          (json-read-file)p
-;;                          (alist-get 'name)))
-;;            (emacs-module-url
-;;             "https://raw.githubusercontent.com/casouri/tree-sitter-module/master/emacs-module.h")
-;;            (tree-sitter-lang-in-url
-;;             "https://raw.githubusercontent.com/casouri/tree-sitter-module/master/tree-sitter-lang.in")
-;;            (needs-cpp-compiler nil))
-;;       (message "Compiling grammar at %s" path)
-
-;;       (url-copy-file emacs-module-url "emacs-module.h" :ok-if-already-exists)
-;;       (url-copy-file tree-sitter-lang-in-url "tree-sitter-lang.in" :ok-if-already-exists)
-
-;;       (with-temp-buffer
-;;         (unless
-;;             (zerop
-;;              (apply #'call-process
-;;                     (if (file-exists-p "scanner.cc") "c++" "cc") nil t nil
-;;                     "parser.c" "-I." "--shared" "-o"
-;;                     (expand-file-name
-;;                      (format "libtree-sitter-%s%s" parser-name module-file-suffix)
-;;                      destination)
-;;                     (cond ((file-exists-p "scanner.c") '("scanner.c"))
-;;                           ((file-exists-p "scanner.cc") '("scanner.cc")))))
-;;           (user-error
-;;            "Unable to compile grammar, please file a bug report\n%s"
-;;            (buffer-string))))
-;;       (message "Completed compilation"))))
+  (tree-sitter-hl-face:property ((t (:inherit font-lock-constant-face))))
+  :config
+  (add-to-list 'tree-sitter-major-mode-language-alist '(go-ts-mode . go))
+  (add-to-list 'tree-sitter-major-mode-language-alist '(rust-ts-mode . rust)))
 
 (use-package separedit
   :bind
@@ -4029,9 +4289,10 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   :disabled)
 
 (use-package ef-themes
-  :load-path "~/.config/emacs/manually_installed/ef-themes/")
+  :disabled)
 
-;; (use-package org-valign)
+(use-package org-valign
+  :disabled)
 
 (use-package indent-bars
   :load-path "manually_installed/indent-bars/"
@@ -4126,12 +4387,6 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   (treesitter-context-hide-frame-after-move t)
   (treesitter-context-idle-time 0.1))
 
-;; Mandatory, as the dictionary misbehaves!
-(add-to-list 'display-buffer-alist
-             '("^\\*Dictionary\\*" display-buffer-in-side-window
-               (side . left)
-               (window-width . 50)))
-
 (use-package symbols-outline
   :custom
   (symbols-outline-window-position 'left)
@@ -4176,27 +4431,6 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
 (use-package vundo
   :bind
   ("C-x u" . vundo))
-
-;; Customizing colors used in diff mode
-;; (defun custom-diff-colors ()
-;;   "update the colors for diff faces"
-;;   (set-face-attribute
-;;    'diff-added nil :foreground "green")
-;;   (set-face-attribute
-;;    'diff-removed nil :foreground "red")
-;;   (set-face-attribute
-;;    'diff-changed nil :foreground "purple"))
-;; (eval-after-load "diff-mode" '(custom-diff-colors))
-
-;;; File manipulation
-(defun zino/insert-buffer-file-name (full-path)
-  "Insert file name of the buffer at point.
-Insert full path if prefix argument `FULL-PATH' is sent."
-  (interactive "P")
-  (let ((f (buffer-file-name)))
-    (if (not full-path)
-        (setq f (file-name-nondirectory f)))
-    (insert f)))
 
 (use-package rebox2
   :load-path "~/.config/emacs/manually_installed/"
@@ -4253,8 +4487,9 @@ Insert full path if prefix argument `FULL-PATH' is sent."
 (use-package window
   :ensure nil
   :custom
-  (split-height-threshold 60)
-  (split-width-threshold 170)
+  (split-height-threshold 60 "for 2k screen")
+  (split-width-threshold 170 "for 2k screen")
+  (split-width-threshold 200 "for 4k screen")
   (split-window-preferred-function 'zino/split-window-sensibly)
   :config
   (defun zino/split-window-sensibly (&optional window)
@@ -4308,6 +4543,7 @@ Insert full path if prefix argument `FULL-PATH' is sent."
                                "======= end"))
   :config
   (defun ediff-copy-both-to-C ()
+    "Swap buffer A and B with `~' before running this command if needed."
     (interactive)
     (ediff-copy-diff ediff-current-difference nil 'C nil
                      (concat
@@ -4320,6 +4556,31 @@ Insert full path if prefix argument `FULL-PATH' is sent."
   :straight (:host gitlab :repo "koral/gcmh")
   :config (gcmh-mode 1))
 
+(use-package easy-kill
+  :bind
+  ([remap kill-ring-save] . easy-kill))
+
+(use-package re-builder
+  :ensure nil
+  :bind
+  ("C-c R" . re-builder)
+  (:repeat-map re-builder-repeat-map
+               ("s" . reb-next-match)
+               ("r" . reb-prev-match))
+  :custom
+  (reb-blink-delay 0.2)
+  (reb-re-syntax 'string))
+
+(use-package auto-dim-other-buffers)
+
+(use-package key-chord
+  :init (key-chord-mode 1)
+  :config
+  (key-chord-define-global ";'" "\C-e;")
+  (key-chord-define-global "r4" 'consult-register)
+  :custom
+  (key-chord-two-keys-delay 0.02))
+
 ;; Try it some time.
 ;; (use-package sideline)
 ;; (use-package imenu-everywhere)
@@ -4329,11 +4590,9 @@ Insert full path if prefix argument `FULL-PATH' is sent."
 ;; (use-package burly)
 ;; (use-package dired+)  ;; different colors for different file permissions
 ;; (use-package org-ioslide) ;; presentation
-;; (use-package smart-hungry-delete)
 ;; (use-package popwin)
 ;; (use-package imenu-list)
 ;; (use-package git-gutter+)
-;; (use-package flymake-popon)
 ;; (use-package flycheck-inline)
 ;; (use-package annotate)
 ;; (use-package forge)
@@ -4344,6 +4603,7 @@ Insert full path if prefix argument `FULL-PATH' is sent."
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(completions-common-part ((t (:background "#2c3946" :foreground "#7bb6e2" :weight bold))))
+ '(consult-file ((t (:inherit font-lock-constant-face))))
  '(dictionary-word-definition-face ((t (:family "Fira Code"))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
  '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
@@ -4449,7 +4709,6 @@ Insert full path if prefix argument `FULL-PATH' is sent."
    '((eval remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
      (read-only . t)
      (comment-style quote box)
-     (indent-bars-spacing-overide . 2)
      (indent-bars--offset . 2)
      (indent-bars-spacing-override . 2)
      (god-local-mode . t)
