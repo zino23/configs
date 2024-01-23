@@ -141,6 +141,15 @@
   ;; Put this at the end otherwise `pcache' will still register itself
   ;; (remove-hook 'kill-emacs-hook 'pcache-kill-emacs-hook)
 
+  ;; Full screen
+  (add-to-list 'default-frame-alist '(fullscreen . maximized))
+  (add-to-list 'default-frame-alist '(ns-appearance . dark))
+
+  ;; Natual Title Bar is disabled by default. Enable it by setting:
+  ;; defaults write org.gnu.Emacs TransparentTitleBar DARK
+  ;; Reference: https://github.com/railwaycat/homebrew-emacsmacport/wiki/Natural-Title-Bar
+  (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
+
   :custom
   (confirm-kill-emacs 'yes-or-no-p)
   (read-process-output-max (* 1024 1024)) ;; 1MB
@@ -280,6 +289,16 @@
       ;; https://stackoverflow.com/questions/4512075/how-to-use-ctrl-i-for-an-emacs-shortcut-without-breaking-tabs
       (keyboard-translate ?\C-i ?\H-i))
 
+  (defun find-file--auto-create-dir (filename &optional _wildcards)
+    "Create parent directory during visiting FILENAME if necessary.
+Do not prompt me to create parent directory."
+    (unless (file-exists-p filename)
+      (let ((dir (file-name-directory filename)))
+        (unless (file-exists-p dir)
+          (make-directory dir t)))))
+
+  (advice-add 'find-file :before 'find-file--auto-create-dir)
+
   ;; Customizing colors used in diff mode
   ;; (defun custom-diff-colors ()
   ;;   "update the colors for diff faces"
@@ -340,6 +359,12 @@ Insert full path if prefix argument `FULL-PATH' is sent."
   (defun zino/inhibit-buffer-messages ()
     "Set `inhibit-message' buffer-locally."
     (setq-local inhibit-message t))
+
+  (defun copy-full-path-to-kill-ring ()
+    "Copy buffer's full path to kill ring."
+    (interactive)
+    (when buffer-file-name (kill-new (file-truename buffer-file-name))
+          (message buffer-file-name)))
 
   :bind
   ("C-S-d" . zino/toggle-window-dedication)
@@ -771,10 +796,6 @@ Save the buffer of the current window and kill it"
           (message "Edebug: %s" fn)))
       (widen))))
 
-(defun zino/md5-of-current-buffer-file ()
-  (interactive)
-  (message (md5 (current-buffer))))
-
 (use-package windmove
   :ensure nil
   :bind
@@ -1063,23 +1084,6 @@ Save the buffer of the current window and kill it"
   :custom-face
   (eldoc-box-border ((t (:background "#3c586f" :weight heavy))))
   (eldoc-box-border ((t (:background "#51afef" :weight bold)))))
-
-(defun copy-full-path-to-kill-ring ()
-  "Copy buffer's full path to kill ring."
-  (interactive)
-  (when buffer-file-name (kill-new (file-truename buffer-file-name))
-        (message buffer-file-name)))
-
-;; Full screen
-(add-to-list 'default-frame-alist '(fullscreen . maximized))
-(add-to-list 'default-frame-alist '(ns-appearance . dark))
-
-;; Natual Title Bar is disabled by default. Enable it by setting:
-;; defaults write org.gnu.Emacs TransparentTitleBar DARK
-;; Reference: https://github.com/railwaycat/homebrew-emacsmacport/wiki/Natural-Title-Bar
-(add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
-;; (setq ns-use-proxy-icon nil)
-;; (setq frame-title-format nil)
 
 ;; Automatically trim trailing whitespaces.
 (use-package ws-butler
@@ -1551,14 +1555,30 @@ respectively."
     (remove-hook 'magit-status-headers-hook func)))
 
 (use-package diff-hl
-  :custom
-  (diff-hl-show-hunk-function 'diff-hl-show-hunk-inline-popup)
-  (diff-hl-show-staged-changes nil)
   :config
   (advice-add 'diff-hl-next-hunk :after (lambda (&optional backward)
-                                          (recenter))))
+                                          (recenter)))
+  :custom
+  (diff-hl-show-hunk-function 'diff-hl-show-hunk-inline-popup)
+  (diff-hl-show-staged-changes nil))
 
 (use-package org-roam
+  :config
+  (defun org-roam-book-template ()
+    "Create a Cornell-style book notes template for org-roam node.
+Return TEMPLATE as a string."
+    (let* ((chapters (read-number "Number of chapters: "))
+           (ch 1)
+           (template ""))
+      (while (<= ch chapters)
+        (if (<= ch 9)
+            (setq template (concat template (format "* Ch0%d. \n" ch)))
+          (setq template (concat template (format "* Ch%d. \n" ch))))
+        (setq template (concat template "** Questions [/]\n** Notes\n** Summary\n"))
+        (setq ch (1+ ch)))
+      (setq template (concat template "* General\n** Questions [/]\n** Notes\n** Summary"))
+      template))
+
   :custom
   (org-roam-directory "~/Notes/Roam")
   (org-roam-dailies-directory "Journal/")
@@ -2037,38 +2057,6 @@ specified as an an \"attachment:\" style link."
   :bind
   ("C-s-y" . org-download-clipboard))
 
-(defun org-roam-book-template ()
-  "Create a Cornell-style book notes template for org-roam node.
-Return TEMPLATE as a string."
-  (let* ((chapters (read-number "Number of chapters: "))
-         (ch 1)
-         (template ""))
-    (while (<= ch chapters)
-      (if (<= ch 9)
-          (setq template (concat template (format "* Ch0%d. \n" ch)))
-        (setq template (concat template (format "* Ch%d. \n" ch))))
-      (setq template (concat template "** Questions [/]\n** Notes\n** Summary\n"))
-      (setq ch (1+ ch)))
-    (setq template (concat template "* General\n** Questions [/]\n** Notes\n** Summary"))
-    template))
-
-(defun org-journal-file-header-func (time)
-  "Custom function to create journal header."
-  (concat
-   (pcase org-journal-file-type
-     (`daily "#+TITLE: Daily Journal\n#+STARTUP: showeverything")
-     (`weekly "#+TITLE: Weekly Journal\n#+STARTUP: fold")
-     (`monthly "#+TITLE: Monthly Journal\n#+STARTUP: fold")
-     (`yearly "#+TITLE: Yearly Journal\n#+STARTUP: fold"))))
-
-(defun org-journal-save-entry-and-exit()
-  "Simple convenience function.
-Saves the buffer of the current day's entry and kills the window.
-Similar to `org-capture' like behavior"
-  (interactive)
-  (save-buffer)
-  (kill-buffer-and-window))
-
 (use-package org-journal
   :preface
   (defun zino/org-journal-new-todo (prefix)
@@ -2080,6 +2068,23 @@ Similar to `org-capture' like behavior"
   (defun zino/org-journal-cycle-after-open-current-journal-file ()
     "Toggle visibility according to buffer's setting."
     (org-cycle t))
+
+  (defun org-journal-file-header-func (_time)
+    "Custom function to create journal header."
+    (concat
+     (pcase org-journal-file-type
+       (`daily "#+TITLE: Daily Journal\n#+STARTUP: showeverything")
+       (`weekly "#+TITLE: Weekly Journal\n#+STARTUP: fold")
+       (`monthly "#+TITLE: Monthly Journal\n#+STARTUP: fold")
+       (`yearly "#+TITLE: Yearly Journal\n#+STARTUP: fold"))))
+
+  (defun org-journal-save-entry-and-exit()
+    "Simple convenience function.
+Saves the buffer of the current day's entry and kills the window.
+Similar to `org-capture' like behavior"
+    (interactive)
+    (save-buffer)
+    (kill-buffer-and-window))
 
   :init
   ;; Change default prefix key, needs to be set before loading
@@ -2226,6 +2231,7 @@ Similar to `org-capture' like behavior"
          :after-finalize org-fold-hide-drawer-all)))
 
 (use-package rime
+  :disabled
   :custom
   (default-input-method "rime")
   (rime-librime-root "~/.config/emacs/manually_installed/librime/dist")
@@ -2257,6 +2263,7 @@ Similar to `org-capture' like behavior"
 ;;; ability to modify
 ;;; Download `pdf-tools' from melpa handles dependencies for us.
 (use-package pdf-tools
+  :if (display-graphic-p)
   :init
   (pdf-tools-install)
   :preface
@@ -2409,17 +2416,8 @@ Similar to `org-capture' like behavior"
   ;; (global-set-key (kbd "C-c f") #'fzf)
   ;; (global-set-key (kbd "C-c d") #'fzf-directory)
   )
+
 (use-package super-save)
-
-(defun find-file--auto-create-dir (filename &optional wildcards)
-  "Create parent directory during visiting file if necessary .
-Do not prompt me to create parent directory"
-  (unless (file-exists-p filename)
-    (let ((dir (file-name-directory filename)))
-      (unless (file-exists-p dir)
-        (make-directory dir t)))))
-
-(advice-add 'find-file :before 'find-file--auto-create-dir)
 
 (use-package consult
   :preface
@@ -2509,12 +2507,7 @@ initial input."
    ([remap switch-to-buffer-other-window] . consult-buffer-other-window)
    ([remap switch-to-buffer-other-frame] . consult-buffer-other-frame)
    ([remap switch-to-buffer-other-tab] . consult-buffer-other-tab)
-
-   ([remap projectile-switch-to-buffer] . consult-project-buffer)
-   ([remap projectile-find-file] . consult-projectile-find-file)
-   ([remap projectile-find-file-other-window] . consult-projectile-find-file-other-window)
-   ([remap projectile-find-file-other-frame] . consult-projectile-find-file-other-frame)
-   ([remap projectile-switch-project] . consult-projectile-switch-project))
+   ([remap projectile-switch-to-buffer] . consult-project-buffer))
 
   :config
   (advice-add 'consult-bookmark :around (lambda (oldfun &rest args)
@@ -2533,12 +2526,12 @@ initial input."
   :custom-face
   (consult-file ((t (:inherit font-lock-constant-face)))))
 
-;;; Freeze emacs after each `save-buffer' and out of nowhere when I am just scrolling. It must've done some
-;;; heavy background work.
-;; (use-package consult-projectile
-;;   :bind
-;;   ([remap projectile-file-file] . consult-project-find-file)
-;;   ([remap projectile-switch-project] . consult-projectile-switch-project))
+(use-package consult-projectile
+  :bind
+  ([remap projectile-find-file] . consult-projectile-find-file)
+  ([remap projectile-find-file-other-window] . consult-projectile-find-file-other-window)
+  ([remap projectile-find-file-other-frame] . consult-projectile-find-file-other-frame)
+  ([remap projectile-switch-project] . consult-projectile-switch-project))
 
 (use-package consult-todo)
 
@@ -2670,10 +2663,15 @@ initial input."
   ;; (remove-hook 'rustic-mode-hook 'flymake-mode-off)
   ;; (remove-hook 'rustic-mode-hook 'flycheck-mode)
   :bind
-  (nil
+  (
    :map rust-mode-map ("C-c C-p" . zino/rustic-popup)
    :map rust-ts-mode-map ("C-c C-p" . zino/rustic-popup)
-   :map rustic-compilation-mode-map ("p" . previous-error-no-select))
+   :map rustic-compilation-mode-map
+   ("p" . previous-error-no-select)
+   ("M-p" . zino/previous-k-lines)
+   ("M-n" . zino/next-k-lines)
+   ("M-[" . compilation-previous-error)
+   ("M-]" . compilation-next-error))
   :config
   ;; Reverse the action of making `rustic-mode' default for rust files in
   ;; `rustic.el'.
@@ -2699,7 +2697,19 @@ If directory is not in a rust project call `read-directory-name'."
            (let ((dir (read-directory-name "Rust project:")))
              (let ((default-directory dir))
                (funcall func)))
-         (funcall func))))))
+         (funcall func)))))
+
+  (defun rustic-process-kill-p (proc &optional no-error)
+    "Override to not prompt.
+
+Don't allow two rust processes at once. If NO-ERROR is t, don't throw error if user chooses not to kill
+running process."
+    (condition-case ()
+        (progn
+          (interrupt-process proc)
+          (sit-for 0.5)
+          (delete-process proc))
+      (error nil))))
 
 (use-package cmake-mode)
 
@@ -2831,6 +2841,7 @@ If directory is not in a rust project call `read-directory-name'."
   (fset #'jsonrpc--log-event #'ignore)
   :preface
   (defun mp-eglot-eldoc ()
+    "Compose multiple eldoc sources."
     (setq eldoc-documentation-strategy
           'eldoc-documentation-compose-eagerly)
     ;; Customize the order various doc strings are displayed.
@@ -2860,6 +2871,7 @@ If directory is not in a rust project call `read-directory-name'."
   :bind
   (:map eglot-mode-map
         ("M-." . xref-find-definitions)
+        ("M-'" . eglot-find-typeDefinition)
         ("C-c d" . xref-find-definitions-other-window)
         ("C-c r"   . eglot-rename)
         ("C-c C-r" . xref-find-references)
@@ -3012,7 +3024,6 @@ If directory is not in a rust project call `read-directory-name'."
 
 (use-package yasnippet-snippets)
 
-
 (use-package flymake
   :bind
   (:map flymake-mode-map
@@ -3096,7 +3107,7 @@ If directory is not in a rust project call `read-directory-name'."
   ;; now. Use `flycheck-display-error-messages'.
   ;; (eglot-managed-mode . mp-flycheck-prefer-eldoc)
 
-  ;; NOTE: this will slow emacs down
+  ;; NOTE: `rustic-clippy' really slows emacs down.
   ;; :config
   ;; (push 'rustic-clippy flycheck-checkers)
   :custom
@@ -3133,6 +3144,8 @@ If directory is not in a rust project call `read-directory-name'."
 
 ;; Show matching parenthesis
 (use-package mic-paren
+  ;; Use `show-paren-mode'.
+  :disabled
   :custom-face
   (paren-face-match ((t (:foreground "#7bb6e2" :background "#2c3946" :weight ultra-bold))))
   ;; :config
@@ -3143,7 +3156,7 @@ If directory is not in a rust project call `read-directory-name'."
 (use-package button-lock)
 
 (use-package anki-editor
-  ;; check https://github.com/louietan/anki-editor/issues/76
+  ;; Check https://github.com/louietan/anki-editor/issues/76
   :hook
   (org-capture-after-finalize . zino/anki-editor-reset-cloze-num)
   (org-capture . anki-editor-mode)
@@ -3305,6 +3318,7 @@ If directory is not in a rust project call `read-directory-name'."
   ;; This is recommended since Dabbrev can be used globally (M-/s ).
   ;; See also `corfu-exclude-modes'.
   :init
+  ;; `corfu-mode' is only applicable in GUI.
   (if (display-graphic-p)
       (global-corfu-mode))
   (corfu-history-mode)
@@ -3328,6 +3342,7 @@ If directory is not in a rust project call `read-directory-name'."
 
 (use-package corfu-terminal
   :config
+  ;; Use `corfu-terminal-mode' if we are inside a terminal.
   (unless (display-graphic-p)
     (corfu-terminal-mode +1)))
 
@@ -3447,10 +3462,10 @@ If directory is not in a rust project call `read-directory-name'."
      lsp-bridge-not-complete-manually)))
 
 (use-package clipetty
+  :if (not window-system)
   :ensure t
   :config
-  (unless (display-graphic-p)
-    (add-hook 'after-init-hook 'global-clipetty-mode)))
+  (add-hook 'after-init-hook 'global-clipetty-mode))
 
 ;; git-modes
 (use-package git-modes)
@@ -3843,7 +3858,18 @@ If directory is not in a rust project call `read-directory-name'."
   ;; :hook
   ;; Recenter after the match is selected, not recenter on every match.
   ;; (isearch-mode-end . recenter-top-bottom)
-  )
+  :config
+  (add-hook 'post-command-hook
+            (defalias 'my/repeat-change-cursor ; recolor cursor during repeat
+              (let (repeat-p (ccol (face-background 'cursor)))
+		            (lambda ()
+                  (unless (eq repeat-p repeat-in-progress)
+                    (setq repeat-p repeat-in-progress)
+                    (set-cursor-color
+		                 (if repeat-in-progress
+			                   (face-foreground 'success)
+		                   ccol))))))
+            90))
 
 (use-package nasm-mode
   :init
@@ -4006,6 +4032,8 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
 (use-package xref
   :ensure nil
   :bind
+  ("C-." . xref-find-definitions)
+  ("C-," . xref-go-back)
   ("C-c M-d" . xref-find-definitions-other-frame)
   ("C-c C-r" . xref-find-references)
   :custom
@@ -4364,6 +4392,7 @@ Optional argument ARGS ."
   (define-key embark-general-map (kbd "o") (zino/embark-ace-action projectile-find-file))
   (define-key embark-general-map (kbd "n") (zino/embark-ace-action org-roam-node-find))
   (define-key embark-buffer-map (kbd "o") (zino/embark-ace-action switch-to-buffer))
+  (define-key embark-buffer-map (kbd "o") (zino/embark-ace-action consult-ripgrep))
   :bind
   ("s-o" . embark-act))
 
@@ -4713,7 +4742,8 @@ Optional argument ARGS ."
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme))
  '(safe-local-variable-values
-   '((eval remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
+   '((indent-bars-spacing-override . 4)
+     (eval remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
      (read-only . t)
      (comment-style quote box)
      (indent-bars--offset . 2)
