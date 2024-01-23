@@ -4710,6 +4710,9 @@ Optional argument ARGS ."
      (god-local-mode . t)
      (completion-styles orderless basic partial-completion))))
 
+;; Set at the end of init.el when `load-path' is ready.
+(setq elisp-flymake-byte-compile-load-path load-path)
+
 ;; Run as daemon
 (server-start)
 
