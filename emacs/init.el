@@ -1146,10 +1146,6 @@ Save the buffer of the current window and kill it"
   ;; (doom-modeline-buffer-modified ((t (:background unspecified :inherit (warning bold)))))
   (doom-modeline-buffer-modified ((t (:background unspecified :inherit (bold))))))
 
-;; (use-package spaceline
-;;   :config
-;;   (spaceline-spacemacs-theme))
-
 (use-package doom-themes
   :init
   (load-theme 'doom-one t)
