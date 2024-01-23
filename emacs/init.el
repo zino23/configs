@@ -4577,6 +4577,17 @@ Optional argument ARGS ."
   :custom
   (key-chord-two-keys-delay 0.02))
 
+
+(use-package multiple-cursors
+  ;; TODO: disable `repeat-mode' temporarily when using multiple cursors
+  :bind
+  ("C-s-n" . mc/mark-next-like-this-symbol)
+  ("C-s-p" . mc/mark-previous-like-this-symbol)
+  ("C-s-c C-s-c" . mc/edit-lines)
+  ("C-s-v C-s-v" . mc/mark-all-dwim)
+  :custom
+  (mc/always-run-for-all t))
+
 ;; Try it some time.
 ;; (use-package sideline)
 ;; (use-package imenu-everywhere)
