@@ -2606,7 +2606,6 @@ initial input."
   (tramp-chunksize 2000))
 
 (use-package treesit
-  :disabled
   :ensure nil
   :config
   ;; When `treesit-extra-load-path' is nil, emacs looks in `tree-sitter' under `user-emacs-directory' to for
@@ -2628,7 +2627,32 @@ initial input."
           (toml "https://github.com/tree-sitter/tree-sitter-toml")
           (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
           (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
-          (yaml "https://github.com/ikatyang/tree-sitter-yaml"))))
+          (yaml "https://github.com/ikatyang/tree-sitter-yaml")
+          (c "https://github.com/tree-sitter/tree-sitter-c")
+          (cpp "https://github.com/tree-sitter/tree-sitter-cpp")
+          (rust "https://github.com/tree-sitter/tree-sitter-rust")))
+
+	;; Reference: https://www.masteringemacs.org/article/how-to-get-started-tree-sitter
+  ;; (setq treesit-load-name-override-list '((c++ "libtree-sitter-c++" "tree_sitter_cpp")))
+
+  (dolist (lang treesit-language-source-alist)
+    (unless (treesit-language-available-p (car lang))
+      (treesit-install-language-grammar (car lang))))
+  (setq major-mode-remap-alist
+        '((yaml-mode . yaml-ts-mode)
+          (bash-mode . bash-ts-mode)
+          ;; (js2-mode . js-ts-mode)
+          ;; (typescript-mode . typescript-ts-mode)
+          (json-mode . json-ts-mode)
+          (css-mode . css-ts-mode)
+          (python-mode . python-ts-mode)
+          ;; Until I figure out a more balanced `treesit-font-lock-level'.
+          ;; (go-mode . go-ts-mode)
+          ;; (go-mod-mode . go-mod-ts-mode)
+          (rust-mode . rust-ts-mode)
+          ;; `c++-ts-mode' does not highlight symbols inside macros correctly.
+          (c++-mode . c++-ts-mode))))
+
 (use-package tree-sitter-langs
   ;; Treesit support before emacs-29.
   :disabled)
@@ -2899,7 +2923,17 @@ running process."
   (add-to-list 'eglot-server-programs '(rust-mode . ("rust-analyzer")))
   (add-to-list 'eglot-server-programs '(beancount-mode . ("beancount-language-server")))
   (add-to-list 'eglot-server-programs '(rust-ts-mode . ("rust-analyzer")))
-  (add-to-list 'eglot-server-programs '(go-ts-mode . ("gopls")))
+  (add-to-list 'eglot-server-programs '((go-mode go-ts-mode) .
+                                        ("gopls" :initializationOptions
+                                         (:hints (
+                                                  :parameterNames t
+                                                  :rangeVariableTypes t
+                                                  :functionTypeParameters t
+                                                  :assignVariableTypes t
+                                                  :compositeLiteralFields t
+                                                  :compositeLiteralTypes t
+                                                  :constantValues t)))))
+
   ;; (add-to-list 'eglot-server-programs '(conf-toml-mode . ("taplo")))
 
   (defclass eglot-deno (eglot-lsp-server) ()
@@ -4822,12 +4856,19 @@ New vterm buffer."
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme))
  '(safe-local-variable-values
-   '((indent-bars-spacing-override . 4)
+   '((c-ts-indent-offset . 2)
+     (c++-ts-indent-offset . 2)
+     (c++-indent-offset . 2)
+     (eval global-set-key
+           (kbd "C-c C-p")
+           'zino/rustic-popup)
+     (god-local-mode)
      (eval remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
      (read-only . t)
      (comment-style quote box)
      (indent-bars--offset . 2)
      (indent-bars-spacing-override . 2)
+     (indent-bars-spacing-override . 4)
      (god-local-mode . t)
      (completion-styles orderless basic partial-completion))))
 
