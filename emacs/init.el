@@ -6,7 +6,7 @@
 ;;; code:
 (setq load-prefer-newer t)
 
-;; Take the full control, don't load `default.el'
+;; Take the full control, don't load `default.el'.
 (setq inhibit-default-init t)
 
 (require 'package)
@@ -29,74 +29,78 @@
   :custom
   (use-package-always-ensure t))
 
-;; Try `straight'
-(defvar bootstrap-version)
-(let ((bootstrap-file
-       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
-      (bootstrap-version 6))
-  (unless (file-exists-p bootstrap-file)
-    (with-current-buffer
-        (url-retrieve-synchronously
-         "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
-         'silent 'inhibit-cookies)
-      (goto-char (point-max))
-      (eval-print-last-sexp)))
-  (load bootstrap-file nil 'nomessage))
-
+;; Immediately load this extension after loading `use-package'.
 (use-package use-package-ensure-system-package)
 
 (use-package emacs
+  ;; Minimum settings use to debug a package.
+  :init
+  ;; On macos, treat option key as meta and command as super.
+  (when (eq system-type 'darwin)
+    (setq mac-option-modifier 'meta
+          mac-command-modifier 'super))
+  (unless (display-graphic-p)
+    (xterm-mouse-mode 1))
+  (if (and (fboundp 'native-comp-available-p)
+           (native-comp-available-p))
+      (progn
+        (message "Native compilation is available"))
+    (message "Native complation is *not* available"))
+  (setq user-emacs-directory "~/.config/emacs/")
+  (setq native-comp-jit-compilation t)
+  (setq native-comp-async-report-warnings-errors nil))
+
+(use-package emacs
+  :init
+  ;; Bootstrap `straight'.
+  (defvar bootstrap-version)
+  (let ((bootstrap-file
+         (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+        (bootstrap-version 6))
+    (unless (file-exists-p bootstrap-file)
+      (with-current-buffer
+          (url-retrieve-synchronously
+           "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
+           'silent 'inhibit-cookies)
+        (goto-char (point-max))
+        (eval-print-last-sexp)))
+    (load bootstrap-file nil 'nomessage))
+
   :config
   ;; UI
-  ;; Display line numbers in mode line
-  (line-number-mode 1)
-  (size-indication-mode -1)
   (if (display-graphic-p)
       (progn
         (scroll-bar-mode -1)
         (tool-bar-mode -1)
         (set-fringe-mode '(7 . 0))))
+  ;; Display line numbers in mode line.
+  (line-number-mode 1)
+  (size-indication-mode -1)
   (tooltip-mode -1)
   (menu-bar-mode -1)
   (column-number-mode)
   (global-display-line-numbers-mode -1)
   (set-default-coding-systems 'utf-8)
   (global-visual-line-mode 1)
-  ;; On macos, treat option key as meta and command as super.
-  (when (eq system-type 'darwin)
-    (setq mac-option-modifier 'meta
-          mac-command-modifier 'super))
-  (setenv "path" (concat "/library/tex/texbin" (getenv "path")))
-  (setq exec-path (append '("/Library/TeX/texbin") exec-path))
-  (if (and (fboundp 'native-comp-available-p)
-           (native-comp-available-p))
-      (progn
-        (message "Native compilation is available"))
-    (message "Native complation is *not* available"))
-  (setq native-comp-jit-compilation t)
-  (setq native-comp-async-report-warnings-errors nil)
-  ;; Keep buffers up to date
+  ;; Keep buffers up to date.
   (global-auto-revert-mode t)
-  ;; Remember and restore the last cursor location of opened files
+  ;; Remember and restore the last cursor location of opened files.
   (save-place-mode 1)
   (savehist-mode t)
   (recentf-mode t)
   (setq-default tab-width 2)
   (setq-default indent-tabs-mode nil)
-
-  ;; Disable line numbers for some modes
+  ;; Disable line numbers for some modes.
   (dolist (mode '(term-mode-hook shell-mode-hook eshell-mode-hook pdf-view-mode-hook))
     (add-hook mode (lambda ()
                      (display-line-numbers-mode 0))))
-
   (setq next-screen-context-lines 2)
   (blink-cursor-mode)
   (setq blink-cursor-blinks 0)
   (repeat-mode)
   (pixel-scroll-mode 1)
   (delete-selection-mode 1)
-
-  ;; autosave file-visiting buffer but not non-file-visiting e.g. *scratch*
+  ;; autosave file-visiting buffer but not non-file-visiting e.g. *scratch*.
   (setq-default auto-save-default t)
   (setq auto-save-timeout 15)
   (setq auto-save-interval 100)
@@ -119,8 +123,8 @@
    kept-new-versions 20
    kept-old-versions 20)
 
-  ;; by default emacs create backup on first buffer save since the file is visited
-  ;; C-u to save backup in second save (test above)
+  ;; By default emacs create backup on first buffer save since the file is visited
+  ;; C-u to save backup in second save
   ;; C-u C-u to immediately save into backup
   (setq backup-directory-alist nil)
 
@@ -164,8 +168,10 @@
   ;; Set limit for prompt opening large files higher, 100 M
   (large-file-warning-threshold 100000000)
   (custom-safe-themes t)
-  (apropos-sort-by-scores t)
+  (apropos-sort-by-scores t))
 
+(use-package emacs
+  :if (display-graphic-p)
   :config
   ;;; Check if a font exist:
   ;;; (member "Sarasa Mono SC Nerd" (font-family-list))
@@ -190,9 +196,7 @@
     :size 16
     :weight 'normal
     :width 'normal
-    :slant 'normal))
-
-  )
+    :slant 'normal)))
 
 (use-package emacs
   ;; Performance tuning
@@ -233,7 +237,6 @@
   ;; Treat manual buffer switching the same as programmatic switching
   (switch-to-buffer-obey-display-actions t)
   (custom-file "~/.config/emacs/init.el")
-  (user-emacs-directory "~/.config/emacs/")
   ;; Emacs 28: Hide commands in M-x which do not work in the current mode.
   ;; Vertico commands are hidden in normal buffers.
   (read-extended-command-predicate 'command-completion-default-include-p)
@@ -403,6 +406,8 @@ Insert full path if prefix argument `FULL-PATH' is sent."
       (define-key map "\e[1;Q2"  (kbd "H-i"))
       (define-key map "\e[1;Q3"  (kbd "s-;"))
       (define-key map "\e[1;Q4"  (kbd "C-;"))
+      (define-key map "\e[1;Q5"  (kbd "s-e"))
+      (define-key map "\e[1;Q6"  (kbd "s-u"))
       ;; Use iterm2's builtin feature:
       ;; xterm control sequence can enable modifyOtherKeysMode
       (define-key map "\e[97;7u" (kbd "C-M-a"))
@@ -410,6 +415,8 @@ Insert full path if prefix argument `FULL-PATH' is sent."
       (define-key map "\e[100;7u" (kbd "C-M-d"))
       (define-key map "\e[101;7u" (kbd "C-M-e"))
       (define-key map "\e[102;7u" (kbd "C-M-f"))
+      (define-key map "\e[103;7u" (kbd "C-s-z"))
+      (define-key map "\e[104;7u" (kbd "C-s-t"))
       (define-key map "\e[117;7u" (kbd "C-M-u"))
       (define-key map "\e[118;7u" (kbd "C-M-i"))
       ;; (define-key map "\e[1;P12" (kbd "H-d"))
@@ -457,8 +464,7 @@ Insert full path if prefix argument `FULL-PATH' is sent."
       ;; (define-key map "\e[1;P54" (kbd "H-<f10>"))
       ;; (define-key map "\e[1;P55" (kbd "H-<f11>"))
       ;; (define-key map "\e[1;P56" (kbd "H-<f12>"))
-      ))
-  )
+      )))
 
 (use-package pixel-scroll
   :disabled
@@ -848,7 +854,11 @@ Save the buffer of the current window and kill it"
   :config
   (add-hook 'vterm-mode-hook (lambda ()
                                "Disable `global-hl-line-mode' locally."
-                               (setq-local global-hl-line-mode nil))))
+                               (setq-local global-hl-line-mode nil)))
+  (set-face-attribute 'hl-line nil :inherit nil :background "#21242b") ;;"#2e3b49")
+  (set-face-attribute 'region nil :inherit nil :distant-foreground "#959ba5" :background "#42444a")
+  ;; slate gray"));;"#113d69"));;"#2e4a54")) ;;"#406389")) ;; "#42444a")) ;; #4f5b66
+  )
 
 ;; Word abbreviation
 ;; "C-x a g" to interactively create an abbrev;
@@ -954,6 +964,7 @@ Save the buffer of the current window and kill it"
   (dired-mode . dired-omit-mode)
   ;; Drag-and-drop to `dired'
   (dired-mode . org-download-enable)
+  (dired-mode . dired-async-mode)
   :custom
   (dired-dwim-target t)
   (dired-create-destination-dirs 'always)
@@ -961,6 +972,8 @@ Save the buffer of the current window and kill it"
   (auto-revert-verbose nil)
   (dired-clean-confirm-killing-deleted-buffers nil)
   (dired-omit-verbose nil)
+  (dired-hide-details-hide-symlink-targets nil)
+  (dired-hide-details-hide-information-lines nil)
   :config
   (setq ls-lisp-use-insert-directory-program t)
   ;; In MacOS `ls' does not have `--group-directories-first' option, use `gls'.
@@ -1108,7 +1121,8 @@ Save the buffer of the current window and kill it"
   (debugger-mode . rainbow-delimiters-mode)
   (helpful-mode . rainbow-delimiters-mode)
   (dired-preview-mode . rainbow-delimiters-mode)
-  (conf-toml-mode . rainbow-delimiters-mode))
+  (conf-toml-mode . rainbow-delimiters-mode)
+  (git-timemachine-mode . rainbow-delimiters-mode))
 
 ;; Display keybindings in another buffer
 (use-package command-log-mode
@@ -1135,6 +1149,11 @@ Save the buffer of the current window and kill it"
 
 (use-package nerd-icons)
 
+(use-package solarized-theme
+  :disabled
+  :init
+  (load-theme 'solarized-dark t))
+
 (use-package doom-modeline
   :init (doom-modeline-mode 1)
   :custom
@@ -1153,6 +1172,7 @@ Save the buffer of the current window and kill it"
 (use-package doom-themes
   :init
   (load-theme 'doom-one t)
+  ;; (load-theme 'doom-solarized-dark-high-contrast t)
   :config
   ;; Enable flashing mode-line on errors
   (doom-themes-visual-bell-config)
@@ -1195,19 +1215,26 @@ Save the buffer of the current window and kill it"
    ;; in the same nested level and go up a level if needed
    ("C-M-n" . sp-next-sexp)
    ("C-M-p" . sp-previous-sexp)
-
-   ("M-r" ("unwrap the enclosing sexp" . sp-splice-sexp))
-   ("M-k" ("delete anything of the enclosing sexp". sp-change-enclosing))
-   ("C-M-r" ("rewrap with a different pair". sp-rewrap-sexp))
-   ("M-y" ("copy the sexp at point". sp-copy-sexp))
+   ;; unwrap the enclosing sexp
+   ("M-r" . sp-splice-sexp)
+   ;; delete anything of the enclosing sexp
+   ("M-k" . sp-change-enclosing)
+   ;; rewrap with a different pair
+   ("C-M-r" . sp-rewrap-sexp)
+   ;; copy the sexp at point
+   ("M-y" . sp-copy-sexp)
+   ;; kill the sexp at point
    ("C-M-k" . sp-kill-sexp)
-   ("C-c s b" ("remove the last sexp from current list by moving the closing delimiter" . sp-forward-barf-sexp))
-   ("C-c s s" ("eat the next sexp into current one". sp-forward-slurp-sexp))
-   ("C-c s n" ("unwrap the next sexp. 'n' as in 'next'". sp-unwrap-sexp))
-   ("C-c s c" ("unwrap the current list. 'c' as in 'current'". sp-splice-sexp))
-   ("C-c s k" ("clear the inside of the enclosing sexp, like vim's <ci)>". sp-change-enclosing))
-
-   )
+   ;; remove the last sexp from current list by moving the closing delimiter
+   ("C-c s b" . sp-forward-barf-sexp)
+   ;; eat the next sexp into current one
+   ("C-c s s" . sp-forward-slurp-sexp)
+   ;; unwrap the next sexp. 'n' as in 'next'
+   ("C-c s n" . sp-unwrap-sexp)
+   ;; unwrap the current list. 'c' as in 'current'
+   ("C-c s c" . sp-splice-sexp)
+   ;; clear the inside of the enclosing sexp, like vim's <ci>
+   ("C-c s k" . sp-change-enclosing))
 
   :config
   (smartparens-global-mode)
@@ -1235,22 +1262,25 @@ Save the buffer of the current window and kill it"
   (sp-local-pair 'prog-mode "(" nil :post-handlers '((indent-between-pair "RET")))
 
   :bind
-  (:repeat-map
-   smartparens-mode-repeat-map
-   ("A" . sp-beginning-of-sexp)
-   ("E" . sp-end-of-sexp)
-   ("f" . sp-forward-sexp)
-   ("b" . sp-backward-sexp)
-   ("d" . sp-down-sexp)
-   ("e" . sp-up-sexp)
-   ("a" . sp-backward-down-sexp)
-   ("u" . sp-backward-up-sexp)
-   ("n" . sp-next-sexp)
-   ("p" . sp-previous-sexp)
-   ("B" . sp-forward-barf-sexp)
-   ("s" . sp-forward-slurp-sexp)
-   ;; ("k" . sp-change-enclosing)
-   ("c" . sp-splice-sexp)
+  (
+   ;; It is quite common to walk a sexp and immediately start editing, so the active repeat map will be too
+   ;; disturbing as we have to manually press `C-g' to opt out of repeat mode keybindings.
+   ;; :repeat-map
+   ;;  smartparens-mode-repeat-map
+   ;;  ("A" . sp-beginning-of-sexp)
+   ;;  ("E" . sp-end-of-sexp)
+   ;;  ("f" . sp-forward-sexp)
+   ;;  ("b" . sp-backward-sexp)
+   ;;  ("d" . sp-down-sexp)
+   ;;  ("e" . sp-up-sexp)
+   ;;  ("a" . sp-backward-down-sexp)
+   ;;  ("u" . sp-backward-up-sexp)
+   ;;  ("n" . sp-next-sexp)
+   ;;  ("p" . sp-previous-sexp)
+   ;;  ("B" . sp-forward-barf-sexp)
+   ;;  ("s" . sp-forward-slurp-sexp)
+   ;;  ("k" . sp-change-enclosing)
+   ;;  ("c" . sp-splice-sexp)
    :repeat-map
    walk-defun-repeat-map
    ("f" . beginning-of-defun)
@@ -1373,7 +1403,7 @@ respectively."
   (:map vertico-map
         ("s-j" . vertico-quick-jump)
         ;; Exit vertico with the selected candidate
-        ("C-q" . vertico-quick-exit)
+        ("C-M-q" . vertico-quick-exit)
         ("M-q" . vertico-quick-insert)))
 
 ;; Enable rich annotations using the Marginalia package
@@ -1412,6 +1442,7 @@ respectively."
   ([remap describe-key] . helpful-key)
   ([remap describe-command] . helpful-command)
   ("C-c C-d" . helpful-at-point)
+  ("C-h M-f" . describe-face)
   (:map helpful-mode-map
         ;; Already got <tab> for `next-button'. Often times being able to
         ;; scroll the screen with single hand is nice.
@@ -1948,13 +1979,14 @@ specified as an an \"attachment:\" style link."
   (org-level-6 ((t (:inherit outline-6 :extend nil :height 1.0 :width normal :weight normal :family "Iosevka"))))
   ;; (org-block ((t (:inherit nil :extend t :background "#282c34")))) ;; the original: "#23272e"
   (org-block-begin-line ((t (:inherit org-block :extend t :foreground "#83898d")))) ;; the original: "#5B6268"
-  (org-block ((t (:background "#23272e" :extend t))))
+  ;; (org-block ((t (:background "#23272e" :extend t))))
   (org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
   (org-code ((t (:inherit nil :foreground "#da8548"))))
   (org-verbatim ((t (:foreground "#98be65"))))
   (org-document-title ((t (:foreground "#c678dd" :weight bold :height 1.2 :family "Iosevka"))))
   (org-link ((t (:inherit link :foreground "#51afef" :family "Iosevka"))))
-  (org-table ((t (:foreground "#a9a1e1" :slant normal :weight normal :height 180 :width normal :foundry "nil" :family "Sarasa Mono SC Nerd")))))
+  (org-table ((t (:foreground "#a9a1e1" :slant normal :weight normal :height 180 :width normal :foundry "nil"
+                              :family "Sarasa Mono SC Nerd")))))
 
 (use-package org
   :config
@@ -2025,7 +2057,9 @@ specified as an an \"attachment:\" style link."
   :init
   (setq scroll-conservatively 101) ; important for jumbo images
   :config
-  (ultra-scroll-mac-mode 1))
+  (ultra-scroll-mac-mode 1)
+  (add-hook 'pdf-view-mode-hook (defun disable-ultra-scroll-mac-mode-in-pdf-view ()
+                                  (ultra-scroll-mac-mode -1))))
 
 ;; `org-babel' support for evaluating go code
 (use-package ob-go)
@@ -2290,7 +2324,12 @@ Similar to `org-capture' like behavior"
         ("2" . pdf-annot-add-underline-markup-annotation)
         ("3" . pdf-annot-add-squiggly-markup-annotation)
         ("4" . pdf-annot-delete)
-        ("5" . pdf-annnt-add-text-annotation))
+        ("5" . pdf-annnt-add-text-annotation)
+        ;; FIXME: A mouse wheel scroll on MacOS, emacs-29.1 by default invokes `mac-mwheel-scroll'. If the the
+        ;; height of the page (or more precisely the rendered image for a page of a pdf) is greater than the
+        ;; Emacs frame height, a mouse wheel scroll followed by a mouse click will cause the page to auto
+        ;; scroll until its bottom meets the frame bottom.
+        ([remap mac-mwheel-scroll] . mwheel-scroll))
   :custom
   ;; If scrolling cause noticeable delays, try setting it to nil
   (pdf-view-use-scaling t)
@@ -2300,6 +2339,7 @@ Similar to `org-capture' like behavior"
   ;; Select by word by default and use `zino/pdf-tools-toggle-mouse-1-use' to toggle
   (pdf-view-selection-style 'word)
   (pdf-view-use-imagemagick t)
+  (pdf-cache-prefetch-delay 0.1)
   ;; :config
   ;; (define-key pdf-links-minor-mode-map [remap pdf-links-isearch-link] 'image-forward-hscroll)
   )
@@ -2535,13 +2575,6 @@ initial input."
 
 (use-package consult-todo)
 
-(use-package hl-line
-  :hook
-  (dired-mode . hl-line-mode)
-  :config
-  (set-face-attribute 'hl-line nil :inherit nil :background "#21242b") ;;"#2e3b49")
-  (set-face-attribute 'region nil :inherit nil :distant-foreground "#959ba5" :background "#42444a"));; "dark slate gray"));;"#113d69"));;"#2e4a54")) ;;"#406389")) ;; "#42444a")) ;; #4f5b66
-
 (use-package move-text
   :config
   (move-text-default-bindings))
@@ -2552,13 +2585,18 @@ initial input."
         ([remap beginning-of-defun] . go-goto-function)))
 
 (use-package go-ts-mode
-  :init
-  (add-to-list 'auto-mode-alist '("/go\\.mod\\'" . go-mod-ts-mode))
-  (add-to-list 'auto-mode-alist '("\\.go\\'" . go-ts-mode))
-  :hook
-  (go-ts-mode . tree-sitter-hl-mode)
+  :disabled
   :custom
-  (go-ts-mode-indent-offset 2))
+  (go-ts-mode-indent-offset 2)
+  :config
+  (add-hook 'go-ts-mode-hook (defun set-treesit-font-lock-feature-list-for-go-ts-mode ()
+                               (setq-local treesit-font-lock-feature-list
+                                           '((comment definition)
+                                             (keyword string type)
+                                             (constant escape-sequence label number function property operator
+                                                       error delimiter identifier
+                                                       assignment builtin preprocessor variable)
+                                             (bracket))))))
 
 (use-package tramp
   :custom
@@ -2567,55 +2605,13 @@ initial input."
   (tramp-auto-save-directory "~/tmp/tramp/")
   (tramp-chunksize 2000))
 
-(defun my/tree-sitter-compile-grammar (destination &optional path)
-  "Compile grammar at PATH, and place the resulting shared library in DESTINATION."
-  (interactive "fWhere should we put the shared library? \nfWhat tree-sitter grammar are we compiling? \n")
-  (make-directory destination 'parents)
-
-  (let* ((default-directory
-          (expand-file-name "src/" (or path default-directory)))
-         (parser-name
-          (thread-last (expand-file-name "grammar.json" default-directory)
-                       (json-read-file)p
-                       (alist-get 'name)))
-         (emacs-module-url
-          "https://raw.githubusercontent.com/casouri/tree-sitter-module/master/emacs-module.h")
-         (tree-sitter-lang-in-url
-          "https://raw.githubusercontent.com/casouri/tree-sitter-module/master/tree-sitter-lang.in")
-         (needs-cpp-compiler nil))
-    (message "Compiling grammar at %s" path)
-
-    (url-copy-file emacs-module-url "emacs-module.h" :ok-if-already-exists)
-    (url-copy-file tree-sitter-lang-in-url "tree-sitter-lang.in" :ok-if-already-exists)
-
-    (with-temp-buffer
-      (unless
-          (zerop
-           (apply #'call-process
-                  (if (file-exists-p "scanner.cc") "c++" "cc") nil t nil
-                  "parser.c" "-I." "--shared" "-o"
-                  (expand-file-name
-                   (format "libtree-sitter-%s%s" parser-name module-file-suffix)
-                   destination)
-                  (cond ((file-exists-p "scanner.c") '("scanner.c"))
-                        ((file-exists-p "scanner.cc") '("scanner.cc")))))
-        (user-error
-         "Unable to compile grammar, please file a bug report\n%s"
-         (buffer-string))))
-    (message "Completed compilation")))
-
-;; (use-package tree-sitter-rust
-;;   :straight
-;;   (:type git
-;;          :host github
-;;          :repo "tree-sitter/tree-sitter-rust")
-;;   :init
-;;   (setq treesit-extra-load-path '("~/.config/emacs/ts-grammars/")))
-
 (use-package treesit
+  :disabled
   :ensure nil
   :config
-  (setq treesit-extra-load-path '("~/.config/emacs/ts-grammars/"))
+  ;; When `treesit-extra-load-path' is nil, emacs looks in `tree-sitter' under `user-emacs-directory' to for
+  ;; language grammars. We want this cos `treesit-install-language-grammar' installs grammar to the same dir.
+  (setq treesit-extra-load-path nil)
   (setq treesit-language-source-alist
         '((bash "https://github.com/tree-sitter/tree-sitter-bash")
           (cmake "https://github.com/uyha/tree-sitter-cmake")
@@ -2633,6 +2629,30 @@ initial input."
           (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
           (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
           (yaml "https://github.com/ikatyang/tree-sitter-yaml"))))
+(use-package tree-sitter-langs
+  ;; Treesit support before emacs-29.
+  :disabled)
+
+(use-package tree-sitter
+  ;; Treesit support before emacs-29.
+  :disabled
+  :hook
+  (tree-sitter-after-on . tree-sitter-hl-mode)
+  :custom
+  (tree-sitter-hl-use-font-lock-keywords t)
+  :custom-face
+  (tree-sitter-hl-face:function.call ((t (:inherit (link font-lock-function-name-face) :underline nil :weight normal))))
+  (tree-sitter-hl-face:property ((t (:inherit font-lock-constant-face))))
+  :config
+  (add-to-list 'tree-sitter-major-mode-language-alist '(go-ts-mode . go))
+  (add-to-list 'tree-sitter-major-mode-language-alist '(rust-ts-mode . rust)))
+
+(use-package treesitter-context
+  :after posframe-plus
+  :load-path "~/.config/emacs/manually_installed/treesitter-context.el"
+  :custom
+  (treesitter-context-hide-frame-after-move t)
+  (treesitter-context-idle-time 0.1))
 
 (use-package cargo
   :hook
@@ -2640,18 +2660,23 @@ initial input."
   (rust-ts-mode . cargo-minor-mode))
 
 (use-package rust-mode
-  ;; When (treesit-ready-p 'rust) is t, `rust-ts-mode' registers itself for file
-  ;; name pattern "\\.rs\\'". Currently use `rust-mode' in rust files.
-  ;; :after rust-ts-mode
   :custom
   (rust-indent-offset 4)
   :config
   (add-to-list 'auto-mode-alist '("\\.rs\\.~\\(.*\\)~" . rust-mode)))
 
 (use-package rust-ts-mode
-  ;; :after tree-sitter-rust
+  :disabled
   :config
-  (setq auto-mode-alist (delete '("\\.rs\\'" . rust-ts-mode) auto-mode-alist)))
+  (add-hook 'rust-ts-mode-hook (defun treesit-font-lock-feature-list-for-rust-ts-mode ()
+                                 (setq-local treesit-font-lock-feature-list
+                                             '((comment definition)
+                                               (keyword string)
+                                               (assignment attribute builtin constant escape-sequence number
+                                                           type operator function identifier)
+                                               (bracket delimiter function error variable property)))))
+  ;; (remove-hook 'rust-ts-mode-hook 'treesit-font-lock-feature-list-for-rust-ts-mode)
+  )
 
 (use-package rustic
   :custom
@@ -2853,7 +2878,23 @@ running process."
   (add-to-list 'eglot-server-programs '(c++-mode . ("clangd-15" "--clang-tidy" "--header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(c-mode . ("clangd-15" "--clang-tidy" "--header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(cmake-mode . ("cmake-language-server")))
-  (add-to-list 'eglot-server-programs '((js-mode :language-id "javascript" typescript-mode :language-id "javascript") . (eglot-deno "deno" "lsp")))
+  (add-to-list 'eglot-server-programs '((js-mode :language-id "javascript" typescript-mode :language-id
+                                                 "javascript") . (eglot-deno "deno" "lsp")))
+
+  ;; (add-to-list
+  ;;  'eglot-server-programs
+  ;;  '((js-mode js-ts-mode tsx-ts-mode typescript-ts-mode typescript-mode)
+  ;;    "typescript-language-server" "--stdio"
+  ;;    :initializationOptions
+  ;;    (:preferences (
+  ;;                   :includeInlayParameterNameHints "all"
+  ;;                   :includeInlayParameterNameHintsWhenArgumentMatchesName t
+  ;;                   :includeInlayFunctionParameterTypeHints t
+  ;;                   :includeInlayVariableTypeHints t
+  ;;                   :includeInlayVariableTypeHintsWhenTypeMatchesName t
+  ;;                   :includeInlayPRopertyDeclarationTypeHints t
+  ;;                   :includeInlayFunctionLikeReturnTypeHints t
+  ;;                   :includeInlayEnumMemberValueHints t))))
   (add-to-list 'eglot-server-programs '(lua-mode . ("lua-language-server")))
   (add-to-list 'eglot-server-programs '(rust-mode . ("rust-analyzer")))
   (add-to-list 'eglot-server-programs '(beancount-mode . ("beancount-language-server")))
@@ -2880,7 +2921,9 @@ running process."
   :hook
   (rust-mode . eglot-ensure)
   (c-mode . eglot-ensure)
+  (c-ts-mode . eglot-ensure)
   (c++-mode . eglot-ensure)
+  (c++-ts-mode . eglot-ensure)
   (go-mode . eglot-ensure)
   (lua-mode . eglot-ensure)
   (cmake-mode . eglot-ensure)
@@ -3042,7 +3085,7 @@ running process."
   :custom
   (help-at-pt-display-when-idle t)
   (next-error-function 'flymake-goto-next-error)
-  (flymake-no-changes-timeout 0.2))
+  (flymake-no-changes-timeout 0.1))
 
 (use-package flymake-cursor
   :after flymake
@@ -3318,9 +3361,7 @@ running process."
   ;; This is recommended since Dabbrev can be used globally (M-/s ).
   ;; See also `corfu-exclude-modes'.
   :init
-  ;; `corfu-mode' is only applicable in GUI.
-  (if (display-graphic-p)
-      (global-corfu-mode))
+  (global-corfu-mode)
   (corfu-history-mode)
   (corfu-popupinfo-mode) ; Popup completion info
   :custom-face
@@ -3494,7 +3535,8 @@ running process."
   :ensure nil
   :bind
   (:map comint-mode-map
-        ([remap kill-whole-line] . comint-kill-input))
+        ([remap kill-whole-line] . comint-kill-input)
+        ("g" . recompile))
   :custom
   (comint-prompt-read-only t))
 
@@ -3815,6 +3857,7 @@ running process."
   :ensure nil
   :load-path "~/.config/emacs/manually_installed/tab-bookmark")
 
+;;; Language support
 (use-package python
   :config
   (with-eval-after-load 'python-mode
@@ -3829,6 +3872,11 @@ running process."
 (use-package gn-mode
   :init
   (add-to-list 'auto-mode-alist '("\\.gn\\'" . gn-mode)))
+
+;; Major mode for SaltStack
+(use-package salt-mode
+  :custom-face
+  (mmm-default-submode-face ((t nil))))
 
 (use-package expand-region
   :bind
@@ -3857,6 +3905,7 @@ running process."
                ("r" . isearch-repeat-backward))
   ;; :hook
   ;; Recenter after the match is selected, not recenter on every match.
+  ;; It is still a little distracting :(
   ;; (isearch-mode-end . recenter-top-bottom)
   :config
   (add-hook 'post-command-hook
@@ -4032,8 +4081,8 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
 (use-package xref
   :ensure nil
   :bind
-  ("C-." . xref-find-definitions)
-  ("C-," . xref-go-back)
+  ;; ("C-." . xref-find-definitions)
+  ;; ("C-," . xref-go-back)
   ("C-c M-d" . xref-find-definitions-other-frame)
   ("C-c C-r" . xref-find-references)
   :custom
@@ -4042,8 +4091,8 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   (xref-auto-jump-to-first-xref nil)
   :custom-face
   (xref-file-header ((t (:inherit orderless-match-face-0))))
-  ;;; `zoom-mode' does not work well with side window. Comment below if using `zoom-mode'.
   :config
+  ;;; `zoom-mode' does not work well with side window. Comment below if using `zoom-mode'.
   (add-to-list
    'display-buffer-alist
    '("^\\*xref\\*"
@@ -4056,11 +4105,7 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   :hook
   (xref-after-jump . beacon-blink)
   (xref-after-return . beacon-blink)
-  (xref-after-return . recenter)
-  ;; :config
-  ;; (remove-hook 'xref-after-jump-hook 'beacon-blink)
-  ;; (remove-hook 'xref-after-return-hook 'beacon-blink)
-  )
+  (xref-after-return . recenter))
 
 (use-package eshell
   :disabled
@@ -4116,13 +4161,37 @@ Optional argument ARGS ."
             ;; A vterm window exists but is not focused, simply switch to it.
             (vterm-toggle-show))
         ;; Create a new vterm buffer window and switch to it.
-        (vterm vterm-buffer-name)))
+        (vterm (format "%s<%s>" vterm-buffer-name (tab-bar-tab-name-current)))))
      ((equal (prefix-numeric-value args) 1)
       (vterm-toggle-show))
      ((equal (prefix-numeric-value args) 4)
       (let ((vterm-toggle-fullscreen-p
              (not vterm-toggle-fullscreen-p)))
         (vterm-toggle-show)))))
+
+  (defun vterm-toggle--new(&optional buffer-name)
+    "Bespoke version to add tab name into vterm buffer name.
+New vterm buffer."
+    (let* ((default-directory default-directory)
+           ;; begin_patch
+           (tabs (funcall tab-bar-tabs-function))
+           (tab-index (tab-bar--current-tab-index tabs))
+           (current-tab (nth tab-index tabs))
+           (tab-name (alist-get 'name current-tab))
+           (buffer-name (or buffer-name (format "%s<%s>" vterm-buffer-name tab-name)))
+           ;; end_patch
+           project-root)
+      (when (and vterm-toggle-project-root
+                 (eq vterm-toggle-scope 'project))
+        (setq project-root (vterm-toggle--project-root))
+        (when project-root
+          (setq default-directory project-root)))
+      (if vterm-toggle-fullscreen-p
+          (vterm buffer-name)
+        (if (eq major-mode 'vterm-mode)
+            (let ((display-buffer-alist nil))
+              (vterm buffer-name))
+          (vterm-other-window buffer-name)))))
 
   :bind
   ("s-e" . zino/vterm-toggle)
@@ -4168,6 +4237,11 @@ Optional argument ARGS ."
 
 (use-package breadcrumb
   :disabled
+  ;; :init
+  ;; (setq-default frame-title-format
+  ;;               '((:eval (breadcrumb-project-crumbs))
+  ;;                 (:eval (and imenu--index-alist
+  ;;                             (concat "  ◊  " (breadcrumb-imenu-crumbs))))))
   :load-path "~/.config/emacs/manually_installed/breadcrumb/"
   :custom
   (breadcrumb-project-max-length 0)
@@ -4204,21 +4278,6 @@ Optional argument ARGS ."
 
 (use-package tla-tools
   :load-path "~/.config/emacs/manually_installed/tla-tools")
-
-(use-package tree-sitter-langs)
-
-(use-package tree-sitter
-  ;; :after tree-sitter-langs
-  :hook
-  (tree-sitter-after-on . tree-sitter-hl-mode)
-  :custom
-  (tree-sitter-hl-use-font-lock-keywords t)
-  :custom-face
-  (tree-sitter-hl-face:function.call ((t (:inherit (link font-lock-function-name-face) :underline nil :weight normal))))
-  (tree-sitter-hl-face:property ((t (:inherit font-lock-constant-face))))
-  :config
-  (add-to-list 'tree-sitter-major-mode-language-alist '(go-ts-mode . go))
-  (add-to-list 'tree-sitter-major-mode-language-alist '(rust-ts-mode . rust)))
 
 (use-package separedit
   :bind
@@ -4324,18 +4383,23 @@ Optional argument ARGS ."
   (hack-local-variables . (lambda ()
                             ;; Read `indent-bars-space-override' from
                             ;; `.dir-locals.el' first.
-                            (when (derived-mode-p 'rust-mode)
+                            (when (or (derived-mode-p 'rust-mode)
+                                      (derived-mode-p 'rust-ts-mode))
                               (indent-bars-mode))))
-  (lua-mode . indent-bars-mode)
-  (json-mode . indent-bars-mode)
-  (js-mode . indent-bars-mode)
-  (c++-mode . indent-bars-mode)
-  (c-mode . indent-bars-mode)
-  (go-mode . indent-bars-mode)
-  (go-ts-mode . indent-bars-mode)
-  (python-ts-mode . indent-bars-mode)
-  (python-mode . indent-bars-mode)
-  (sh-mode . indent-bars-mode)
+  (prog-mode . indent-bars-mode)
+  (emacs-lisp-mode . (lambda ()
+                       (indent-bars-mode -1)))
+  ;; (lua-mode . indent-bars-mode)
+  ;; (json-mode . indent-bars-mode)
+  ;; (js-mode . indent-bars-mode)
+  ;; (c++-mode . indent-bars-mode)
+  ;; (c++-ts-mode . indent-bars-mode)
+  ;; (c-mode . indent-bars-mode)
+  ;; (go-mode . indent-bars-mode)
+  ;; (go-ts-mode . indent-bars-mode)
+  ;; (python-ts-mode . indent-bars-mode)
+  ;; (python-mode . indent-bars-mode)
+  ;; (sh-mode . indent-bars-mode)
   :custom
   (indent-bars-color-by-depth
    '(:palette
@@ -4404,13 +4468,6 @@ Optional argument ARGS ."
 
 (use-package posframe-plus
   :load-path "~/.config/emacs/manually_installed/posframe-plus")
-
-(use-package treesitter-context
-  :after posframe-plus
-  :load-path "~/.config/emacs/manually_installed/treesitter-context.el"
-  :custom
-  (treesitter-context-hide-frame-after-move t)
-  (treesitter-context-idle-time 0.1))
 
 (use-package symbols-outline
   :custom
@@ -4578,6 +4635,7 @@ Optional argument ARGS ."
   (add-hook 'ediff-keymap-setup-hook 'add-d-to-ediff-mode-map))
 
 (use-package gcmh
+  :disabled
   :straight (:host gitlab :repo "koral/gcmh")
   :config (gcmh-mode 1))
 
@@ -4617,6 +4675,28 @@ Optional argument ARGS ."
   :custom
   (mc/always-run-for-all t))
 
+(use-package iedit
+  :bind
+  (("C-'"  . iedit-mode) ; also note: C-' shows/hides just matches
+   :map iedit-mode-keymap
+   ("C-g" . iedit-mode) ; so I can exit iedit with C-g
+   ("C-x C-s" . (lambda ()
+                  (interactive)
+                  (save-buffer)
+                  (iedit-mode))))
+  :config
+  (advice-add #'iedit--get-scope    ; switch default to function scope
+	            :filter-args
+	            (defun my/iedit-defun-by-default (arg)
+		            (cond ((eq (car arg) nil) '(0))
+		                  ((eq (car arg) 0) '(nil))
+		                  (t arg)))))
+
+(use-package subword
+  :bind
+  ("M-<left>" . subword-left)
+  ("M-<right>" . subword-right))
+
 ;; Try it some time.
 ;; (use-package sideline)
 ;; (use-package imenu-everywhere)
@@ -4639,14 +4719,13 @@ Optional argument ARGS ."
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(completions-common-part ((t (:background "#2c3946" :foreground "#7bb6e2" :weight bold))))
- '(consult-file ((t (:inherit font-lock-constant-face))))
  '(dictionary-word-definition-face ((t (:family "Fira Code"))))
  '(fixed-pitch ((t (:family "Fira Code" :height 250))))
  '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
+ '(mmm-default-submode-face ((t nil)))
  '(next-error ((t (:inherit (bold region)))))
  '(pulse-highlight-face ((t nil)))
  '(pulse-highlight-start-face ((t nil)))
- '(tree-sitter-hl-face:property ((t (:inherit font-lock-constant-face))))
  '(variable-pitch ((t (:weight regular :height 180 :family "Fira Code"))))
  '(variable-pitch-text ((t (:inherit variable-pitch :height 1.0)))))
 
@@ -4655,6 +4734,7 @@ Optional argument ARGS ."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks" nil nil "Customized with use-package bookmark+")
  '(connection-local-criteria-alist
    '(((:application eshell)
       eshell-connection-default-profile)
