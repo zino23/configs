@@ -20,36 +20,25 @@ set -gx HOMEBREW_NO_AUTO_UPDATE 1
 set -gx HOMEBREW_AUTO_UPDATING 0
 set -gx HOMEBREW_UPDATE_PREINSTALL 0
 
-# for pkg-config to find libxml2
-set -gx PKG_CONFIG_PATH /usr/local/opt/libxml2/lib/pkgconfig
-
-# abbreviations
+# Abbreviations
 abbr -aU ec emacsclient -n
-
 abbr -aU rs rsync -chavzP --stats
-
 abbr -aU gh git help
 abbr -aU gc git checkout
 abbr -aU gcb git checkout -b
 abbr -aU gs git status
-
 abbr -aU gr grep -n
-
-# alias
-alias gm="~/gitlab/edgeworker/v8_build/v8/tools/dev/gm.py"
-alias v8gen="~/gitlab/edgeworker/v8_build/v8/tools/dev/v8gen.py"
 
 # set -gx MANPAGER "sh -c 'col -bx | bat -l man -p'"
 # set -gx BAT_THEME base16-256
 
 set -gx RUST_BACKTRACE 1
-
 set -gx GOOS darwin
 set -gx GOPROXY "https://goproxy.cn,direct"
 set -gx GO111MODULE on
 set -gx GOPATH ~/go
 
-# colored man pages
+# Colored man pages
 # Solarized Dark & Green highlight
 # set -eg man_blink -o red
 # set -eg man_bold -o green
@@ -82,15 +71,12 @@ end
 set -gx LDFLAGS -L/usr/local/opt/libffi/lib
 set -gx CPPFLAGS -I/usr/local/opt/libffi/include
 
-# For pkg-config to find libffi you may need to set:
-set -gx PKG_CONFIG_PATH /usr/local/opt/libffi/lib/pkgconfig
-
-## let's fish
+## Let's fish
 function display_fish_user_paths -d 'Display contents $fish_user_paths with indexes'
     echo $fish_user_paths | tr " " "\n" | nl
 end
 
-## remove fish $PATH
+## Remove fish $PATH
 function erase_fish_user_paths -a idx
     set --erase --universal fish_user_paths[$idx]
     display_fish_user_paths
@@ -118,15 +104,7 @@ end
 # > echo $fish_user_paths | tr " " "\n" | nl
 #      1	/home/explosic4/.fzf/bin
 
-# openssl
-# For compilers to find openssl@3 you may need to set:
-set -gx LDFLAGS "-L/usr/local/opt/openssl@3/lib"
-set -gx CPPFLAGS "-I/usr/local/opt/openssl@3/include"
-
-# For pkg-config to find openssl@3 you may need to set:
-set -gx PKG_CONFIG_PATH "/usr/local/opt/openssl@3/lib/pkgconfig"
-
-## emacs
+## Emacs
 set -gx XDG_CONFIG_HOME $HOME/.config
 
 switch $(uname -s)
@@ -135,21 +113,19 @@ switch $(uname -s)
         set -gx EDITOR "emacsclient --socket-name $EMACS_SOCKET_NAME"
 end
 
-## cmake
-
-## tmux
+## Tmux
 # it is sad that tilde `~` does not expand within quotes
 if test ! -d "$HOME/.tmux/plugins/tpm"
     echo 'Start to installing Tmux Plugin Manager tpm ...'
     git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 end
 
-## vterm
+## VTerm
 function vterm_printf
     if begin
             [ -n "$TMUX" ]; and string match -q -r "screen|tmux" "$TERM"
         end
-        # tell tmux to pass the escape sequences through
+        # Tell tmux to pass the escape sequences through
         printf "\ePtmux;\e\e]%s\007\e\\" "$argv"
     else if string match -q -- "screen*" "$TERM"
         # GNU screen (screen, screen-256color, screen-256color-bce)
@@ -160,3 +136,5 @@ function vterm_printf
 end
 
 set fish_greeting
+
+source $XDG_CONFIG_HOME/fish/env.fish
