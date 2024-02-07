@@ -37,16 +37,18 @@ emacs/org-roam.db
 emacs/.dap-breakpoints
 emacs/eshell/
 emacs/straight/
+emacs/tree-sitter/
+emacs/.mc-lists.el
 abbrev_defs
 
 clash
 base16-shell
 
-# fish
+# Fish
 fish/*
 !fish/config.fish
 
-# karabiner
+# Karabiner
 karabiner/automatic_backups
 
 # htop
@@ -61,7 +63,7 @@ flameshot.ini
 # dlv
 dlv
 
-# raycast
+# Raycast
 raycast/extensions
 
 # Rime

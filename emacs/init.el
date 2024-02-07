@@ -2166,83 +2166,126 @@ Similar to `org-capture' like behavior"
   :disabled
   :hook (org-mode . org-fragtog-mode))
 
-(setq zino/roam-dir "~/Notes/Roam"
-      zino/anki-file "~/Notes/Roam/20220517104105-anki.org"
-      zino/contacts-file "~/Notes/Roam/20220620203106-contacts.org"
-      zino/meeting-file (concat zino/roam-dir "/20221115143855-meeting.org"))
-
-(setq org-capture-templates
-      `(;; a for "Anki"
-        ("a" "Anki")
-        ("ab" "Basic card with a front and a back"
-         entry
-         (file+headline zino/anki-file "Dispatch Shelf")
-         "** %<%Y-%m-%d:%H:%M>\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Basic\n:ANKI_DECK: %^{Deck|Vocabulary}\n:END:\n*** Front\n%?\n*** Back\n%x\n")
-        ("ac" "Cloze"
-         entry
-         (file+headline zino/anki-file "Dispatch Shelf")
-         "** %<%Y-%m-%d:%H:%M>  %^g\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Cloze\n:ANKI_DECK: %^{Deck|Vocabulary}\n:END:\n*** Text\n%?\n*** Back extra\n%x\n")
-        ("at" "Temporary Note"
-         entry
-         (file+headline zino/anki-file "Temporary Notes")
-         "** TODO %^{Topic|..}\n%?")
-
-        ;; c for "Contacts"
-        ("c" "Contacts")
-        ("cf" "Family"
-         entry
-         (file+headline zino/contacts-file "Family")
-         "** %^{Name} \n:PROPERTIES:\n:CREATED: %(format-time-string \"<%Y-%m-%dT%H:%M>\" (current-time))\n:BIRTHDAY: %^{BIRTHDAY}\n:END:\n%?")
-        ("cF" "Friends"
-         entry
-         (file+headline zino/contacts-file "Friends")
-         "** %^{Name} \n:PROPERTIES:\n:CREATED: %(format-time-string \"<%Y-%m-%d:%H:%M>\" (current-time))\n:HowDoWeMeet: %^{How do we meet?}\n:END:\n%?")
-
-        ;; g for "Get Things Done"
-        ("g" "Get Things Done")
-        ("gq" "Questions"
-         entry
-         (file+regexp zino/GTD-file "\\* Questions \\[[0-9]*/[0-9]*\\]")
-         "** TODO %^{What is the QUESTION} %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
-         :immediate-finish nil
-         :after-finalize org-fold-hide-drawer-all)
-        ("gt" "Tasks"
-         entry
-         (file+regexp zino/GTD-file "\\* Tasks \\[[0-9]*/[0-9]*\\]")
-         "** TODO %^{What is the TASK} %^g\n:PROPERTIES:\n:ID: %(shell-command-to-string \"uuidgen\"):CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n%?"
-         :immediate-finish nil
-         ;; FIXME: I tried the following to fold the PROPERTY drawer in the
-         ;; narrowed org capture buffer. However, when the captured text gets
-         ;; inserted, the drawer is unfolded. With `:after-finalize', the
-         ;; nullary function is called in the buffer wherein captured text is
-         ;; inserted. Currently a relatively expensive
-         ;; `org-fold-hide-drawer-all' is called. Optimize it by only folding
-         ;; the drawer we just inserted.
-         ;; :before-finalize (lambda ()
-         ;;                    (org-back-to-heading-or-point-min)
-         ;;                    (next-line)
-         ;;                    (org-fold-hide-drawer-toggle t))
-         ;; NOTE: possible implementation: find the heading we just inserted,
-         ;; forward one line, then call `org-fold-hide-drawer-toggle'.
-         :after-finalize org-fold-hide-drawer-all)
-        ("gl" "Later"
-         entry
-         (file+regexp zino/GTD-file "\\* Later")
-         "** TODO %^{What TO DO later} %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n\n"
-         :immediate-finish nil
-         :after-finalize org-fold-hide-drawer-all)
-        ("gr" "Reminders"
-         entry
-         (file+regexp zino/GTD-file "\\* Reminders \\[[0-9]*/[0-9]*\\]")
-         "** TODO %^{What is the REMINDER} %^g\n:PROPERTIES:\n:ID: %(shell-command-to-string \"uuidgen\"):CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
-         :immediate-finish nil
-         :after-finalize org-fold-hide-drawer-all)
-
-        ;; w for "Weekly Plan"
-        ("w" "Weekly Plan")
-        ("we" "Weekend"
-         entry
-         (file+function zino/GTD-file (lambda ()
+(use-package doct
+  :commands (doct)
+  :config
+  (setq zino/roam-dir "~/Notes/Roam"
+        zino/anki-file "~/Notes/Roam/20220517104105-anki.org"
+        zino/contacts-file "~/Notes/Roam/20220620203106-contacts.org"
+        zino/meeting-file (concat zino/roam-dir "/20221115143855-meeting.org"))
+  (setq org-capture-templates
+        (doct '(("Anki"
+                 :keys "a"  ;; "a" for "Anki"
+                 :file zino/anki-file
+                 :children (("Basic card with a front and a back"
+                             :keys "b"
+                             :type plain
+                             :headline "Dispatch Shelf"
+                             :template ("** %<%Y-%m-%dT%H:%M:%S>"
+                                        ":PROPERTIES:"
+                                        ":ANKI_NOTE_TYPE: Basic"
+                                        ":ANKI_DECK: %^{Deck|Vocabulary}"
+                                        ":END:"
+                                        "*** Front"
+                                        "%?"
+                                        "*** Back"
+                                        "%x"))
+                            ("Cloze"
+                             :keys "c"
+                             :headline "Dispatch Shelf"
+                             :template ("** %<%Y-%m-%dT%H:%M:%S>"
+                                        ":PROPERTIES:"
+                                        ":ANKI_NOTE_TYPE: Cloze"
+                                        ":ANKI_DECK: %^{Deck|Vocabulary}"
+                                        ":END:"
+                                        "*** Text"
+                                        "%?"
+                                        "*** Back extra"
+                                        "%x"))
+                            ("Temporary Note"
+                             :keys "t"
+                             :type plain
+                             :headline "Temporary Notes"
+                             :template ("** TODO %^{Topic|..}"
+                                        "%?"))))
+                ("Contacts"
+                 :keys "c"  ;; "c" for "Contacts"
+                 :file zino/contacts-file
+                 :children (("Family"
+                             :keys "f"
+                             :type plain
+                             :headline "Family"
+                             :template ("** %^{Name}"
+                                        ":PROPERTIES:"
+                                        ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                                        ":BIRTHDAY: %^{BIRTHDAY}"
+                                        ":END:"
+                                        "%?"))
+                            ("Friends"
+                             :keys "F"
+                             :type plain
+                             :headling "Friends"
+                             :template ("** %^{Name}"
+                                        ":PROPERTIES:"
+                                        ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                                        ":HowDoWeMeet: %^{How do we meet?}"
+                                        ":END:"
+                                        "%?"))))
+                ("Get Things Done"
+                 :keys "g"  ;; "g" for "Get Things Done"
+                 :file zino/GTD-file
+                 :children (("Questions"
+                             :keys "q"
+                             :type plain
+                             :regexp "\\* Questions \\[[0-9]*/[0-9]*\\]"
+                             :template ("TODO %^{What is the QUESTION} %^g"
+                                        ":PROPERTIES:"
+                                        ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                                        ":END:")
+                             :immediate-finish nil
+                             :after-finalize org-fold-hide-drawer-all)
+                            ("Tasks"
+                             :keys "t"
+                             :type plain
+                             :regexp "\\* Tasks \\[[0-9]*/[0-9]*\\]"
+                             :template ("** TODO %^{What is the TASK} %^g"
+                                        ":PROPERTIES:"
+                                        ":ID: %(shell-command-to-string \"uuidgen | tr -d '\n'\")"
+                                        ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                                        ":END:")
+                             :immediate-finish nil
+                             ;; FIXME: I tried the following to fold the PROPERTY drawer in the
+                             ;; narrowed org capture buffer. However, when the captured text gets
+                             ;; inserted, the drawer is unfolded. With `:after-finalize', the
+                             ;; nullary function is called in the buffer wherein captured text is
+                             ;; inserted. Currently a relatively expensive
+                             ;; `org-fold-hide-drawer-all' is called. Optimize it by only folding
+                             ;; the drawer we just inserted.
+                             ;; :before-finalize (lambda ()
+                             ;;                    (org-back-to-heading-or-point-min)
+                             ;;                    (next-line)
+                             ;;                    (org-fold-hide-drawer-toggle t))
+                             ;; NOTE: possible implementation: find the heading we just inserted,
+                             ;; forward one line, then call `org-fold-hide-drawer-toggle'.
+                             :after-finalize org-fold-hide-drawer-all)
+                            ("Later"
+                             :keys "l"
+                             :type plain
+                             :regexp "\\* Reminders \\[[0-9]*/[0-9]*\\]"
+                             :template ("** TODO %^{What is the REMINDER} %^g"
+                                        ":PROPERTIES:"
+                                        ":ID: %(shell-command-to-string \"uuidgen | tr -d '\n'\")"
+                                        ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                                        ":END:")
+                             :immediate-finish nil
+                             :after-finalize org-fold-hide-drawer-all)))
+                ("Weekly Plan"
+                 :keys "w"
+                 :file zino/GTD-file
+                 :children ("Weekend"
+                            :keys "e"
+                            :type plain
+                            :function (lambda ()
                                         "Locate * Weekly Plan heading. Insert a timestamp of current week if there is none. create a TODO"
                                         (goto-char (point-min))
                                         (unless (re-search-forward "\\* Weekly Plan" (point-max) t)
@@ -2251,18 +2294,25 @@ Similar to `org-capture' like behavior"
                                           (insert "* Weekly Plan\n"))
                                         (unless (re-search-forward (concat "\\*\\* " (format-time-string "%Y-%m") "\\(-[0-9]*\\)?" (format-time-string "-W%V")) (point-max) t)
                                           (newline)
-                                          (insert (concat "** " (format-time-string "%Y-%m-%d-W%V\n"))))))
-         "*** TODO %^{What to do this weekend} %^g\n:PROPERTIES:\n:CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n\n")
-
-        ;; m for "Meeting"
-        ("m" "Meeting")
-        ("mr" "Random"
-         entry
-         (file+headline zino/meeting-file "Participated")
-         "** %^{What is it about}  %^g\n:PROPERTIES:\n:ID: %(shell-command-to-string \"uuidgen\"):CREATED: %<%Y-%m-%dT%H:%M>\n:END:\n"
-         :immediate-finish nil
-         :jump-to-captured t
-         :after-finalize org-fold-hide-drawer-all)))
+                                          (insert (concat "** " (format-time-string "%Y-%m-%d-W%V\n")))))
+                            :template ("*** TODO %^{What to do this weekend} %^g"
+                                       ":PROPERTIES:"
+                                       ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                                       ":END:")))
+                ("Meetings"
+                 :keys "m"
+                 :file zino/meeting-file
+                 :children (("Random"
+                             :keys "r"
+                             :headline "Participated"
+                             :template ("** %^{What is it about}  %^g"
+                                        ":PROPERTIES:"
+                                        ":ID: %(shell-command-to-string \"uuidgen | tr -d '\n'\")"
+                                        ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                                        ":END:")
+                             :immediate-finish nil
+                             :jump-to-captured t
+                             :after-finalize org-fold-hide-drawer-all)))))))
 
 (use-package rime
   :disabled
@@ -2638,6 +2688,7 @@ initial input."
   (dolist (lang treesit-language-source-alist)
     (unless (treesit-language-available-p (car lang))
       (treesit-install-language-grammar (car lang))))
+
   (setq major-mode-remap-alist
         '((yaml-mode . yaml-ts-mode)
           (bash-mode . bash-ts-mode)
