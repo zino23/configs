@@ -2122,7 +2122,11 @@ specified as an an \"attachment:\" style link."
   ;; (org-link ((t (:inherit link :family "Iosevka"))))
   (org-link ((t (:inherit link :family "Iosevka")))))
 
+;; `org-babel' support for evaluating go code
+(use-package ob-go)
+
 (use-package org
+  :after ob-go
   :config
   ;; org-agenda
   (defvar  zino/GTD-file "~/Notes/Roam/20220816100518-gtd.org")
@@ -2194,9 +2198,6 @@ specified as an an \"attachment:\" style link."
   (ultra-scroll-mac-mode 1)
   (add-hook 'pdf-view-mode-hook (defun disable-ultra-scroll-mac-mode-in-pdf-view ()
                                   (ultra-scroll-mac-mode -1))))
-
-;; `org-babel' support for evaluating go code
-(use-package ob-go)
 
 (use-package org-agenda
   :ensure nil
