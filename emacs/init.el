@@ -1759,11 +1759,12 @@ Return TEMPLATE as a string."
   (defun zino/org-roam-node-find-other-window ()
     (interactive)
     (org-roam-node-find 'other-windw))
-  :bind
+  :config
+  (global-unset-key (kbd "s-n"))
+  (global-set-key (kbd "s-n f") 'org-roam-node-find)
   ;; Keybindings containing `4' before normal key actions often means to execute
   ;; the action in other window.
-  ("s-n 4 f" . zino/org-roam-node-find-other-window)
-  ("s-n f" . org-roam-node-find))
+  (global-set-key (kbd "s-n 4 f") 'zino/org-roam-node-find-other-window))
 
 (use-package magit-todos
   ;; Not compatible with Emacs 28
