@@ -747,10 +747,9 @@ Save the buffer of the current window and kill it"
 ;; the directory whose files should be opened in read-only buffers.
 
 (use-package edebug
+  :after eros
   :ensure nil
   :config
-  (require 'eros)
-
   (defun adviced:edebug-previous-result (_ &rest r)
     "Adviced `edebug-previous-result'."
     (eros--make-result-overlay edebug-previous-result
