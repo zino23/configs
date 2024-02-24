@@ -4,6 +4,7 @@
 ;; here is some magic that can grow hands on your mind, and vice versa.
 
 ;;; code:
+
 (setq load-prefer-newer t)
 
 ;; Take the full control, don't load `default.el'.
@@ -369,10 +370,18 @@ Insert full path if prefix argument `FULL-PATH' is sent."
     (when buffer-file-name (kill-new (file-truename buffer-file-name))
           (message buffer-file-name)))
 
+  (defun zino/delete-till-end-of-buffer ()
+    "Delete from point to the end of buffer."
+    (interactive)
+    (let ((beg (point)))
+      (end-of-buffer)
+      (kill-region beg (point))))
+
   :bind
   ("C-S-d" . zino/toggle-window-dedication)
   ("C-c C-z" . delete-to-end-of-buffer)
   ("C-c C-s" . zino/toggle-scratch)
+  ("C-s-k" . zino/delete-till-end-of-buffer)
   :config
   ;; Mandatory, as the dictionary misbehaves!
   (add-to-list 'display-buffer-alist
@@ -514,7 +523,6 @@ Insert full path if prefix argument `FULL-PATH' is sent."
 (global-set-key (kbd "s-c") 'kill-ring-save)
 (global-set-key (kbd "s-v") 'yank)
 (global-set-key (kbd "s-k") 'kill-current-buffer)
-(global-set-key (kbd "C-s-k") 'delete-window)
 (global-set-key (kbd "s-u") 'revert-buffer)
 (global-set-key (kbd "s--") 'text-scale-adjust)
 (global-set-key (kbd "s-=") 'text-scale-adjust)
@@ -855,9 +863,18 @@ Save the buffer of the current window and kill it"
   (add-hook 'vterm-mode-hook (lambda ()
                                "Disable `global-hl-line-mode' locally."
                                (setq-local global-hl-line-mode nil)))
-  (set-face-attribute 'hl-line nil :inherit nil :background "#21242b") ;;"#2e3b49")
-  (set-face-attribute 'region nil :inherit nil :distant-foreground "#959ba5" :background "#42444a")
-  ;; slate gray"));;"#113d69"));;"#2e4a54")) ;;"#406389")) ;; "#42444a")) ;; #4f5b66
+
+  (add-hook 'activate-mark-hook (lambda ()
+                                  ;; `hl-line-mode' works by putting an overlay on the current line.
+                                  (remove-overlays (line-beginning-position) (line-end-position) 'face 'hl-line)
+                                  (setq-local global-hl-line-mode nil)))
+
+  (add-hook 'deactivate-mark-hook (lambda ()
+                                    (setq-local global-hl-line-mode t)))
+
+  ;; For `doom-one' theme.
+  ;; (set-face-attribute 'hl-line nil :inherit nil :background "#21242b") ;;"#2e3b49")
+  ;; (set-face-attribute 'region nil :inherit nil :distant-foreground "#959ba5" :background "#42444a")
   )
 
 ;; Word abbreviation
@@ -1088,15 +1105,22 @@ Save the buffer of the current window and kill it"
   (help-at-pt-timer-delay 1)
   (help-at-pt-display-when-idle '(flymake-iagnostics))
   :config
-  (delete 'eldoc-display-in-buffer eldoc-display-functions))
+  (delete 'eldoc-display-in-buffer eldoc-display-functions)
+  :custom-face
+  ;;; For `solarizied-gruvbox-dark'
+  ;; (markdown-code-face ((t (:foreground "#7c6f64" :family "Fira Code"))))
+
+  ;;; For `zenburn'
+  (markdown-code-face ((t (:family "Fira Code")))))
 
 (use-package eldoc-box
   :bind
   (:map eglot-mode-map
-        ("C-c C-d" . eldoc-box-help-at-point))
-  :custom-face
-  (eldoc-box-border ((t (:background "#3c586f" :weight heavy))))
-  (eldoc-box-border ((t (:background "#51afef" :weight bold)))))
+        ("C-c s-d" . eldoc-box-help-at-point))
+  ;; :custom-face
+  ;; (eldoc-box-border ((t (:background "#3c586f" :weight heavy))))
+  ;; (eldoc-box-border ((t (:background "#51afef" :weight bold))))
+  )
 
 ;; Automatically trim trailing whitespaces.
 (use-package ws-butler
@@ -1143,16 +1167,93 @@ Save the buffer of the current window and kill it"
   (show-paren-mode 1)
   :custom
   (show-paren-delay 0)
-  (show-paren-style 'mixed)
-  :custom-face
-  (show-paren-match-expression ((t (:inherit nil :background "#282c34" :weight bold)))))
+  (show-paren-style 'parenthesis)
+  ;; :custom-face
+  ;; (show-paren-match-expression ((t (:inherit nil :background "#282c34" :weight bold))))
+  )
 
 (use-package nerd-icons)
 
 (use-package solarized-theme
   :disabled
   :init
-  (load-theme 'solarized-dark t))
+  (load-theme 'solarized-gruvbox-dark t))
+
+(use-package gruvbox-theme
+  :disabled
+  :init
+  (load-theme 'gruvbox))
+
+(use-package modus-themes
+  :disabled
+  :init
+  (load-theme 'modus-vivendi-tinted)
+  :config
+  (setq modus-themes-region '(bg-only)))
+
+(use-package zenburn-theme
+  :init
+  (load-theme 'zenburn t))
+
+(use-package zenburn-theme
+  :after avy
+  :custom-face
+  (avy-goto-char-timer-face ((t (:inherit isearch :foreground "#D0BF8F")))))
+
+(use-package zenburn-theme
+  :after corfu
+  :custom-face
+  ;; Darker current candidate.
+  ;; (corfu-current ((t (:foreground "#DCDCCC" :background "#4F4F4F"))))
+  ;; (corfu-default ((t (:foreground "#DCDCCC" :background "#2B2B2B"))))
+  ;; (corfu-popupinfo ((t (:inherit corfu-current))))
+
+  ;; Ligher current candidate.
+  (corfu-current ((t (:foreground "#DCDCCC" :background "#2B2B2B"))))
+  (corfu-default ((t (:foreground "#DCDCCC" :background "#4F4F4F"))))
+  (corfu-popupinfo ((t (:inherit corfu-default)))))
+
+(use-package zenburn-theme
+  :after eglot
+  :custom-face
+  (eglot-inlay-hint-face ((t (:inherit shadow :family "Iosevka" :height 0.9))))
+  (eglot-parameter-hint-face ((t (:inherit eglot-inlay-hint-face :family "Iosevka"))))
+  (eglot-type-hint-face ((t (:inherit eglot-inlay-hint-face :family "Iosevka")))))
+
+(use-package zenburn-theme
+  :after (rustic vterm)
+  :config
+  (setq rustic-ansi-faces (let ((faces (list)))
+                            (dolist (face '(term-color-black term-color-red term-color-green term-color-yellow term-color-blue
+                                                             term-color-magenta term-color-cyan))
+                              ;; (add-to-list 'faces (face-foreground face) t)
+                              (setq faces (cons faces (face-foreground face)))
+                              )
+                            (vconcat faces))))
+
+(use-package zenburn-theme
+  :after org
+  :custom-face
+  (org-level-1 ((t (:inherit default :extend nil :foreground "#DFAF8F" :height 1.3 :family "Iosevka"))))
+  (org-level-2 ((t (:inherit default :extend nil :foreground "#BFEBBF" :height 1.2 :family "Iosevka"))))
+  (org-level-3 ((t (:inherit default :extend nil :foreground "#7CB8BB" :height 1.1 :family "Iosevka"))))
+  (org-level-4 ((t (:inherit default :extend nil :foreground "#D0BF8F" :height 1.05 :family "Iosevka"))))
+  (org-level-5 ((t (:inherit default :extend nil :foreground "#93E0E3" :family "Iosevka"))))
+  (org-level-6 ((t (:inherit (default default) :extend nil :foreground "#9FC59F" :family "Iosevka"))))
+  (org-code ((t (:foreground "#DFAF8F"))))
+  (org-verbatim ((t (:inherit shadow :foreground "#7cb8bb" :box (:line-width (1 . 1) :style pressed-button))))) ; "#9FC59F"))))
+  ;; (org-block ((t (:background "#2B2B2B"))))
+  )
+
+(use-package zenburn-theme
+  :after org-remark
+  :custom-face
+  (org-remark-highlighter ((t (:inherit term-color-blue)))))
+
+(use-package zenburn-theme
+  :after diredfl
+  :custom-face
+  (diredfl-dir-name ((t (:foreground "#7474FFFFFFFF")))))
 
 (use-package doom-modeline
   :init (doom-modeline-mode 1)
@@ -1170,9 +1271,12 @@ Save the buffer of the current window and kill it"
   (doom-modeline-buffer-modified ((t (:background unspecified :inherit (bold))))))
 
 (use-package doom-themes
+  :disabled
   :init
   (load-theme 'doom-one t)
+  ;; (load-theme 'doom-tokyo-night t)
   ;; (load-theme 'doom-solarized-dark-high-contrast t)
+  ;; (load-theme 'doom-gruvbox t)
   :config
   ;; Enable flashing mode-line on errors
   (doom-themes-visual-bell-config)
@@ -1182,6 +1286,16 @@ Save the buffer of the current window and kill it"
   (doom-themes-enable-bold t) ; if nil, bold is universally disabled
   (doom-themes-enable-italic t) ; if nil, italics is universally disabled
   )
+
+(use-package doom-one-theme
+  :disabled
+  :ensure nil
+  :after doom-themes
+  :init
+  (load-theme 'doom-one t)
+  :custom-face
+  (bmkp-local-file-without-region ((t (:foreground "#bbc2cf"))))
+  (org-remark-highlighter ((t (:background "#023047" :underline nil)))))
 
 (use-package emojify
   :hook
@@ -1403,8 +1517,8 @@ respectively."
   (:map vertico-map
         ("s-j" . vertico-quick-jump)
         ;; Exit vertico with the selected candidate
-        ("C-M-q" . vertico-quick-exit)
-        ("M-q" . vertico-quick-insert)))
+        ("M-q" . vertico-quick-exit)
+        ("C-M-q" . vertico-quick-insert)))
 
 ;; Enable rich annotations using the Marginalia package
 (use-package marginalia
@@ -1656,6 +1770,9 @@ Return TEMPLATE as a string."
   (magit-mode . magit-delta-mode)
   :custom
   (magit-delta-default-dark-theme "Solarized (dark)")
+  ;; (magit-delta-default-dark-theme "gruvbox-dark")
+  ;; (magit-delta-default-dark-theme "base16")
+  ;; (magit-delta-default-dark-theme "Nord")
   (magit-delta-hide-plus-minus-markers nil)
   ;; :config
   ;; https://github.com/dandavison/magit-delta/issues/6
@@ -1684,6 +1801,7 @@ Return TEMPLATE as a string."
 (use-package hl-todo
   :custom
   (hl-todo-wrap-movement t)
+  (hl-todo-require-punctuation t)
   (hl-todo-keyword-faces
    '(("HOLD" . "#d0bf8f")
      ("TODO" . "#cc9393")
@@ -1705,7 +1823,6 @@ Return TEMPLATE as a string."
      ("XXXX*" . "#cc9393")))
   :hook
   (prog-mode . hl-todo-mode)
-  (org-mode . hl-todo-mode)
   :bind
   ("M-s-[" . hl-todo-previous)
   ("M-s-]" . hl-todo-next))
@@ -1971,22 +2088,33 @@ specified as an an \"attachment:\" style link."
   (org-attach-id-dir "org-attach")
 
   :custom-face
-  (org-level-1 ((t (:inherit outline-1 :extend nil :height 1.3 :width normal :family "Iosevka"))))
-  (org-level-2 ((t (:inherit outline-2 :extend nil :height 1.2 :width normal :family "Iosevka"))))
-  (org-level-3 ((t (:inherit outline-3 :extend nil :height 1.1 :width normal :weight normal :family "Iosevka"))))
-  (org-level-4 ((t (:inherit outline-4 :extend nil :height 1.05 :width normal :weight normal :family "Iosevka"))))
-  (org-level-5 ((t (:inherit outline-5 :extend nil :height 1.0 :width normal :weight normal :family "Iosevka"))))
-  (org-level-6 ((t (:inherit outline-6 :extend nil :height 1.0 :width normal :weight normal :family "Iosevka"))))
-  ;; (org-block ((t (:inherit nil :extend t :background "#282c34")))) ;; the original: "#23272e"
-  (org-block-begin-line ((t (:inherit org-block :extend t :foreground "#83898d")))) ;; the original: "#5B6268"
-  ;; (org-block ((t (:background "#23272e" :extend t))))
-  (org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
-  (org-code ((t (:inherit nil :foreground "#da8548"))))
-  (org-verbatim ((t (:foreground "#98be65"))))
-  (org-document-title ((t (:foreground "#c678dd" :weight bold :height 1.2 :family "Iosevka"))))
-  (org-link ((t (:inherit link :foreground "#51afef" :family "Iosevka"))))
-  (org-table ((t (:foreground "#a9a1e1" :slant normal :weight normal :height 180 :width normal :foundry "nil"
-                              :family "Sarasa Mono SC Nerd")))))
+  ;;; For `doom-one'.
+  ;; (org-level-1 ((t (:inherit outline-1 :extend nil :height 1.3 :width normal :family "Iosevka"))))
+  ;; (org-level-2 ((t (:inherit outline-2 :extend nil :height 1.2 :width normal :family "Iosevka"))))
+  ;; (org-level-3 ((t (:inherit outline-3 :extend nil :height 1.1 :width normal :weight normal :family "Iosevka"))))
+  ;; (org-level-4 ((t (:inherit outline-4 :extend nil :height 1.05 :width normal :weight normal :family "Iosevka"))))
+  ;; (org-level-5 ((t (:inherit outline-5 :extend nil :height 1.0 :width normal :weight normal :family "Iosevka"))))
+  ;; (org-level-6 ((t (:inherit outline-6 :extend nil :height 1.0 :width normal :weight normal :family "Iosevka"))))
+  ;; ;; (org-block ((t (:inherit nil :extend t :background "#282c34")))) ;; the original: "#23272e"
+  ;; (org-block-begin-line ((t (:inherit org-block :extend t :foreground "#83898d")))) ;; the original: "#5B6268"
+  ;; ;; (org-block ((t (:background "#23272e" :extend t))))
+  ;; (org-checkbox-statistics-todo ((t (:inherit org-todo :family "Iosevka"))))
+  ;; (org-code ((t (:inherit nil :foreground "#da8548"))))
+  ;; (org-verbatim ((t (:foreground "#98be65"))))
+  ;; (org-document-title ((t (:foreground "#c678dd" :weight bold :height 1.2 :family "Iosevka"))))
+  ;; (org-link ((t (:inherit link :foreground "#51afef" :family "Iosevka"))))
+  ;; (org-table ((t (:foreground "#a9a1e1" :slant normal :weight normal :height 180 :width normal :foundry "nil"
+  ;;                             :family "Sarasa Mono SC Nerd"))))
+
+  ;;; For `solarized-gruvbox-dark'.
+  ;; (org-level-1 ((t (:inherit variable-pitch :extend nil :foreground "#d65d0e" :height 1.3 :family "Iosevka"))))
+  ;; (org-level-2 ((t (:inherit variable-pitch :extend nil :foreground "#98971a" :height 1.2 :family "Iosevka"))))
+  ;; (org-level-3 ((t (:inherit variable-pitch :extend nil :foreground "#458588" :height 1.1 :family "Iosevka"))))
+  ;; (org-level-4 ((t (:inherit variable-pitch :extend nil :foreground "#d79921" :height 1.05 :family "Iosevka"))))
+  ;; (org-level-5 ((t (:inherit variable-pitch :extend nil :foreground "#689d6a" :family "Iosevka"))))
+  ;; (org-level-6 ((t (:inherit variable-pitch :extend nil :foreground "#98971a" :family "Iosevka"))))
+  ;; (org-link ((t (:inherit link :family "Iosevka"))))
+  (org-link ((t (:inherit link :family "Iosevka")))))
 
 (use-package org
   :config
@@ -2167,152 +2295,165 @@ Similar to `org-capture' like behavior"
   :hook (org-mode . org-fragtog-mode))
 
 (use-package doct
-  :commands (doct)
-  :config
-  (setq zino/roam-dir "~/Notes/Roam"
+  :init
+  (setq zino/roam-dir "~/Notes/Roam/"
         zino/anki-file "~/Notes/Roam/20220517104105-anki.org"
         zino/contacts-file "~/Notes/Roam/20220620203106-contacts.org"
-        zino/meeting-file (concat zino/roam-dir "/20221115143855-meeting.org"))
+        zino/meeting-file (concat zino/roam-dir "20221115143855-meeting.org")
+        zino/anecdote-file (concat zino/roam-dir "20240207175232-anecdote.org"))
   (setq org-capture-templates
         (doct '(("Anki"
                  :keys "a"  ;; "a" for "Anki"
                  :file zino/anki-file
-                 :children (("Basic card with a front and a back"
-                             :keys "b"
-                             :type plain
-                             :headline "Dispatch Shelf"
-                             :template ("** %<%Y-%m-%dT%H:%M:%S>"
-                                        ":PROPERTIES:"
-                                        ":ANKI_NOTE_TYPE: Basic"
-                                        ":ANKI_DECK: %^{Deck|Vocabulary}"
-                                        ":END:"
-                                        "*** Front"
-                                        "%?"
-                                        "*** Back"
-                                        "%x"))
-                            ("Cloze"
-                             :keys "c"
-                             :headline "Dispatch Shelf"
-                             :template ("** %<%Y-%m-%dT%H:%M:%S>"
-                                        ":PROPERTIES:"
-                                        ":ANKI_NOTE_TYPE: Cloze"
-                                        ":ANKI_DECK: %^{Deck|Vocabulary}"
-                                        ":END:"
-                                        "*** Text"
-                                        "%?"
-                                        "*** Back extra"
-                                        "%x"))
-                            ("Temporary Note"
-                             :keys "t"
-                             :type plain
-                             :headline "Temporary Notes"
-                             :template ("** TODO %^{Topic|..}"
-                                        "%?"))))
+                 :children
+                 (("Basic card with a front and a back"
+                   :keys "b"
+                   :type plain
+                   :headline "Dispatch Shelf"
+                   :template ("** %<%Y-%m-%dT%H:%M:%S>"
+                              ":PROPERTIES:"
+                              ":ANKI_NOTE_TYPE: Basic"
+                              ":ANKI_DECK: %^{Deck|Vocabulary}"
+                              ":END:"
+                              "*** Front"
+                              "%?"
+                              "*** Back"
+                              "%x"))
+                  ("Cloze"
+                   :keys "c"
+                   :headline "Dispatch Shelf"
+                   :template ("** %<%Y-%m-%dT%H:%M:%S>"
+                              ":PROPERTIES:"
+                              ":ANKI_NOTE_TYPE: Cloze"
+                              ":ANKI_DECK: %^{Deck|Vocabulary}"
+                              ":END:"
+                              "*** Text"
+                              "%?"
+                              "*** Back extra"
+                              "%x"))
+                  ("Temporary Note"
+                   :keys "t"
+                   :type plain
+                   :headline "Temporary Notes"
+                   :template ("** TODO %^{Topic|..}"
+                              "%?"))))
                 ("Contacts"
                  :keys "c"  ;; "c" for "Contacts"
                  :file zino/contacts-file
-                 :children (("Family"
-                             :keys "f"
-                             :type plain
-                             :headline "Family"
-                             :template ("** %^{Name}"
-                                        ":PROPERTIES:"
-                                        ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
-                                        ":BIRTHDAY: %^{BIRTHDAY}"
-                                        ":END:"
-                                        "%?"))
-                            ("Friends"
-                             :keys "F"
-                             :type plain
-                             :headling "Friends"
-                             :template ("** %^{Name}"
-                                        ":PROPERTIES:"
-                                        ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
-                                        ":HowDoWeMeet: %^{How do we meet?}"
-                                        ":END:"
-                                        "%?"))))
+                 :children
+                 (("Family"
+                   :keys "f"
+                   :type plain
+                   :headline "Family"
+                   :template ("** %^{Name}"
+                              ":PROPERTIES:"
+                              ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                              ":BIRTHDAY: %^{BIRTHDAY}"
+                              ":END:"
+                              "%?"))
+                  ("Friends"
+                   :keys "F"
+                   :type plain
+                   :headling "Friends"
+                   :template ("** %^{Name}"
+                              ":PROPERTIES:"
+                              ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                              ":HowDoWeMeet: %^{How do we meet?}"
+                              ":END:"
+                              "%?"))))
                 ("Get Things Done"
                  :keys "g"  ;; "g" for "Get Things Done"
                  :file zino/GTD-file
-                 :children (("Questions"
-                             :keys "q"
-                             :type plain
-                             :regexp "\\* Questions \\[[0-9]*/[0-9]*\\]"
-                             :template ("TODO %^{What is the QUESTION} %^g"
-                                        ":PROPERTIES:"
-                                        ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
-                                        ":END:")
-                             :immediate-finish nil
-                             :after-finalize org-fold-hide-drawer-all)
-                            ("Tasks"
-                             :keys "t"
-                             :type plain
-                             :regexp "\\* Tasks \\[[0-9]*/[0-9]*\\]"
-                             :template ("** TODO %^{What is the TASK} %^g"
-                                        ":PROPERTIES:"
-                                        ":ID: %(shell-command-to-string \"uuidgen | tr -d '\n'\")"
-                                        ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
-                                        ":END:")
-                             :immediate-finish nil
-                             ;; FIXME: I tried the following to fold the PROPERTY drawer in the
-                             ;; narrowed org capture buffer. However, when the captured text gets
-                             ;; inserted, the drawer is unfolded. With `:after-finalize', the
-                             ;; nullary function is called in the buffer wherein captured text is
-                             ;; inserted. Currently a relatively expensive
-                             ;; `org-fold-hide-drawer-all' is called. Optimize it by only folding
-                             ;; the drawer we just inserted.
-                             ;; :before-finalize (lambda ()
-                             ;;                    (org-back-to-heading-or-point-min)
-                             ;;                    (next-line)
-                             ;;                    (org-fold-hide-drawer-toggle t))
-                             ;; NOTE: possible implementation: find the heading we just inserted,
-                             ;; forward one line, then call `org-fold-hide-drawer-toggle'.
-                             :after-finalize org-fold-hide-drawer-all)
-                            ("Later"
-                             :keys "l"
-                             :type plain
-                             :regexp "\\* Reminders \\[[0-9]*/[0-9]*\\]"
-                             :template ("** TODO %^{What is the REMINDER} %^g"
-                                        ":PROPERTIES:"
-                                        ":ID: %(shell-command-to-string \"uuidgen | tr -d '\n'\")"
-                                        ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
-                                        ":END:")
-                             :immediate-finish nil
-                             :after-finalize org-fold-hide-drawer-all)))
+                 :children
+                 (("Questions"
+                   :keys "q"
+                   :type plain
+                   :regexp "\\* Questions \\[[0-9]*/[0-9]*\\]"
+                   :template ("TODO %^{What is the QUESTION} %^g"
+                              ":PROPERTIES:"
+                              ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                              ":END:")
+                   :immediate-finish nil
+                   :after-finalize org-fold-hide-drawer-all)
+                  ("Tasks"
+                   :keys "t"
+                   :type plain
+                   :regexp "\\* Tasks \\[[0-9]*/[0-9]*\\]"
+                   :template ("** TODO %^{What is the TASK} %^g"
+                              ":PROPERTIES:"
+                              ":ID: %(shell-command-to-string \"uuidgen | tr -d '\n'\")"
+                              ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                              ":END:")
+                   :immediate-finish nil
+                   ;; FIXME: I tried the following to fold the PROPERTY drawer in the
+                   ;; narrowed org capture buffer. However, when the captured text gets
+                   ;; inserted, the drawer is unfolded. With `:after-finalize', the
+                   ;; nullary function is called in the buffer wherein captured text is
+                   ;; inserted. Currently a relatively expensive
+                   ;; `org-fold-hide-drawer-all' is called. Optimize it by only folding
+                   ;; the drawer we just inserted.
+                   ;; :before-finalize (lambda ()
+                   ;;                    (org-back-to-heading-or-point-min)
+                   ;;                    (next-line)
+                   ;;                    (org-fold-hide-drawer-toggle t))
+                   ;; NOTE: possible implementation: find the heading we just inserted,
+                   ;; forward one line, then call `org-fold-hide-drawer-toggle'.
+                   :after-finalize org-fold-hide-drawer-all)
+                  ("Later"
+                   :keys "l"
+                   :type plain
+                   :regexp "\\* Reminders \\[[0-9]*/[0-9]*\\]"
+                   :template ("** TODO %^{What is the REMINDER} %^g"
+                              ":PROPERTIES:"
+                              ":ID: %(shell-command-to-string \"uuidgen | tr -d '\n'\")"
+                              ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                              ":END:")
+                   :immediate-finish nil
+                   :after-finalize org-fold-hide-drawer-all)))
                 ("Weekly Plan"
                  :keys "w"
                  :file zino/GTD-file
-                 :children ("Weekend"
-                            :keys "e"
-                            :type plain
-                            :function (lambda ()
-                                        "Locate * Weekly Plan heading. Insert a timestamp of current week if there is none. create a TODO"
-                                        (goto-char (point-min))
-                                        (unless (re-search-forward "\\* Weekly Plan" (point-max) t)
-                                          (goto-char (point-max))
-                                          (newline)
-                                          (insert "* Weekly Plan\n"))
-                                        (unless (re-search-forward (concat "\\*\\* " (format-time-string "%Y-%m") "\\(-[0-9]*\\)?" (format-time-string "-W%V")) (point-max) t)
-                                          (newline)
-                                          (insert (concat "** " (format-time-string "%Y-%m-%d-W%V\n")))))
-                            :template ("*** TODO %^{What to do this weekend} %^g"
-                                       ":PROPERTIES:"
-                                       ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
-                                       ":END:")))
+                 :children
+                 ("Weekend"
+                  :keys "e"
+                  :type plain
+                  :function (lambda ()
+                              "Locate * Weekly Plan heading. Insert a timestamp of current week if there is none. create a TODO"
+                              (goto-char (point-min))
+                              (unless (re-search-forward "\\* Weekly Plan" (point-max) t)
+                                (goto-char (point-max))
+                                (newline)
+                                (insert "* Weekly Plan\n"))
+                              (unless (re-search-forward (concat "\\*\\* " (format-time-string "%Y-%m") "\\(-[0-9]*\\)?" (format-time-string "-W%V")) (point-max) t)
+                                (newline)
+                                (insert (concat "** " (format-time-string "%Y-%m-%d-W%V\n")))))
+                  :template ("*** TODO %^{What to do this weekend} %^g"
+                             ":PROPERTIES:"
+                             ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                             ":END:")))
                 ("Meetings"
                  :keys "m"
                  :file zino/meeting-file
-                 :children (("Random"
-                             :keys "r"
-                             :headline "Participated"
-                             :template ("** %^{What is it about}  %^g"
-                                        ":PROPERTIES:"
-                                        ":ID: %(shell-command-to-string \"uuidgen | tr -d '\n'\")"
-                                        ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
-                                        ":END:")
-                             :immediate-finish nil
-                             :jump-to-captured t
-                             :after-finalize org-fold-hide-drawer-all)))))))
+                 :children
+                 (("Random"
+                   :keys "r"
+                   :headline "Participated"
+                   :template ("** %^{What is it about}  %^g"
+                              ":PROPERTIES:"
+                              ":ID: %(shell-command-to-string \"uuidgen | tr -d '\n'\")"
+                              ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                              ":END:")
+                   :immediate-finish nil
+                   :jump-to-captured t
+                   :after-finalize org-fold-hide-drawer-all)))
+                ("Anecdote"
+                 :keys "n"
+                 :file zino/anecdote-file
+                 :type plain
+                 :template ("* %^{What is it about} %^g"
+                            ":PROPERTIES:"
+                            ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                            ":END:"))))))
 
 (use-package rime
   :disabled
@@ -2375,8 +2516,8 @@ Similar to `org-capture' like behavior"
         ("3" . pdf-annot-add-squiggly-markup-annotation)
         ("4" . pdf-annot-delete)
         ("5" . pdf-annnt-add-text-annotation)
-        ;; FIXME: A mouse wheel scroll on MacOS, emacs-29.1 by default invokes `mac-mwheel-scroll'. If the the
-        ;; height of the page (or more precisely the rendered image for a page of a pdf) is greater than the
+        ;; FIXME: On MacOS with emacs-29.1, a mouse wheel scroll by default invokes `mac-mwheel-scroll'. If
+        ;; the height of the page (or more precisely the rendered image for a pdf's page) is greater than the
         ;; Emacs frame height, a mouse wheel scroll followed by a mouse click will cause the page to auto
         ;; scroll until its bottom meets the frame bottom.
         ([remap mac-mwheel-scroll] . mwheel-scroll))
@@ -2389,12 +2530,16 @@ Similar to `org-capture' like behavior"
   ;; Select by word by default and use `zino/pdf-tools-toggle-mouse-1-use' to toggle
   (pdf-view-selection-style 'word)
   (pdf-view-use-imagemagick t)
-  (pdf-cache-prefetch-delay 0.1)
-  ;; :config
-  ;; (define-key pdf-links-minor-mode-map [remap pdf-links-isearch-link] 'image-forward-hscroll)
-  )
+  (pdf-cache-prefetch-delay 0.1))
 
-(use-package pdf-links-minor-mode
+(use-package pdf-occur
+  :after pdf-tools
+  :ensure nil
+  :bind
+  (:map pdf-isearch-minor-mode-map
+        ("O" . pdf-occur)))
+
+(use-package pdf-links
   :after pdf-tools
   :ensure nil
   :bind
@@ -2656,6 +2801,7 @@ initial input."
   (tramp-chunksize 2000))
 
 (use-package treesit
+  :disabled
   :ensure nil
   :config
   ;; When `treesit-extra-load-path' is nil, emacs looks in `tree-sitter' under `user-emacs-directory' to for
@@ -2700,9 +2846,10 @@ initial input."
           ;; Until I figure out a more balanced `treesit-font-lock-level'.
           ;; (go-mode . go-ts-mode)
           ;; (go-mod-mode . go-mod-ts-mode)
-          (rust-mode . rust-ts-mode)
+          ;; (rust-mode . rust-ts-mode)
           ;; `c++-ts-mode' does not highlight symbols inside macros correctly.
-          (c++-mode . c++-ts-mode))))
+          ;; (c++-mode . c++-ts-mode)
+          )))
 
 (use-package tree-sitter-langs
   ;; Treesit support before emacs-29.
@@ -2749,9 +2896,7 @@ initial input."
                                                (keyword string)
                                                (assignment attribute builtin constant escape-sequence number
                                                            type operator function identifier)
-                                               (bracket delimiter function error variable property)))))
-  ;; (remove-hook 'rust-ts-mode-hook 'treesit-font-lock-feature-list-for-rust-ts-mode)
-  )
+                                               (bracket delimiter function error variable property))))))
 
 (use-package rustic
   :custom
@@ -2765,13 +2910,18 @@ initial input."
   :bind
   (
    :map rust-mode-map ("C-c C-p" . zino/rustic-popup)
-   :map rust-ts-mode-map ("C-c C-p" . zino/rustic-popup)
+   ;; :map rust-ts-mode-map ("C-c C-p" . zino/rustic-popup)
    :map rustic-compilation-mode-map
    ("p" . previous-error-no-select)
    ("M-p" . zino/previous-k-lines)
    ("M-n" . zino/next-k-lines)
    ("M-[" . compilation-previous-error)
-   ("M-]" . compilation-next-error))
+   ("M-]" . compilation-next-error)
+   ("g" . (lambda ()
+            (interactive)
+            (rustic-recompile)
+            ;; So that the window will auto scroll to the end of the buffer.
+            (end-of-buffer))))
   :config
   ;; Reverse the action of making `rustic-mode' default for rust files in
   ;; `rustic.el'.
@@ -2818,7 +2968,7 @@ running process."
   (setq js-indent-level 2)
   :hook
   (js-mode . (lambda ()
-               (setq format-all-formatters '(("JavaScript" deno)))))
+               (setq-local format-all-formatters '(("JavaScript" deno)))))
   :bind
   (:map js-mode-map ("C-c C-p" . zino/rustic-popup)))
 
@@ -2879,7 +3029,8 @@ running process."
   (lsp-rust-analyzer-display-reborrow-hints nil)
   (lsp-modeline-diagnostics-scope :workspace)
   (lsp-clients-clangd-args '("--header-insertion=iwyu"))  ;; [use]
-  (lsp-intelephense-multi-root nil)  ;; reset lsp session in lsp mode
+  (lsp-intelephense-multi-root nil)
+  ;; reset lsp session in lsp mode
   ;; (setq lsp--session nil)
   )
 
@@ -3024,9 +3175,11 @@ running process."
   ;; (eglot-highlight-symbol-face ((t (:foreground "#DFDFDF" :background "#34536c" :weight bold))))
   (eglot-highlight-symbol-face ((t (:inherit bold))))
   ;; (eglot-inlay-hint-face ((t (:foreground "#5B6268" :height 1.0 :family "Iosevka"))))
-  (eglot-inlay-hint-face ((t (:foreground "#979797" :height 1.0 :family "Iosevka"))))
-  (eglot-parameter-hint-face ((t (:foreground "#979797" :height 1.0 :family "Iosevka"))))
-  (eglot-type-hint-face ((t (:foreground "#979797" :height 1.0 :family "Isoveka"))))
+
+  ;;; For `doom-one' theme.
+  ;; (eglot-inlay-hint-face ((t (:foreground "#979797" :height 1.0 :family "Iosevka"))))
+  ;; (eglot-parameter-hint-face ((t (:foreground "#979797" :height 1.0 :family "Iosevka"))))
+  ;; (eglot-type-hint-face ((t (:foreground "#979797" :height 1.0 :family "Isoveka"))))
 
   :custom
   (eglot-events-buffer-size 0)
@@ -3339,9 +3492,14 @@ running process."
 (use-package font-lock
   :ensure nil
   :custom-face
-  (font-lock-comment-face ((t (:foreground "#83898d")))) ;; the original: ;; "#5B6268"
+  ;;; Tweak for `doom-one' theme.
+  ;; (font-lock-comment-face ((t (:foreground "#83898d")))) ;; the original: ;; "#5B6268"
+  ;; (font-lock-doc-face ((t (:family "Fira Code" :foreground "#83898d" :inherit font-lock-comment-face))))
   ;; (font-lock-doc-face ((t (:family "Iosevka" :foreground "#7cb8bb"))));; "#7F9F7F"))));;"#9FC59F")))) ;;"#8CA276")))) ;; the original: "#83898d"
-  (font-lock-doc-face ((t (:family "Fira Code" :foreground "#83898d" :inherit font-lock-comment-face)))))
+
+  ;;; Tweak for `doom-gruvbox' theme.
+  ;; (font-lock-doc-face ((t (:inherit font-lock-comment-face :foreground "#83898d"))))
+  )
 
 (use-package winner
   :hook
@@ -3450,9 +3608,10 @@ running process."
   (corfu-history-mode)
   (corfu-popupinfo-mode) ; Popup completion info
   :custom-face
-  (corfu-bar ((t (:background "#a8a8a8" :weight bold))))
-  (corfu-border ((t (:weight bold :width extra-expanded))))
-  (corfu-current ((t (:background "#2c3946" :foreground "#bbc2cf")))))
+  ;; (corfu-bar ((t (:background "#a8a8a8" :weight bold))))
+  ;; (corfu-border ((t (:weight bold :width extra-expanded))))
+  ;; (corfu-current ((t (:background "#2c3946" :foreground "#bbc2cf"))))
+  )
 
 (use-package corfu
   :config
@@ -3540,7 +3699,15 @@ running process."
   (add-hook 'minibuffer-mode-hook (defun completion-styles-for-minibuffer ()
                                     "Enable autocompletion on files."
                                     (add-to-list 'completion-at-point-functions 'cape-file)
-                                    (setq-local completion-styles '(orderless flex basic partial-completion)))))
+                                    (setq-local completion-styles '(orderless flex basic
+                                                                              partial-completion))))
+  :custom-face
+  ;;; Tweak for `solarized-gruvbox-dark'
+  ;; (orderless-match-face-0 ((t (:foreground "#458588" :weight bold :background "#2c3946"))))
+  ;; (orderless-match-face-1 ((t (:foreground "#d3869b" :weight bold :background "#373344"))))
+  ;; (orderless-match-face-2 ((t (:foreground "#d79921" :weight bold :background "#333a38"))))
+  ;; (orderless-match-face-3 ((t (:foreground "#98971a" :weight bold :background "#3b3a3b"))))
+  )
 
 (use-package kind-icon
   :ensure t
@@ -3906,10 +4073,7 @@ running process."
      (side . left)
      (slot . 1)
      (window-width . 45)))
-  (org-remark-notes-file-name 'zino/org-remark-notes-file-name-function)
-
-  :custom-face
-  (org-remark-highlighter ((t (:background "#023047" :underline nil)))))
+  (org-remark-notes-file-name 'zino/org-remark-notes-file-name-function))
 
 (use-package org-bulletproof
   :disabled
@@ -4018,6 +4182,8 @@ running process."
   (elfeed-feeds
    '("https://www.reddit.com/r/emacs.rss"
      "https://news.ycombinator.com/rss"
+     "http://nullprogram.com/feed/"
+     "https://planet.emacslife.com/atom.xml"
      "https://fasterthanli.me/index.xml")))
 
 (use-package cc-mode
@@ -4296,6 +4462,10 @@ New vterm buffer."
   :custom
   (vterm-toggle-scope 'project))
 
+(use-package compile
+  :custom
+  ;; Auto scroll the compilation buffer to the end of output.
+  (compilation-scroll-output t))
 (use-package fish-mode)
 
 (use-package fish-completion
@@ -4321,7 +4491,6 @@ New vterm buffer."
   :straight (explain-pause-mode :type git :host github :repo "lastquestion/explain-pause-mode"))
 
 (use-package breadcrumb
-  :disabled
   ;; :init
   ;; (setq-default frame-title-format
   ;;               '((:eval (breadcrumb-project-crumbs))
@@ -4354,9 +4523,7 @@ New vterm buffer."
 (use-package bookmark+
   :load-path "~/.config/emacs/manually_installed/bookmark-plus"
   :custom
-  (bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks")
-  :custom-face
-  (bmkp-local-file-without-region ((t (:foreground "#bbc2cf")))))
+  (bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks"))
 
 (use-package tla-mode
   :load-path "~/.config/emacs/manually_installed/tla-mode")
@@ -4367,8 +4534,6 @@ New vterm buffer."
 (use-package separedit
   :bind
   ("C-c C-'" . separedit))
-
-(use-package modus-themes)
 
 (use-package org-ql)
 
@@ -4460,7 +4625,8 @@ New vterm buffer."
   :disabled)
 
 (use-package org-valign
-  :disabled)
+  :disabled
+  )
 
 (use-package indent-bars
   :load-path "manually_installed/indent-bars/"
@@ -4493,6 +4659,7 @@ New vterm buffer."
   (indent-bars-pattern ". . . . ")
   (indent-bars-width-frac 0.2)
   (indent-bars-treesit-support nil)
+  (indent-bars-display-on-blank-lines t)
   :hook
   ;; HACK: deal with uncorrectly displayed indent-bars in org mode source block.
   (org-mode . (lambda ()
@@ -4654,9 +4821,7 @@ New vterm buffer."
 (use-package window
   :ensure nil
   :custom
-  (split-height-threshold 60 "for 2k screen")
-  (split-width-threshold 170 "for 2k screen")
-  (split-width-threshold 200 "for 4k screen")
+  (split-width-threshold (1+ (/ (frame-width) 2)) "at most two windows horizontally")
   (split-window-preferred-function 'zino/split-window-sensibly)
   :config
   (defun zino/split-window-sensibly (&optional window)
@@ -4803,12 +4968,13 @@ New vterm buffer."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(completions-common-part ((t (:background "#2c3946" :foreground "#7bb6e2" :weight bold))))
  '(dictionary-word-definition-face ((t (:family "Fira Code"))))
- '(fixed-pitch ((t (:family "Fira Code" :height 250))))
+ '(diredfl-dir-name ((t (:foreground "#7474FFFFFFFF"))))
  '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
  '(mmm-default-submode-face ((t nil)))
  '(next-error ((t (:inherit (bold region)))))
+ '(org-remark-highlighter ((t (:inherit term-color-blue))))
+ '(org-verbatim ((t (:inherit shadow :foreground "#7cb8bb" :box (:line-width (1 . 1) :style pressed-button)))))
  '(pulse-highlight-face ((t nil)))
  '(pulse-highlight-start-face ((t nil)))
  '(variable-pitch ((t (:weight regular :height 180 :family "Fira Code"))))
@@ -4819,7 +4985,7 @@ New vterm buffer."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks" nil nil "Customized with use-package bookmark+")
+ '(bmkp-last-as-first-bookmark-file "/Users/zino/.config/emacs/bookmarks" nil nil "Customized with use-package bookmark+")
  '(connection-local-criteria-alist
    '(((:application eshell)
       eshell-connection-default-profile)
@@ -4905,9 +5071,11 @@ New vterm buffer."
       (path-separator . ":")
       (null-device . "/dev/null"))))
  '(package-selected-packages
-   '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam-ui esup flymake-cursor mermaid-mode clipetty org lua-mode better-jumper org-notebook docker-tramp org-noter valign nov pdf-tools org-fragtog highlight-numbers rainbow-mode request beacon fixmee move-text go-mode popper cmake-mode dirvish fish-mode highlight-indent-guides indent-mode org-journal format-all filetags aggressive-indent agressive-indent elisp-format org-bars ws-butler emojify company-prescient prescien smartparents which-key visual-fill-column use-package undo-tree typescript-mode spacemacs-theme smartparens rainbow-delimiters pyvenv python-mode org-roam org-download org-bullets mic-paren lsp-ivy ivy-yasnippet ivy-xref ivy-rich ivy-prescient helpful helm-xref helm-lsp gruvbox-theme git-gutter general flycheck-pos-tip evil-visualstar evil-surround evil-leader evil-collection doom-themes doom-modeline counsel-projectile company-posframe company-fuzzy company-box command-log-mode clang-format ccls base16-theme))
+   '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam))
  '(safe-local-variable-values
-   '((c-ts-indent-offset . 2)
+   '((global-hl-todo-mode)
+     (indent-bars-spacing . 2)
+     (c-ts-indent-offset . 2)
      (c++-ts-indent-offset . 2)
      (c++-indent-offset . 2)
      (eval global-set-key
@@ -4921,7 +5089,8 @@ New vterm buffer."
      (indent-bars-spacing-override . 2)
      (indent-bars-spacing-override . 4)
      (god-local-mode . t)
-     (completion-styles orderless basic partial-completion))))
+     (completion-styles orderless basic partial-completion)))
+ '(treesit-font-lock-level 3))
 
 ;; Set at the end of init.el when `load-path' is ready.
 (setq elisp-flymake-byte-compile-load-path load-path)
