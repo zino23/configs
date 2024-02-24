@@ -866,7 +866,7 @@ Save the buffer of the current window and kill it"
 
   (add-hook 'activate-mark-hook (lambda ()
                                   ;; `hl-line-mode' works by putting an overlay on the current line.
-                                  (remove-overlays (line-beginning-position) (line-end-position) 'face 'hl-line)
+                                  (delete-overlay global-hl-line-overlay)
                                   (setq-local global-hl-line-mode nil)))
 
   (add-hook 'deactivate-mark-hook (lambda ()
@@ -876,6 +876,13 @@ Save the buffer of the current window and kill it"
   ;; (set-face-attribute 'hl-line nil :inherit nil :background "#21242b") ;;"#2e3b49")
   ;; (set-face-attribute 'region nil :inherit nil :distant-foreground "#959ba5" :background "#42444a")
   )
+
+(use-package mouse
+  :ensure nil
+  :config
+  (add-hook 'mouse-leave-buffer-hook (lambda ()
+                                       (if global-hl-line-mode
+                                           (delete-overlay global-hl-line-overlay)))))
 
 ;; Word abbreviation
 ;; "C-x a g" to interactively create an abbrev;
