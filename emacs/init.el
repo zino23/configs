@@ -4820,9 +4820,10 @@ New vterm buffer."
 
 (use-package window
   :ensure nil
-  :custom
-  (split-width-threshold (1+ (/ (frame-width) 2)) "at most two windows horizontally")
-  (split-window-preferred-function 'zino/split-window-sensibly)
+  :init
+  ;; At most two windows horizontally.
+  (setq split-width-threshold (1+ (/ (frame-width) 2)) )
+  (setq split-window-preferred-function 'zino/split-window-sensibly)
   :config
   (defun zino/split-window-sensibly (&optional window)
     ;; Customized `split-window-sensibly' to prefer split horizontally.
