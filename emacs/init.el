@@ -4648,17 +4648,6 @@ New vterm buffer."
   (prog-mode . indent-bars-mode)
   (emacs-lisp-mode . (lambda ()
                        (indent-bars-mode -1)))
-  ;; (lua-mode . indent-bars-mode)
-  ;; (json-mode . indent-bars-mode)
-  ;; (js-mode . indent-bars-mode)
-  ;; (c++-mode . indent-bars-mode)
-  ;; (c++-ts-mode . indent-bars-mode)
-  ;; (c-mode . indent-bars-mode)
-  ;; (go-mode . indent-bars-mode)
-  ;; (go-ts-mode . indent-bars-mode)
-  ;; (python-ts-mode . indent-bars-mode)
-  ;; (python-mode . indent-bars-mode)
-  ;; (sh-mode . indent-bars-mode)
   :custom
   (indent-bars-color-by-depth
    '(:palette
@@ -4671,36 +4660,12 @@ New vterm buffer."
   :hook
   ;; HACK: deal with uncorrectly displayed indent-bars in org mode source block.
   (org-mode . (lambda ()
-                (face-remap-add-relative 'indent-bars-1 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-2 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-3 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-4 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-5 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-6 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-7 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-8 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-9 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-10 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-11 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-12 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-13 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-14 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-15 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-16 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-17 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-18 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-19 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-20 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-21 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-22 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-23 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-24 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-25 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-26 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-27 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-28 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-29 '(:foreground nil))
-                (face-remap-add-relative 'indent-bars-30 '(:foreground nil)))))
+                (let ((color (face-background 'org-block))
+                      (num 30))
+                  (cl-loop for i from 1 to num
+                           for face = (intern (format "indent-bars-%d" i))
+                           do
+                           (face-remap-add-relative face `(:foreground ,color)))))))
 
 (use-package embark
   :config
