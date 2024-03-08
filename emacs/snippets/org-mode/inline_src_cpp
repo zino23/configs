@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: src_cpp
+# key: scpp
+# --
+
+src_cpp{ $0 }
