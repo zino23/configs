@@ -17,6 +17,8 @@
                          ("elpa" . "https://elpa.gnu.org/packages/")
                          ("nongnu" . "https://elpa.nongnu.org/nongnu/")))
 
+(setopt package-install-upgrade-built-in t)
+
 (package-initialize)
 (unless package-archive-contents (package-refresh-contents))
 
@@ -157,7 +159,7 @@
 
   :custom
   (confirm-kill-emacs 'yes-or-no-p)
-  (read-process-output-max (* 1024 1024)) ;; 1MB
+  (read-process-output-max (* 1024 1024)) ;; 1 MB
   (inhibit-startup-screen t)
   ;; Dynamically adjust width
   (display-line-numbers-width nil)
@@ -166,7 +168,7 @@
   (fill-column 80)
   (auto-revert-interval 5)
   (comment-style 'indent)
-  ;; Set limit for prompt opening large files higher, 100 M
+  ;; Set limit for prompt opening large files higher, 100 MB
   (large-file-warning-threshold 100000000)
   (custom-safe-themes t)
   (apropos-sort-by-scores t))
@@ -264,6 +266,8 @@
   (scroll-step 0)
   ;; Never recenter when scrolling off-screen
   (scroll-conservatively 10000)
+  ;; Needed to smoothly scrolll inline images
+  (make-cursor-line-fully-visible nil)
   ;; Disable the visible bell
   (visible-bell nil)
   (next-error-found-function 'next-error-quit-window)
@@ -393,13 +397,14 @@ Insert full path if prefix argument `FULL-PATH' is sent."
   :config
   ;; TERMINAL MAPPINGS TO SUPPORT ITERM2 FOR MAC
   ;; reference: https://www.emacswiki.org/emacs/iTerm2
+  ;; Also check the `kkp' package.
   (unless window-system
     (let ((map (if (boundp 'input-decode-map)
                    input-decode-map
                  function-key-map)))
       ;; Self-defined escape sequences so that:
-      ;; 1. iterm2 send escape sequences when "s-p" is pressed;
-      ;; 2. emacs interpret the sequences as the kbd defined.
+      ;; 1. iterm2 send escape sequences when a keychord, e.g. "s-p" is pressed;
+      ;; 2. emacs interprets the sequences as the kbd defined.
       (define-key map "\e[1;P0"  (kbd "s-l"))
       (define-key map "\e[1;P1"  (kbd "s-a"))
       (define-key map "\e[1;P2"  (kbd "s-d"))
@@ -561,7 +566,55 @@ Insert full path if prefix argument `FULL-PATH' is sent."
 (global-set-key (kbd "s-j")
                 (lambda ()
                   (interactive)
-                  (join-line -1)))
+                  (zino/smart-join-line -1)))
+
+;; Taken from https://tony-zorman.com/posts/join-lines-comments.html.
+(defun zino/smart-join-line (&optional arg beg end)
+  "Join this line to previous and fix up whitespace at join.
+If there is a fill prefix, delete it from the beginning of this
+line.
+With prefix ARG, join the current line to the following line.
+When BEG and END are non-nil, join all lines in the region they
+define.  Interactively, BEG and END are, respectively, the start
+and end of the region if it is active, else nil.  (The region is
+ignored if prefix ARG is given.)
+
+When joining lines, smartly delete comment beginnings, such that one
+does not have to do this by oneself."
+  (interactive
+   (progn (barf-if-buffer-read-only)
+          (cons current-prefix-arg
+                (and (use-region-p)
+                     (list (region-beginning) (region-end))))))
+  ;; Consistently deactivate mark even when no text is changed.
+  (setq deactivate-mark t)
+  (if (and beg (not arg))
+      ;; Region is active.  Go to END, but only if region spans
+      ;; multiple lines.
+      (and (goto-char beg)
+           (> end (line-end-position))
+           (goto-char end))
+    ;; Region is inactive.  Set a loop sentinel
+    ;; (subtracting 1 in order to compare less than BOB).
+    (setq beg (1- (line-beginning-position (and arg 2))))
+    (when arg (forward-line)))
+  (let ((prefix (and (> (length comment-start) 0)
+                     (regexp-quote comment-start))))
+    (while (and (> (line-beginning-position) beg)
+                (forward-line 0)
+                (= (preceding-char) ?\n))
+      (if (save-excursion (forward-line -1) (eolp))
+          (delete-char -1)
+        (delete-char -1)
+        ;; If the appended line started with the fill prefix, delete it.
+        (let ((prev-comment?            ; Don't delete the start of a comment.
+               (save-excursion
+                 (back-to-indentation)
+                 (looking-at prefix))))
+          (delete-horizontal-space)
+          (while (and prev-comment? prefix (looking-at prefix))
+            (replace-match "" t t))
+          (fixup-whitespace))))))
 
 (defun zino/toggle-window-split ()
   "Toggle between vertical and horizontal split when therea are only two window."
@@ -827,11 +880,20 @@ Save the buffer of the current window and kill it"
   :ensure nil
   :config
   (define-prefix-command 'frame-map)
+  ;; The ability to restore a frame deleted by accident.
+  ;; FIXME: also restore frame name.
+  (undelete-frame-mode)
   :bind
   ("C-c f" . frame-map)
   ("C-c f r" . set-frame-name)
   ("C-c f s" . select-frame-by-name)
   ("C-M-<tab>" . select-frame-by-name))
+
+(use-package minibuffer
+  :ensure nil
+  :bind
+  (:map minibuffer-mode-map
+        ("s-n" . other-window-prefix)))
 
 (use-package elisp-mode
   :ensure nil)
@@ -865,7 +927,8 @@ Save the buffer of the current window and kill it"
 
   (add-hook 'activate-mark-hook (lambda ()
                                   ;; `hl-line-mode' works by putting an overlay on the current line.
-                                  (delete-overlay global-hl-line-overlay)
+                                  (if global-hl-line-overlay
+                                      (delete-overlay global-hl-line-overlay))
                                   (setq-local global-hl-line-mode nil)))
 
   (add-hook 'deactivate-mark-hook (lambda ()
@@ -880,12 +943,12 @@ Save the buffer of the current window and kill it"
   :ensure nil
   :config
   (add-hook 'mouse-leave-buffer-hook (lambda ()
-                                       (if global-hl-line-mode
+                                       (if (and global-hl-line-mode global-hl-line-overlay)
                                            (delete-overlay global-hl-line-overlay)))))
 
 ;; Word abbreviation
 ;; "C-x a g" to interactively create an abbrev;
-;; "C-u - C-x a g" to remove one.
+;; "qC-u - C-x a g" to remove one.
 (use-package abbrev
   :ensure nil
   :preface
@@ -997,6 +1060,7 @@ Save the buffer of the current window and kill it"
   (dired-omit-verbose nil)
   (dired-hide-details-hide-symlink-targets nil)
   (dired-hide-details-hide-information-lines nil)
+  (dired-mouse-drag-files 'move)
   :config
   (setq ls-lisp-use-insert-directory-program t)
   ;; In MacOS `ls' does not have `--group-directories-first' option, use `gls'.
@@ -1120,6 +1184,7 @@ Save the buffer of the current window and kill it"
   (markdown-code-face ((t (:family "Fira Code")))))
 
 (use-package eldoc-box
+  :commands (eldoc-box-help-at-point)
   :bind
   (:map eglot-mode-map
         ("C-c s-d" . eldoc-box-help-at-point))
@@ -1199,7 +1264,8 @@ Save the buffer of the current window and kill it"
 
 (use-package zenburn-theme
   :init
-  (load-theme 'zenburn t))
+  (load-theme 'zenburn t)
+  (set-face-attribute 'eldoc-highlight-function-argument nil :background "#5F5F5F"))
 
 (use-package zenburn-theme
   :after avy
@@ -1230,11 +1296,14 @@ Save the buffer of the current window and kill it"
   :after (rustic vterm)
   :config
   (setq rustic-ansi-faces (let ((faces (list)))
-                            (dolist (face '(term-color-black term-color-red term-color-green term-color-yellow term-color-blue
-                                                             term-color-magenta term-color-cyan))
-                              ;; (add-to-list 'faces (face-foreground face) t)
-                              (setq faces (cons faces (face-foreground face)))
-                              )
+                            (dolist (face '(term-color-black
+                                            term-color-red
+                                            term-color-green
+                                            term-color-yellow
+                                            term-color-blue
+                                            term-color-magenta
+                                            term-color-cyan))
+                              (add-to-list 'faces (face-foreground face) t))
                             (vconcat faces))))
 
 (use-package zenburn-theme
@@ -1247,19 +1316,49 @@ Save the buffer of the current window and kill it"
   (org-level-5 ((t (:inherit default :extend nil :foreground "#93E0E3" :family "Iosevka"))))
   (org-level-6 ((t (:inherit (default default) :extend nil :foreground "#9FC59F" :family "Iosevka"))))
   (org-code ((t (:foreground "#DFAF8F"))))
-  (org-verbatim ((t (:inherit shadow :foreground "#7cb8bb" :box (:line-width (1 . 1) :style pressed-button))))) ; "#9FC59F"))))
-  ;; (org-block ((t (:background "#2B2B2B"))))
-  )
+  (org-verbatim ((t (:inherit font-lock-doc-face)))))
 
 (use-package zenburn-theme
   :after org-remark
   :custom-face
-  (org-remark-highlighter ((t (:inherit term-color-blue)))))
+  (org-remark-highlighter ((t (:background "#4C7073" :underline nil)))))
 
 (use-package zenburn-theme
   :after diredfl
+  :config
+  (set-face-attribute 'diredfl-dir-name nil :foreground "#7474FFFFFFFF" :background 'unspecified))
+
+(use-package zenburn-theme
+  :after dired-subtree
+  :config
+  (let ((depth 5))
+    (cl-loop for i from 1 to level
+             for face = (intern (format "dired-subtree-depth-%d-face" i))
+             do
+             (set-face-attribute face nil :background 'unspecified))))
+
+(use-package zenburn-theme
+  :after consult
   :custom-face
-  (diredfl-dir-name ((t (:foreground "#7474FFFFFFFF")))))
+  (consult-imenu-prefix ((t (:inherit consult-async-running :weight normal)))))
+
+(use-package zenburn-theme
+  :after bookmark+
+  :config
+  (set-face-attribute 'bmkp-local-directory nil :background nil :weight 'normal)
+  (set-face-attribute 'bmkp-local-file-without-region nil :foreground (face-foreground 'default) :weight 'normal))
+
+(use-package zenburn-theme
+  :after rainbow-delimiters
+  :config
+  ;; Fix colorless foreground of `rainbow-delimiters-depth-1-face'.
+  (let ((depth 9))
+    (cl-loop for i from 2 to depth
+             for face = (intern (format "rainbow-delimiters-depth-%d-face" i))
+             do
+             ;; Assign `rainbow-delimiters-depth-{i}-face' one level deeper, i.e. `rainbow-delimiters-depth-{i+1}-face'.
+             (set-face-attribute (intern (format "rainbow-delimiters-depth-%d-face" (1- i))) nil :foreground
+                                 (face-foreground face)))))
 
 (use-package doom-modeline
   :init (doom-modeline-mode 1)
@@ -1591,7 +1690,7 @@ respectively."
 
 ;; Boost performance of `magit'
 (use-package libgit
-  :load-path "~/.config/emacs/manually_installed/libegit2/"
+  :straight (:type git :host github :repo "magit/libegit2")
   :custom
   (libgit-auto-rebuild t))
 
@@ -1851,13 +1950,19 @@ Return TEMPLATE as a string."
   (git-gutter:update-interval 0.1 "Automatically update diff in 0.1 seconds")
   (git-gutter:window-width 1))
 
+;; Dependency of `org-mode'.
+(use-package ob-async)
+
+;; `org-babel' support for evaluating go code.
+(use-package ob-go)
+
 (use-package org
   :config
   (defun org-mode-setup ()
     "Run after `org-mode' is initiated."
     (org-indent-mode)
     (set-face-attribute 'org-table nil :font (font-spec :name "Sarasa Mono SC Nerd" :size 16))
-    (set-fontset-font t nil "Sarasa Mono SC Nerd" nil 'append)
+    (if (display-graphic-p) (set-fontset-font t nil "Sarasa Mono SC Nerd" nil 'append))
     (setq-local corfu-auto-delay 0.2))
 
   (defun individual-visibility-source-blocks ()
@@ -2081,7 +2186,7 @@ specified as an an \"attachment:\" style link."
   (org-id-link-to-org-use-id 'create-if-interactive)
   (org-src-window-setup 'split-window-below)
   (org-priority-lowest ?D "the default is ?C")
-  (org-tags-column -85 nil nil "Customized with use-package org")
+  (org-tags-column -85)
   (org-confirm-babel-evaluate nil)
   (org-deadline-warning-days 5)
   (org-imenu-depth 4)
@@ -2123,9 +2228,6 @@ specified as an an \"attachment:\" style link."
   ;; (org-link ((t (:inherit link :family "Iosevka"))))
   (org-link ((t (:inherit link :family "Iosevka")))))
 
-;; `org-babel' support for evaluating go code
-(use-package ob-go)
-
 (use-package org
   :after ob-go
   :config
@@ -2164,8 +2266,8 @@ specified as an an \"attachment:\" style link."
    ([remap org-return-and-maybe-indent] . better-jumper-jump-forward)
    ("C-S-j" . org-return-and-maybe-indent)
    ("C-," . nil)
-   ("s-<up>" . org-priority-up)
-   ("s-<down>" . org-priority-down)
+   ("M-s-<up>" . org-priority-up)
+   ("M-s-<down>" . org-priority-down)
    ("M-i" . consult-org-heading)
    ("C-c C-x H-i" . org-clock-in)
    :map c-mode-base-map
@@ -2175,7 +2277,7 @@ specified as an an \"attachment:\" style link."
    ("-" . org-ctrl-c-minus)))
 
 (use-package org-mac-image-paste
-  :load-path "~/.config/emacs/manually_installed/org-mac-image-paste" ; or wherever you cloned to
+  :straight (:type git :host github :repo "jdtsmith/org-mac-image-paste")
   :config (org-mac-image-paste-mode 1)
   :bind (:map org-mode-map ("<f6>" . org-mac-image-paste-refresh-this-node)))
 
@@ -2192,7 +2294,7 @@ specified as an an \"attachment:\" style link."
 
 (use-package ultra-scroll-mac
   :if (eq window-system 'mac)
-  :load-path "~/.config/emacs/manually_installed/ultra-scroll-mac" ; if you git clone'd
+  :straight (:type git :host github :repo "jdtsmith/ultra-scroll-mac")
   :init
   (setq scroll-conservatively 101) ; important for jumbo images
   :config
@@ -2538,7 +2640,10 @@ Similar to `org-capture' like behavior"
   ;; Select by word by default and use `zino/pdf-tools-toggle-mouse-1-use' to toggle
   (pdf-view-selection-style 'word)
   (pdf-view-use-imagemagick t)
-  (pdf-cache-prefetch-delay 0.1))
+  (pdf-cache-prefetch-delay 0.1)
+  (pdf-outline-display-buffer-action '(display-buffer-in-side-window
+                                       (side . left)
+                                       (window-width . 50))))
 
 (use-package pdf-occur
   :after pdf-tools
@@ -2557,7 +2662,7 @@ Similar to `org-capture' like behavior"
 
 (use-package doc-toc
   :ensure nil
-  :load-path "~/.config/emacs/manually_installed/doc-tools-toc")
+  :straight (:type git :host github :repo "dalanicolai/doc-tools-toc"))
 
 (use-package nov
   :init
@@ -2608,6 +2713,19 @@ Similar to `org-capture' like behavior"
   (bookmark-default-file (concat user-emacs-directory "bookmarks"))
   ;; Column width of bookmark name in `bookmark-menu' buffer
   (bookmark-bmenu-file-column 80))
+
+(use-package bookmark+
+  :straight (:type git :host github :repo "emacsmirror/bookmark-plus")
+  :custom
+  (bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks")
+  :bind
+  (:map bookmark-bmenu-mode-map
+        ("M-o" . ace-window)
+        ("M-n" . zino/next-k-lines))
+  :init
+  (require 'bookmark+)
+  (set-face-attribute 'bmkp-local-directory nil :background nil :weight 'normal)
+  (set-face-attribute 'bmkp-local-file-without-region nil :foreground (face-foreground 'default) :weight 'normal))
 
 ;; Registers
 (use-package register
@@ -2879,7 +2997,7 @@ initial input."
 
 (use-package treesitter-context
   :after posframe-plus
-  :load-path "~/.config/emacs/manually_installed/treesitter-context.el"
+  :straight (:type git :host github :repo "zbelial/treesitter-context.el")
   :custom
   (treesitter-context-hide-frame-after-move t)
   (treesitter-context-idle-time 0.1))
@@ -3190,7 +3308,8 @@ running process."
   ;; (eglot-type-hint-face ((t (:foreground "#979797" :height 1.0 :family "Isoveka"))))
 
   :custom
-  (eglot-events-buffer-size 0)
+  ;; Deprecated after eglot 1.16, customize `eglot-events-buffer-config'.
+  ;; (eglot-events-buffer-size 0)
   (eglot-sync-connect nil)
   ;; NOTE: Important. The default is nil, and will cause `xref-find-definitions'
   ;; to fail in external rust crates. (TODO: find out why it failed.)
@@ -3200,7 +3319,7 @@ running process."
   :config
   ;; Stop `eglot' from turning on `flymake-mode'. Useful when `flycheck-mode' is intended for use.
   ;; (add-to-list 'eglot-stay-out-of 'flymake)
-  )
+  (setf (plist-get eglot-events-buffer-config :size) 0))
 
 (use-package eglot
   :config
@@ -3299,13 +3418,12 @@ running process."
   )
 
 (use-package eglot-booster
-  :load-path "~/.config/emacs/manually_installed/eglot-booster.el"
+  :straight (:type git :host github :repo "jdtsmith/eglot-booster")
   :hook
   (eglot-managed-mode . eglot-booster))
 
 (use-package eglot-x
-  :ensure nil
-  :load-path "~/.config/emacs/manually_installed/eglot-x")
+  :straight (:type git :host github :repo "nemethf/eglot-x"))
 
 (use-package yasnippet
   :hook
@@ -3335,7 +3453,7 @@ running process."
 
 (use-package flymake-cursor
   :after flymake
-  :load-path "~/.config/emacs/manually_installed/emacs-flymake-cursor"
+  :straight (:type git :host github :repo "flymake/emacs-flymake-cursor")
   :config (flymake-cursor-mode 1)
   :bind
   ("s-." . flymake-cursor-show-errors-at-point-now))
@@ -3519,7 +3637,6 @@ running process."
 
 ;; lua mode
 (use-package lua-mode
-  :load-path "~/.config/emacs/manually_installed/lua-mode"
   :bind
   (:map lua-mode-map
         ([remap beginning-of-defun] . lua-beginning-of-proc)
@@ -3554,9 +3671,8 @@ running process."
         ("M-e" . forward-word)))
 
 (use-package dabbrev
-  ;; Swap M-/ and C-M-/
-  :bind (("M-/" . dabbrev-completion)
-         ("C-M-/" . dabbrev-expand))
+  :bind
+  (("M-/" . dabbrev-expand))
   :custom
   (dabbrev-ignored-buffer-regexps '("\\.\\(?:pdf\\|jpe?g\\|png\\)\\'"))
   (dabbrev-case-fold-search t)
@@ -3727,7 +3843,6 @@ running process."
 
 (use-package lsp-bridge
   :disabled
-  :load-path "~/.config/emacs/manually_installed/lsp-bridge"
   ;; Use `eglot' for now
   :hook
   ;; statically typed
@@ -4111,8 +4226,7 @@ running process."
   (tab-width 2))
 
 (use-package tab-bookmark
-  :ensure nil
-  :load-path "~/.config/emacs/manually_installed/tab-bookmark")
+  :straight (:type git :host github :repo "minad/tab-bookmark"))
 
 ;;; Language support
 (use-package python
@@ -4366,6 +4480,10 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   (xref-after-return . beacon-blink)
   (xref-after-return . recenter))
 
+(use-package dumb-jump
+  :init
+  (add-hook 'xref-backend-functions #'dumb-jump-xref-activate))
+
 (use-package eshell
   :disabled
   :ensure nil
@@ -4388,8 +4506,7 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   ("s-e" . eshell-toggle))
 
 (use-package eat
-  :disabled
-  :load-path "~/.config/emacs/manually_installed/emacs-eat/")
+  :disabled)
 
 (use-package vterm
   :bind
@@ -4457,7 +4574,6 @@ New vterm buffer."
   :config
   (setq vterm-toggle-fullscreen-p nil)
   ;; (add-to-list 'display-buffer-alist
-
   ;;                  (let ((buffer (get-buffer buffer-or-name)))
   ;;                    (with-current-buffer buffer
   ;;                      (or (equal major-mode 'vterm-mode)
@@ -4476,13 +4592,6 @@ New vterm buffer."
   (compilation-scroll-output t))
 (use-package fish-mode)
 
-(use-package fish-completion
-  ;; `fish-completion-mode' is unbearably slow
-  :disabled
-  :load-path "~/.config/emacs/manually_installed/emacs-fish-completion"
-  :hook
-  (eshell-mode . fish-completion-mode))
-
 (use-package nyan-mode
   :config
   (nyan-mode -1)
@@ -4491,7 +4600,6 @@ New vterm buffer."
 
 (use-package screenshot
   :disabled
-  :load-path "~/.config/emacs/manually_installed/screenshot/"
   :custom
   (screenshot-line-numbers-p t))
 
@@ -4504,7 +4612,7 @@ New vterm buffer."
   ;;               '((:eval (breadcrumb-project-crumbs))
   ;;                 (:eval (and imenu--index-alist
   ;;                             (concat "  ◊  " (breadcrumb-imenu-crumbs))))))
-  :load-path "~/.config/emacs/manually_installed/breadcrumb/"
+  :straight (:type git :host github :repo "joaotavora/breadcrumb")
   :custom
   (breadcrumb-project-max-length 0)
   (breadcrumb-imenu-max-length 80))
@@ -4519,7 +4627,6 @@ New vterm buffer."
 (use-package pp-c-l
   :disabled
   :ensure nil
-  :load-path "~/.config/emacs/manually_installed"
   ;; :custom
   ;; (pp^L-^L-string "                                            ")
   :config
@@ -4528,16 +4635,11 @@ New vterm buffer."
 (use-package prism
   :disabled)
 
-(use-package bookmark+
-  :load-path "~/.config/emacs/manually_installed/bookmark-plus"
-  :custom
-  (bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks"))
-
 (use-package tla-mode
-  :load-path "~/.config/emacs/manually_installed/tla-mode")
+  :straight (:type git :host github :repo "emacsattic/tla-mode"))
 
 (use-package tla-tools
-  :load-path "~/.config/emacs/manually_installed/tla-tools")
+  :straight (:type git :host github :repo "mrc/tla-tools"))
 
 (use-package separedit
   :bind
@@ -4546,8 +4648,7 @@ New vterm buffer."
 (use-package org-ql)
 
 (use-package beancount
-  :ensure nil
-  :load-path "~/.config/emacs/manually_installed/beancount-mode"
+  :straight (:type git :host github :repo "beancount/beancount-mode")
   :init
   (add-to-list 'auto-mode-alist '("\\.beancount\\'" . beancount-mode))
   :commands beancount-mode
@@ -4637,7 +4738,7 @@ New vterm buffer."
   )
 
 (use-package indent-bars
-  :load-path "manually_installed/indent-bars/"
+  :straight (:type git :host github :repo "jdtsmith/indent-bars")
   :hook
   (hack-local-variables . (lambda ()
                             ;; Read `indent-bars-space-override' from
@@ -4646,6 +4747,8 @@ New vterm buffer."
                                       (derived-mode-p 'rust-ts-mode))
                               (indent-bars-mode))))
   (prog-mode . indent-bars-mode)
+  (salt-mode . indent-bars-mode)
+  (yaml-mode . indent-bars-mode)
   (emacs-lisp-mode . (lambda ()
                        (indent-bars-mode -1)))
   :custom
@@ -4692,7 +4795,7 @@ New vterm buffer."
   ([remap query-replace-regexp] . vr/query-replace))
 
 (use-package posframe-plus
-  :load-path "~/.config/emacs/manually_installed/posframe-plus")
+  :straight (:type git :host github :repo "zbelial/posframe-plus"))
 
 (use-package symbols-outline
   :custom
@@ -4726,7 +4829,6 @@ New vterm buffer."
 (use-package undo-hl
   ;; Too distracting
   :disabled
-  :load-path "~/.config/emacs/manually_installed/undo-hl/"
   :hook
   (prog-mode . undo-hl-mode)
   :custom
@@ -4740,7 +4842,7 @@ New vterm buffer."
   ("C-x u" . vundo))
 
 (use-package rebox2
-  :load-path "~/.config/emacs/manually_installed/"
+  :straight (:type git :host github :repo "lewang/rebox2")
   :bind
   ("C-:" . rebox-cycle))
 
@@ -4791,12 +4893,14 @@ New vterm buffer."
                               (setq-local tab-width 4)))
   (setq tab-stop-list '(4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64 68 72 76 80)))
 
-(use-package window
+(use-package emacs
   :ensure nil
-  :init
-  ;; At most two windows horizontally.
-  (setq split-width-threshold (1+ (/ (frame-width) 2)) )
-  (setq split-window-preferred-function 'zino/split-window-sensibly)
+  :config
+  (add-hook 'after-init-hook (defun set-split-window-configs ()
+                               "Note frame width could change during loading `init.el'."
+                               ;; At most two windows horizontally.
+                               (setq split-width-threshold (1+ (/ (frame-width) 2)))
+                               (setq split-window-preferred-function 'zino/split-window-sensibly)))
   :config
   (defun zino/split-window-sensibly (&optional window)
     ;; Customized `split-window-sensibly' to prefer split horizontally.
@@ -4921,6 +5025,11 @@ New vterm buffer."
   ("M-<left>" . subword-left)
   ("M-<right>" . subword-right))
 
+(use-package iscroll
+  :hook
+  ;; Smoothly scroll over inline-images.
+  (org-mode . iscroll-mode))
+
 ;; Try it some time.
 ;; (use-package sideline)
 ;; (use-package imenu-everywhere)
@@ -4942,13 +5051,11 @@ New vterm buffer."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(aw-leading-char-face ((t (:height 1.0 :weight bold :box (:line-width (2 . 2) :color "grey75" :style released-button) :foreground "red" :inherit aw-mode-line-face))))
  '(dictionary-word-definition-face ((t (:family "Fira Code"))))
- '(diredfl-dir-name ((t (:foreground "#7474FFFFFFFF"))))
  '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
  '(mmm-default-submode-face ((t nil)))
  '(next-error ((t (:inherit (bold region)))))
- '(org-remark-highlighter ((t (:inherit term-color-blue))))
- '(org-verbatim ((t (:inherit shadow :foreground "#7cb8bb" :box (:line-width (1 . 1) :style pressed-button)))))
  '(pulse-highlight-face ((t nil)))
  '(pulse-highlight-start-face ((t nil)))
  '(variable-pitch ((t (:weight regular :height 180 :family "Fira Code"))))
@@ -5047,7 +5154,14 @@ New vterm buffer."
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam))
  '(safe-local-variable-values
-   '((global-hl-todo-mode)
+   '((eval font-lock-add-keywords nil
+           `((,(concat "("
+                       (regexp-opt
+                        '("sp-do-move-op" "sp-do-move-cl" "sp-do-put-op" "sp-do-put-cl" "sp-do-del-op" "sp-do-del-cl")
+                        t)
+                       "\\_>")
+              1 'font-lock-variable-name-face)))
+     (global-hl-todo-mode)
      (indent-bars-spacing . 2)
      (c-ts-indent-offset . 2)
      (c++-ts-indent-offset . 2)
@@ -5064,6 +5178,7 @@ New vterm buffer."
      (indent-bars-spacing-override . 4)
      (god-local-mode . t)
      (completion-styles orderless basic partial-completion)))
+ '(semantic-which-function-use-color t)
  '(treesit-font-lock-level 3))
 
 ;; Set at the end of init.el when `load-path' is ready.
