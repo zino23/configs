@@ -29,9 +29,6 @@ abbr -aU gcb git checkout -b
 abbr -aU gs git status
 abbr -aU gr grep -n
 
-# set -gx MANPAGER "sh -c 'col -bx | bat -l man -p'"
-# set -gx BAT_THEME base16-256
-
 set -gx RUST_BACKTRACE 1
 set -gx GOOS darwin
 set -gx GOPROXY "https://goproxy.cn,direct"
