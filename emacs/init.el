@@ -948,7 +948,7 @@ Save the buffer of the current window and kill it"
 
 ;; Word abbreviation
 ;; "C-x a g" to interactively create an abbrev;
-;; "qC-u - C-x a g" to remove one.
+;; "C-u - C-x a g" to remove one.
 (use-package abbrev
   :ensure nil
   :preface
@@ -2277,7 +2277,10 @@ specified as an an \"attachment:\" style link."
    ("-" . org-ctrl-c-minus)))
 
 (use-package org-mac-image-paste
-  :straight (:type git :host github :repo "jdtsmith/org-mac-image-paste")
+  ;; This package depends on `org-mode'. Use straight to install it will cause `org-mode' version
+  ;; incompatibility. Setting `(straight-use-package 'org)' brings another problem that some packages are not
+  ;; compatible with the latest `org-mode'.
+  :load-path "~/.config/emacs/manually_installed/org-mac-image-paste/"
   :config (org-mac-image-paste-mode 1)
   :bind (:map org-mode-map ("<f6>" . org-mac-image-paste-refresh-this-node)))
 
