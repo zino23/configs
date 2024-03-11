@@ -1332,7 +1332,7 @@ Save the buffer of the current window and kill it"
   :after dired-subtree
   :config
   (let ((depth 5))
-    (cl-loop for i from 1 to level
+    (cl-loop for i from 1 to depth
              for face = (intern (format "dired-subtree-depth-%d-face" i))
              do
              (set-face-attribute face nil :background 'unspecified))))
