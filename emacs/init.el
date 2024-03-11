@@ -3311,8 +3311,6 @@ running process."
   ;; (eglot-type-hint-face ((t (:foreground "#979797" :height 1.0 :family "Isoveka"))))
 
   :custom
-  ;; Deprecated after eglot 1.16, customize `eglot-events-buffer-config'.
-  ;; (eglot-events-buffer-size 0)
   (eglot-sync-connect nil)
   ;; NOTE: Important. The default is nil, and will cause `xref-find-definitions'
   ;; to fail in external rust crates. (TODO: find out why it failed.)
@@ -3322,7 +3320,10 @@ running process."
   :config
   ;; Stop `eglot' from turning on `flymake-mode'. Useful when `flycheck-mode' is intended for use.
   ;; (add-to-list 'eglot-stay-out-of 'flymake)
-  (setf (plist-get eglot-events-buffer-config :size) 0))
+  (if (and (boundp 'eglot--version)
+           (version<= "1.16" eglot--version))
+      (setf (plist-get eglot-events-buffer-config :size) 0)
+    (setq eglot-events-buffer-size 0)))
 
 (use-package eglot
   :config
@@ -4936,7 +4937,10 @@ New vterm buffer."
 	         (let ((split-height-threshold 0))
 	           (when (window-splittable-p window)
 	             (with-selected-window window
-	               (split-window-below)))))))))
+	               (split-window-below))))))))
+  :bind
+  ("C-x =" . balance-windows)
+  ("C-x +" . what-cursor-position))
 
 (use-package ediff
   :bind (("C-c = b" . ediff-buffers)
