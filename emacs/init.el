@@ -773,6 +773,19 @@ point reaches the beginning or end of the buffer, stop there."
              ,(lambda (_cmd)
                 (when (save-excursion (comment-beginning))
                   `(lambda () (interactive) (,comment-line-break-function))))))
+
+(defun org-noter-with-org-roam-node ()
+  "Create an `org-noter' session based on an `org-roam' node.
+Integrate the workflow of opening a `org-roam' node and creating an `org-noter'
+session on it without disturbing the current window configuration."
+  (interactive)
+  (make-frame '((name . "org-noter")))
+  (select-frame-by-name "org-noter")
+  (org-roam-node-find)
+  (org-noter 0))
+
+(global-set-key (kbd "<f7>") 'org-noter-with-org-roam-node)
+
 (defun zino/save-buffer-and-exit()
   "Simple convenience function.
 Save the buffer of the current window and kill it"
