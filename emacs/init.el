@@ -766,6 +766,13 @@ point reaches the beginning or end of the buffer, stop there."
 (global-set-key (kbd "C-c C-b") 'zino/switch-other-buffer)
 
 (global-set-key (kbd "<RET>") 'newline)
+
+(global-set-key
+ [remap newline]
+ `(menu-item "" default-indent-new-line :filter
+             ,(lambda (_cmd)
+                (when (save-excursion (comment-beginning))
+                  `(lambda () (interactive) (,comment-line-break-function))))))
 (defun zino/save-buffer-and-exit()
   "Simple convenience function.
 Save the buffer of the current window and kill it"
