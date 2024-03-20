@@ -844,7 +844,10 @@ Save the buffer of the current window and kill it"
 
   (advice-add #'edebug-compute-previous-result
               :around
-              #'adviced:edebug-compute-previous-result))
+              #'adviced:edebug-compute-previous-result)
+  :bind
+  (:map edebug-mode-map
+        ("C-c C-d" . helpful-at-point)))
 
 ;; Reference: https://emacs.stackexchange.com/a/7670/37427
 ;; Edebug a defun or defmacro
@@ -881,6 +884,8 @@ Save the buffer of the current window and kill it"
           (edebug-defun)
           (message "Edebug: %s" fn)))
       (widen))))
+
+(global-set-key (kbd "C-s-x") 'zino/toggle-edebug-defun)
 
 (use-package windmove
   :ensure nil
@@ -1226,15 +1231,13 @@ Save the buffer of the current window and kill it"
 (use-package rainbow-mode
   :hook
   (emacs-lisp-mode . rainbow-mode)
-  (lispy-data-mode . rainbow-mode)
-  (helpful-mode . rainbow-mode))
+  (lispy-data-mode . rainbow-mode))
 
 (use-package rainbow-delimiters
   :hook
   (prog-mode . rainbow-delimiters-mode)
   (lispy-data-mode . rainbow-delimiters-mode)
   (debugger-mode . rainbow-delimiters-mode)
-  (helpful-mode . rainbow-delimiters-mode)
   (dired-preview-mode . rainbow-delimiters-mode)
   (conf-toml-mode . rainbow-delimiters-mode)
   (git-timemachine-mode . rainbow-delimiters-mode))
@@ -1334,14 +1337,19 @@ Save the buffer of the current window and kill it"
   (org-level-3 ((t (:inherit default :extend nil :foreground "#7CB8BB" :height 1.1 :family "Iosevka"))))
   (org-level-4 ((t (:inherit default :extend nil :foreground "#D0BF8F" :height 1.05 :family "Iosevka"))))
   (org-level-5 ((t (:inherit default :extend nil :foreground "#93E0E3" :family "Iosevka"))))
-  (org-level-6 ((t (:inherit (default default) :extend nil :foreground "#9FC59F" :family "Iosevka"))))
+  (org-level-6 ((t (:inherit default :extend nil :foreground "#9FC59F" :family "Iosevka"))))
   (org-code ((t (:foreground "#DFAF8F"))))
-  (org-verbatim ((t (:inherit font-lock-doc-face)))))
+  ;; (org-verbatim ((t (:inherit font-lock-doc-face))))
+  (org-verbatim ((t (:inherit font-lock-doc-face :foreground "#ECB3B3")))))
 
 (use-package zenburn-theme
   :after org-remark
   :custom-face
-  (org-remark-highlighter ((t (:background "#4C7073" :underline nil)))))
+  ;; (org-remark-highlighter ((t (:background "#4C7073" :underline nil))))
+  (org-remark-highlighter ((t (:background "#5F5F5F" :underline nil))))
+  ;; (org-remark-highlighter ((t (:background "#4F5B66" :underline nil))))
+  ;; (org-remark-highlighter ((t (:background "#808000" :underline nil))))
+  )
 
 (use-package zenburn-theme
   :after diredfl
@@ -1504,8 +1512,8 @@ Save the buffer of the current window and kill it"
   (
    ;; It is quite common to walk a sexp and immediately start editing, so the active repeat map will be too
    ;; disturbing as we have to manually press `C-g' to opt out of repeat mode keybindings.
-   ;; :repeat-map
-   ;;  smartparens-mode-repeat-map
+   :repeat-map
+   smartparens-mode-repeat-map
    ;;  ("A" . sp-beginning-of-sexp)
    ;;  ("E" . sp-end-of-sexp)
    ;;  ("f" . sp-forward-sexp)
@@ -1516,8 +1524,8 @@ Save the buffer of the current window and kill it"
    ;;  ("u" . sp-backward-up-sexp)
    ;;  ("n" . sp-next-sexp)
    ;;  ("p" . sp-previous-sexp)
-   ;;  ("B" . sp-forward-barf-sexp)
-   ;;  ("s" . sp-forward-slurp-sexp)
+   ("B" . sp-forward-barf-sexp)
+   ("s" . sp-forward-slurp-sexp)
    ;;  ("k" . sp-change-enclosing)
    ;;  ("c" . sp-splice-sexp)
    :repeat-map
@@ -1676,7 +1684,7 @@ respectively."
 
 (use-package helpful
   :bind
-  ([remap describe-function] . helpful-callable)
+  ([remap describe-function] . helpful-function)
   ([remap describe-variable] . helpful-variable)
   ([remap describe-key] . helpful-key)
   ([remap describe-command] . helpful-command)
@@ -1710,6 +1718,7 @@ respectively."
 
 ;; Boost performance of `magit'
 (use-package libgit
+  :load-path "~/.config/emacs/manually_installed/libegit2/"
   :straight (:type git :host github :repo "magit/libegit2")
   :custom
   (libgit-auto-rebuild t))
@@ -2220,6 +2229,8 @@ specified as an an \"attachment:\" style link."
   (org-attach-id-dir "org-attach")
 
   :custom-face
+  (org-ellipsis ((t (:foreground "#E0CF9F" :underline nil))))
+
   ;;; For `doom-one'.
   ;; (org-level-1 ((t (:inherit outline-1 :extend nil :height 1.3 :width normal :family "Iosevka"))))
   ;; (org-level-2 ((t (:inherit outline-2 :extend nil :height 1.2 :width normal :family "Iosevka"))))
@@ -2722,7 +2733,7 @@ Similar to `org-capture' like behavior"
   ("M-o" . ace-window)
   ("s-q" . ace-delete-window)
   :custom-face
-  (aw-leading-char-face ((t (:foreground "red" :weight bold :height 1.0))))
+  (aw-leading-char-face ((t (:height 1.0 :weight bold :box (:line-width (2 . 2) :color "grey75" :style released-button) :foreground "red" :inherit aw-mode-line-face))))
   :custom
   (aw-char-position 'top-left))
 
@@ -2865,8 +2876,8 @@ initial input."
    ("M-s c" . consult-locate)
    ("M-s g" . consult-grep)
    ("M-s G" . consult-git-grep)
-   ("M-s r" . consult-ripgrep)
-   ("M-s M-r" . zino/consult-ripgrep-thing-at-point)
+   ("M-s s" . consult-ripgrep)
+   ("M-s M-s" . zino/consult-ripgrep-thing-at-point)
    ("M-s l" . consult-line)
    ("M-s L" . consult-line-multi)
    ("M-s k" . consult-keep-lines)
@@ -4382,7 +4393,12 @@ running process."
   ("S-<escape>" . god-mode-all)
   ("C-c g" . god-local-mode)
   (:map god-local-mode-map
-        ("C-<f14>" . scroll-lock-mode)))
+        ("C-w" . forward-to-word)
+        ("C-." . xref-find-definitions)
+        ("C-," . xref-go-back)
+        ("C-i" . better-jumper-jump-forward))
+  :custom
+  (god-mode-enable-function-key-translation nil))
 
 ;; Deal with terminal escape characters correctly in compilation buffer.
 (use-package ansi-color
@@ -4543,7 +4559,14 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
         ("q" . vterm-copy-mode)
         ("C-s-t" . vterm-copy-mode))
   :custom
-  (vterm-timer-delay 0.01))
+  (vterm-timer-delay 0.01)
+  :config
+  (add-hook 'vterm-mode-hook (defun disable-global-hl-line-mode ()
+                               (setq-local global-hl-line-mode nil)))
+  (add-hook 'vterm-copy-mode-hook (defun enable-hl-line-mode ()
+                                    (if vterm-copy-mode
+                                        (hl-line-mode)
+                                      (hl-line-mode -1)))))
 
 (use-package vterm-toggle
   :config
@@ -4761,6 +4784,9 @@ New vterm buffer."
   :disabled
   )
 
+(use-package org-modern
+  :disabled)
+
 (use-package indent-bars
   :straight (:type git :host github :repo "jdtsmith/indent-bars")
   :hook
@@ -4924,6 +4950,7 @@ New vterm buffer."
                                "Note frame width could change during loading `init.el'."
                                ;; At most two windows horizontally.
                                (setq split-width-threshold (1+ (/ (frame-width) 2)))
+                               (setq split-height-threshold (window-height (selected-window)))
                                (setq split-window-preferred-function 'zino/split-window-sensibly)))
   :config
   (defun zino/split-window-sensibly (&optional window)
@@ -5078,7 +5105,6 @@ New vterm buffer."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(aw-leading-char-face ((t (:height 1.0 :weight bold :box (:line-width (2 . 2) :color "grey75" :style released-button) :foreground "red" :inherit aw-mode-line-face))))
  '(dictionary-word-definition-face ((t (:family "Fira Code"))))
  '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
  '(mmm-default-submode-face ((t nil)))
@@ -5093,7 +5119,6 @@ New vterm buffer."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(bmkp-last-as-first-bookmark-file "/Users/zino/.config/emacs/bookmarks" nil nil "Customized with use-package bookmark+")
  '(connection-local-criteria-alist
    '(((:application eshell)
       eshell-connection-default-profile)
