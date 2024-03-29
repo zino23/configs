@@ -18,6 +18,32 @@
                 },
                 "rules": [
                     {
+                        "description": "Remap left_control+left_option+spacebar to fn12 for toggling input method",
+                        "manipulators": [
+                            {
+                                "from": {
+                                    "key_code": "spacebar",
+                                    "modifiers": {
+                                        "mandatory": [
+                                            "left_control",
+                                            "left_option"
+                                        ],
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "key_code": "f12",
+                                        "modifiers": []
+                                    }
+                                ],
+                                "type": "basic"
+                            }
+                        ]
+                    },
+                    {
                         "description": "Map S-s-a to F9 as a workaround to capture screenshot with flameshot",
                         "manipulators": [
                             {
