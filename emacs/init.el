@@ -190,13 +190,13 @@
         (set-fontset-font t charset cn))
       (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
 
-  (zino/set-font "Fira Code" "Sarasa Mono SC Nerd" 14 1)
+  (zino/set-font "Berkeley Mono" "Sarasa Mono SC Nerd" 14 1)
 
   (set-fontset-font
    t 'symbol
    (font-spec
     :family "Apple Color Emoji"
-    :size 16
+    :size 14
     :weight 'normal
     :width 'normal
     :slant 'normal)))
@@ -1067,7 +1067,9 @@ Save the buffer of the current window and kill it"
   (("C-x C-j" . dired-jump)
    :map dired-mode-map
    ("(" . dired-hide-details-mode)
-   ("<DEL>" . dired-up-directory))
+   ("<DEL>" . dired-up-directory)
+   ;; `dired-goto-file' is so useless.
+   ("j" . find-file))
   :hook
   (dired-mode . auto-revert-mode)
   (dired-mode . dired-hide-details-mode)
@@ -1340,7 +1342,10 @@ Save the buffer of the current window and kill it"
   (org-level-6 ((t (:inherit default :extend nil :foreground "#9FC59F" :family "Iosevka"))))
   (org-code ((t (:foreground "#DFAF8F"))))
   ;; (org-verbatim ((t (:inherit font-lock-doc-face))))
-  (org-verbatim ((t (:inherit font-lock-doc-face :foreground "#ECB3B3")))))
+  ;; (org-verbatim ((t (:inherit font-lock-doc-face :foreground "#ECB3B3"))))
+  ;; (org-verbatim ((t (:inherit font-lock-doc-face :foreground "#94BFF3"))))
+  (org-verbatim ((t (:inherit font-lock-doc-face :foreground "#8CD0D3"))))
+  )
 
 (use-package zenburn-theme
   :after org-remark
@@ -2752,6 +2757,10 @@ Similar to `org-capture' like behavior"
   :straight (:type git :host github :repo "emacsmirror/bookmark-plus")
   :custom
   (bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks")
+  (bmkp-auto-light-when-set nil)
+  (bookmark-automatically-show-annotations 'edit)
+  :custom-face
+  (bmkp-local-file-without-region ((t (:foreground "#DCDCCC" :weight normal))))
   :bind
   (:map bookmark-bmenu-mode-map
         ("M-o" . ace-window)
@@ -2919,7 +2928,14 @@ initial input."
   (advice-add #'register-preview :override #'consult-register-window)
 
   :custom-face
-  (consult-file ((t (:inherit font-lock-constant-face)))))
+  (consult-file ((t (:inherit font-lock-constant-face))))
+  ;; :config
+  ;; reference: https://takeonrules.com/2024/02/28/configuring-consult-imenu-narrowing-for-ruby/
+  ;; (add-to-list 'consult-imenu-config '(rust-mode
+  ;;                                      :toplevel "Method"
+  ;;                                      :types ((?M "Module" font-lock-type-face)
+  ;;                                              (?m "Method" font-lock-function-name-face))))
+  )
 
 (use-package consult-projectile
   :bind
@@ -2937,7 +2953,9 @@ initial input."
 (use-package go-mode
   :bind
   (:map go-mode-map
-        ([remap beginning-of-defun] . go-goto-function)))
+        ([remap beginning-of-defun] . go-goto-function))
+  :config
+  (setq auto-mode-alist (remove '("\\.go\\'" . go-ts-mode) auto-mode-alist)))
 
 (use-package go-ts-mode
   :disabled
@@ -3243,7 +3261,11 @@ running process."
   ;; \' matches end of string
   ;; ^ matches beginning of (buffer || string || line)
   ;; $ matches end of (buffer || string || line)
-  (add-to-list 'auto-mode-alist '("\\`README\\'" . markdown-mode)))
+  (add-to-list 'auto-mode-alist '("\\`README\\'" . markdown-mode))
+  :bind
+  (:map markdown-mode-map
+        ("M-n" . zino/next-k-lines)
+        ("M-p" . zino/previous-k-lines)))
 
 (use-package eglot
   ;;; Performance tweaking
@@ -3453,7 +3475,8 @@ running process."
   )
 
 (use-package eglot-booster
-  :straight (:type git :host github :repo "jdtsmith/eglot-booster")
+  ;; :straight (:type git :host github :repo "jdtsmith/eglot-booster")
+  :load-path "~/.config/emacs/manually_installed/eglot-booster.el"
   :hook
   (eglot-managed-mode . eglot-booster))
 
@@ -3462,7 +3485,9 @@ running process."
 
 (use-package yasnippet
   :hook
-  (after-init . yas-global-mode))
+  (after-init . yas-global-mode)
+  :bind
+  ("C-<tab>" . yas-expand))
 
 (use-package yasnippet-snippets)
 
@@ -3827,6 +3852,14 @@ running process."
   :custom
   (cape-dabbrev-min-length 6))
 
+(use-package yasnippet-capf
+  :disabled
+  :after cape
+  :config
+  (add-to-list 'completion-at-point-functions #'yasnippet-capf)
+  (setq yasnippet-capf-lookup-by 'name) ;; Prefer the name of the snippet instead
+  )
+
 ;; Optionally use the `orderless' completion style.
 (use-package orderless
   :init
@@ -3948,7 +3981,11 @@ running process."
         ([remap kill-whole-line] . comint-kill-input)
         ("g" . recompile))
   :custom
-  (comint-prompt-read-only t))
+  (comint-prompt-read-only t)
+  ;; :config
+  ;; (setq comint-dynamic-complete-functions (delete 'comint-c-a-p-replace-by-expanded-history
+  ;;                                                 comint-dynamic-complete-functions))
+  )
 
 (use-package format-all
   :hook
@@ -4521,8 +4558,13 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   (xref-after-return . recenter))
 
 (use-package dumb-jump
-  :init
-  (add-hook 'xref-backend-functions #'dumb-jump-xref-activate))
+  ;; Does not work with emacs 29.1
+  :disabled
+  :config
+  (add-hook 'prog-mode-hook (defun activate-dumb-jump ()
+                              (add-hook 'xref-backend-functions #'dumb-jump-xref-activate nil t)))
+  :custom
+  (dumb-jump-prefer-searcher 'rg))
 
 (use-package eshell
   :disabled
@@ -4946,9 +4988,10 @@ New vterm buffer."
 (use-package emacs
   :ensure nil
   :config
-  (add-hook 'after-init-hook (defun set-split-window-configs ()
+  (add-hook 'after-init-hook (defun zino/set-split-window-configs ()
                                "Note frame width could change during loading `init.el'."
                                ;; At most two windows horizontally.
+                               (interactive)
                                (setq split-width-threshold (1+ (/ (frame-width) 2)))
                                (setq split-height-threshold (window-height (selected-window)))
                                (setq split-window-preferred-function 'zino/split-window-sensibly)))
@@ -5076,8 +5119,8 @@ New vterm buffer."
 
 (use-package subword
   :bind
-  ("M-<left>" . subword-left)
-  ("M-<right>" . subword-right))
+  ("M-s-<left>" . subword-left)
+  ("M-s-<right>" . subword-right))
 
 (use-package iscroll
   :hook
@@ -5206,7 +5249,10 @@ New vterm buffer."
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam))
  '(safe-local-variable-values
-   '((eval font-lock-add-keywords nil
+   '((eval when
+           (require 'rainbow-mode nil t)
+           (rainbow-mode 1))
+     (eval font-lock-add-keywords nil
            `((,(concat "("
                        (regexp-opt
                         '("sp-do-move-op" "sp-do-move-cl" "sp-do-put-op" "sp-do-put-cl" "sp-do-del-op" "sp-do-del-cl")
@@ -5229,7 +5275,9 @@ New vterm buffer."
      (indent-bars-spacing-override . 2)
      (indent-bars-spacing-override . 4)
      (god-local-mode . t)
-     (completion-styles orderless basic partial-completion)))
+     (completion-styles orderless basic partial-completion)
+     (auto-mode-alist
+      ("backend\\.sls" . python-mode))))
  '(semantic-which-function-use-color t)
  '(treesit-font-lock-level 3))
 
