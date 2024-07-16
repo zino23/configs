@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: src_js
+# key: sj
+# --
+
+src_js{ $0 }

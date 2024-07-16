@@ -1,8 +1,8 @@
 # -*- mode: snippet -*-
-# name: plantuml
+# name: src_block_plantuml
 # key: <p
 # --
 
-#+begin_src plantuml :file ${1:plantuml}/${2:filename}.png
+#+begin_src plantuml :output-dir ${1:relative-dir} :file ${2:filename}.png
 $0
 #+end_src

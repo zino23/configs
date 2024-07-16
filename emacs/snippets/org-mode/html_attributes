@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: html attributes
+# key: attr
+# --
+
+#+ATTR_HTML: :width ${1:2}00px

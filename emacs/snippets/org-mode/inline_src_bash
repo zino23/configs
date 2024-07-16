@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: src_bash
+# key: sb
+# --
+
+src_bash{ $0 }
