@@ -283,6 +283,7 @@
   ;; Delete files into trashbin
   (delete-by-moving-to-trash t)
   (trash-directory "~/.Trash")
+  (async-shell-command-buffer 'confirm-kill-process)
 
   :custom-face
   (variable-pitch ((t (:height 1.2 :family "Bookerly"))))
@@ -381,6 +382,10 @@ Insert full path if prefix argument `FULL-PATH' is sent."
       (end-of-buffer)
       (kill-region beg (point))))
 
+  (defun zino/silence-advice (oldfun &rest args)
+    (let ((inhibit-message t))
+      (apply oldfun args)))
+
   :bind
   ("C-S-d" . zino/toggle-window-dedication)
   ("C-c C-z" . delete-to-end-of-buffer)
@@ -424,6 +429,15 @@ Insert full path if prefix argument `FULL-PATH' is sent."
       (define-key map "\e[1;Q6"  (kbd "s-u"))
       ;; Use iterm2's builtin feature:
       ;; xterm control sequence can enable modifyOtherKeysMode
+      (define-key map "\e[88;7u" (kbd "C-s-n"))
+      (define-key map "\e[89;7u" (kbd "C-s-p"))
+      (define-key map "\e[90;7u" (kbd "s-'"))
+      (define-key map "\e[91;7u" (kbd "C-:"))
+      (define-key map "\e[92;7u" (kbd "M-s-<left>"))
+      (define-key map "\e[93;7u" (kbd "M-s-<right>"))
+      (define-key map "\e[94;7u" (kbd "s-q"))
+      (define-key map "\e[95;7u" (kbd "s-n"))
+      (define-key map "\e[96;7u" (kbd "C-<backspace>"))
       (define-key map "\e[97;7u" (kbd "C-M-a"))
       (define-key map "\e[98;7u" (kbd "C-M-b"))
       (define-key map "\e[100;7u" (kbd "C-M-d"))
@@ -431,8 +445,11 @@ Insert full path if prefix argument `FULL-PATH' is sent."
       (define-key map "\e[102;7u" (kbd "C-M-f"))
       (define-key map "\e[103;7u" (kbd "C-s-z"))
       (define-key map "\e[104;7u" (kbd "C-s-t"))
+      (define-key map "\e[105;7u" (kbd "C-s-f"))
+      (define-key map "\e[106;7u" (kbd "C-s-g"))
       (define-key map "\e[117;7u" (kbd "C-M-u"))
       (define-key map "\e[118;7u" (kbd "C-M-i"))
+      (define-key map "\e[119;7u" (kbd "C-'"))
       ;; (define-key map "\e[1;P12" (kbd "H-d"))
       ;; (define-key map "\e[1;P13" (kbd "H-e"))
       ;; (define-key map "\e[1;P14" (kbd "H-f"))
@@ -767,24 +784,13 @@ point reaches the beginning or end of the buffer, stop there."
 
 (global-set-key (kbd "<RET>") 'newline)
 
+;; Automatically insert comment prefix and indent if inside comments.
 (global-set-key
  [remap newline]
  `(menu-item "" default-indent-new-line :filter
              ,(lambda (_cmd)
                 (when (save-excursion (comment-beginning))
                   `(lambda () (interactive) (,comment-line-break-function))))))
-
-(defun org-noter-with-org-roam-node ()
-  "Create an `org-noter' session based on an `org-roam' node.
-Integrate the workflow of opening a `org-roam' node and creating an `org-noter'
-session on it without disturbing the current window configuration."
-  (interactive)
-  (make-frame '((name . "org-noter")))
-  (select-frame-by-name "org-noter")
-  (org-roam-node-find)
-  (org-noter 0))
-
-(global-set-key (kbd "<f7>") 'org-noter-with-org-roam-node)
 
 (defun zino/save-buffer-and-exit()
   "Simple convenience function.
@@ -923,6 +929,13 @@ Save the buffer of the current window and kill it"
 (use-package elisp-mode
   :ensure nil)
 
+(use-package elisp-def
+  :hook
+  (emacs-lisp-mode . elisp-def-mode)
+  (helpfule-mode . elisp-def-mode)
+  :config
+  (advice-add 'elisp-def :after 'beacon-blink))
+
 (use-package eros
   :hook
   (emacs-lisp-mode . eros-mode))
@@ -970,6 +983,11 @@ Save the buffer of the current window and kill it"
   (add-hook 'mouse-leave-buffer-hook (lambda ()
                                        (if (and global-hl-line-mode global-hl-line-overlay)
                                            (delete-overlay global-hl-line-overlay)))))
+
+(use-package warnings
+  :ensure nil
+  :custom
+  (warning-minimum-level :error))
 
 ;; Word abbreviation
 ;; "C-x a g" to interactively create an abbrev;
@@ -1027,7 +1045,12 @@ Save the buffer of the current window and kill it"
                               ("accordign" "according")
                               ("lgo" "log")
                               ("taht" "that")
-                              ("contorl" "control")))
+                              ("contorl" "control")
+                              ("requset" "request")
+                              ("reqeust" "request")
+                              ("triat" "trait")
+                              ("imme" "immediately")
+                              ))
     (dolist (pair zino/abbrev-table)
       (let ((from (car pair))
             (to (car (cdr pair))))
@@ -1053,6 +1076,7 @@ Save the buffer of the current window and kill it"
   :bind
   ("C-x C-b" . ibuffer)
   (:map ibuffer-mode-map
+        ("M-o" . ace-window)
         ("q" . (lambda ()
                  (interactive)
                  (quit-window)
@@ -1203,12 +1227,15 @@ Save the buffer of the current window and kill it"
   (help-at-pt-display-when-idle '(flymake-iagnostics))
   :config
   (delete 'eldoc-display-in-buffer eldoc-display-functions)
+  :bind
+  ("C-h C-." . eldoc-doc-buffer)
   :custom-face
+  ;;; Customize the doc face.
   ;;; For `solarizied-gruvbox-dark'
   ;; (markdown-code-face ((t (:foreground "#7c6f64" :family "Fira Code"))))
 
   ;;; For `zenburn'
-  (markdown-code-face ((t (:family "Fira Code")))))
+  (markdown-code-face ((t (:family "Berkeley Mono")))))
 
 (use-package eldoc-box
   :commands (eldoc-box-help-at-point)
@@ -1293,9 +1320,15 @@ Save the buffer of the current window and kill it"
   (set-face-attribute 'eldoc-highlight-function-argument nil :background "#5F5F5F"))
 
 (use-package zenburn-theme
-  :after avy
+  :init
+  (require 'avy)
+  (require 'vertico-quick)
   :custom-face
-  (avy-goto-char-timer-face ((t (:inherit isearch :foreground "#D0BF8F")))))
+  (avy-goto-char-timer-face ((t (:inherit isearch :foreground "#D0BF8F"))))
+  (avy-lead-face ((t :inherit vertico-quick1 :foreground unspecified :background unspecified)))
+  (avy-lead-face-0 ((t :inherit vertico-quick2 :foreground unspecified :background unspecified)))
+  (avy-lead-face-1 ((t :inherit bold :foreground "white" :background "#FFA500")))
+  (avy-lead-face-2 ((t :inherit bold :foreground "white" :background "#228B22"))))
 
 (use-package zenburn-theme
   :after corfu
@@ -1336,16 +1369,21 @@ Save the buffer of the current window and kill it"
   :custom-face
   (org-level-1 ((t (:inherit default :extend nil :foreground "#DFAF8F" :height 1.3 :family "Iosevka"))))
   (org-level-2 ((t (:inherit default :extend nil :foreground "#BFEBBF" :height 1.2 :family "Iosevka"))))
-  (org-level-3 ((t (:inherit default :extend nil :foreground "#7CB8BB" :height 1.1 :family "Iosevka"))))
+  ;; (org-level-3 ((t (:inherit default :extend nil :foreground "#7CB8BB" :height 1.1 :family "Iosevka"))))
+  ;; (org-level-4 ((t (:inherit default :extend nil :foreground "#D0BF8F" :height 1.05 :family "Iosevka"))))
+  ;; (org-level-5 ((t (:inherit default :extend nil :foreground "#93E0E3" :family "Iosevka"))))
+  ;; (org-level-6 ((t (:inherit default :extend nil :foreground "#9FC59F" :family "Iosevka"))))
+  (org-level-3 ((t (:inherit default :extend nil :foreground "#9FC59F" :height 1.1 :family "Iosevka"))))
   (org-level-4 ((t (:inherit default :extend nil :foreground "#D0BF8F" :height 1.05 :family "Iosevka"))))
-  (org-level-5 ((t (:inherit default :extend nil :foreground "#93E0E3" :family "Iosevka"))))
-  (org-level-6 ((t (:inherit default :extend nil :foreground "#9FC59F" :family "Iosevka"))))
+  (org-level-5 ((t (:inherit default :extend nil :foreground "#DFAF8F" :family "Iosevka"))))
+  (org-level-6 ((t (:inherit default :extend nil :foreground "#BFEBBF" :family "Iosevka"))))
   (org-code ((t (:foreground "#DFAF8F"))))
   ;; (org-verbatim ((t (:inherit font-lock-doc-face))))
   ;; (org-verbatim ((t (:inherit font-lock-doc-face :foreground "#ECB3B3"))))
   ;; (org-verbatim ((t (:inherit font-lock-doc-face :foreground "#94BFF3"))))
   (org-verbatim ((t (:inherit font-lock-doc-face :foreground "#8CD0D3"))))
-  )
+  (org-done ((t (:weight bold :weight bold :foreground "#6F6F6F"))))
+  (org-headline-done ((t (:foreground "#6F6F6F")))))
 
 (use-package zenburn-theme
   :after org-remark
@@ -1378,8 +1416,11 @@ Save the buffer of the current window and kill it"
 (use-package zenburn-theme
   :after bookmark+
   :config
-  (set-face-attribute 'bmkp-local-directory nil :background nil :weight 'normal)
-  (set-face-attribute 'bmkp-local-file-without-region nil :foreground (face-foreground 'default) :weight 'normal))
+  (set-face-attribute 'bmkp-local-directory nil :background 'unspecified :weight 'normal)
+  (set-face-attribute 'bmkp-local-file-without-region nil :foreground (face-foreground 'default) :weight
+                      'normal)
+  :custom-face
+  (bmkp-light-non-autonamed-region ((t (:background "#5F5F5F")))))
 
 (use-package zenburn-theme
   :after rainbow-delimiters
@@ -1392,6 +1433,14 @@ Save the buffer of the current window and kill it"
              ;; Assign `rainbow-delimiters-depth-{i}-face' one level deeper, i.e. `rainbow-delimiters-depth-{i+1}-face'.
              (set-face-attribute (intern (format "rainbow-delimiters-depth-%d-face" (1- i))) nil :foreground
                                  (face-foreground face)))))
+
+(use-package zenburn-theme
+  :after orderless
+  :custom-face
+  (orderless-match-face-0 ((t :foreground "#7F9F7F" :inherit bold)))
+  (orderless-match-face-1 ((t :foreground "#DC8CC3" :inherit bold)))
+  (orderless-match-face-2 ((t :foreground "#8CD0D3" :inherit bold)))
+  (orderless-match-face-3 ((t :foreground "#D0BF8F" :inherit bold))))
 
 (use-package doom-modeline
   :init (doom-modeline-mode 1)
@@ -2235,6 +2284,7 @@ specified as an an \"attachment:\" style link."
 
   :custom-face
   (org-ellipsis ((t (:foreground "#E0CF9F" :underline nil))))
+  (org-tag ((t (:weight normal))))
 
   ;;; For `doom-one'.
   ;; (org-level-1 ((t (:inherit outline-1 :extend nil :height 1.3 :width normal :family "Iosevka"))))
@@ -2271,6 +2321,7 @@ specified as an an \"attachment:\" style link."
   (defvar  zino/GTD-file "~/Notes/Roam/20220816100518-gtd.org")
   (defvar zino/org-babel-tangle-dir "~/dev/org-babel-tangle/")
   (setf (cdr (assoc 'file org-link-frame-setup)) 'find-file)
+  (setq org-babel-js-cmd "deno run")
   (org-babel-do-load-languages
    'org-babel-load-languages
    '((C . t)
@@ -2281,7 +2332,10 @@ specified as an an \"attachment:\" style link."
      (js . t)
      (python . t)
      (plantuml . t)
-     (go . t)))
+     (go . t)
+     ;; Rust support is provided by `rustic'.
+     ;; (rust . t)
+     ))
   ;; Stop repositioning text when cycling visibility
   ;; [reference](https://emacs.stackexchange.com/questions/31276/how-to-prevent-org-mode-from-repositioning-text-in-the-window-when-cycling-visib)
   (remove-hook 'org-cycle-hook
@@ -2433,8 +2487,18 @@ Similar to `org-capture' like behavior"
   :config
   (defun zino/no-op (&rest args))
   (advice-add 'org-noter--set-notes-scroll :override 'zino/no-op)
+  (defun zino/org-noter-with-org-roam-node ()
+    "Create an `org-noter' session based on an `org-roam' node.
+Integrate the workflow of opening a `org-roam' node and creating an `org-noter'
+session on it without disturbing the current window configuration."
+    (interactive)
+    (make-frame '((name . "org-noter")))
+    (select-frame-by-name "org-noter")
+    (org-roam-node-find)
+    (org-noter 0))
   :bind
   (("M-s-." . org-noter)
+   ("<f7>" . zino/org-noter-with-org-roam-node)
    :map org-noter-doc-mode-map
    ("i" . org-noter-insert-precise-note)
    ("M-i" . org-noter-insert-note)))
@@ -2449,7 +2513,8 @@ Similar to `org-capture' like behavior"
         zino/anki-file "~/Notes/Roam/20220517104105-anki.org"
         zino/contacts-file "~/Notes/Roam/20220620203106-contacts.org"
         zino/meeting-file (concat zino/roam-dir "20221115143855-meeting.org")
-        zino/anecdote-file (concat zino/roam-dir "20240207175232-anecdote.org"))
+        zino/anecdote-file (concat zino/roam-dir "20240207175232-anecdote.org")
+        zino/weekly-plan-file (concat zino/roam-dir "20240430174046-weekly_plan.org"))
   (setq org-capture-templates
         (doct '(("Anki"
                  :keys "a"  ;; "a" for "Anki"
@@ -2561,25 +2626,51 @@ Similar to `org-capture' like behavior"
                    :after-finalize org-fold-hide-drawer-all)))
                 ("Weekly Plan"
                  :keys "w"
-                 :file zino/GTD-file
+                 :file zino/weekly-plan-file
+                 :after-finalize org-fold-hide-drawer-all
                  :children
-                 ("Weekend"
-                  :keys "e"
-                  :type plain
-                  :function (lambda ()
-                              "Locate * Weekly Plan heading. Insert a timestamp of current week if there is none. create a TODO"
-                              (goto-char (point-min))
-                              (unless (re-search-forward "\\* Weekly Plan" (point-max) t)
-                                (goto-char (point-max))
-                                (newline)
-                                (insert "* Weekly Plan\n"))
-                              (unless (re-search-forward (concat "\\*\\* " (format-time-string "%Y-%m") "\\(-[0-9]*\\)?" (format-time-string "-W%V")) (point-max) t)
-                                (newline)
-                                (insert (concat "** " (format-time-string "%Y-%m-%d-W%V\n")))))
-                  :template ("*** TODO %^{What to do this weekend} %^g"
-                             ":PROPERTIES:"
-                             ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
-                             ":END:")))
+                 (("Weekdays"
+                   :keys "d"
+                   :type plain
+                   :function (lambda ()
+                               "Locate * Weekly Plan heading. Insert a timestamp of current week if there is none. create a TODO"
+                               (goto-char (point-min))
+                               (unless (re-search-forward
+                                        (concat "\\* " (format-time-string "%Y-%m") "\\(-[0-9]*\\)?"
+                                                (format-time-string "-W%V"))
+                                        (point-max)
+                                        t)
+                                 (goto-char (point-max))
+                                 (newline)
+                                 (insert (concat "* " (format-time-string "%Y-%m-%d-W%V"))))
+                               (unless (re-search-forward "\\*\\* Weekdays" (point-max) t)
+                                 (newline)
+                                 (insert "** Weekdays")))
+                   :template ("*** TODO %^{What to do this week} %^g"
+                              ":PROPERTIES:"
+                              ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                              ":END:"))
+                  ("Weekends"
+                   :keys "e"
+                   :type plain
+                   :function (lambda ()
+                               "Insert a timestamp of current week if there is none"
+                               (goto-char (point-min))
+                               (unless (re-search-forward
+                                        (concat "\\* " (format-time-string "%Y-%m") "\\(-[0-9]*\\)?"
+                                                (format-time-string "-W%V"))
+                                        (point-max)
+                                        t)
+                                 (goto-char (point-max))
+                                 (newline)
+                                 (insert (concat "* " (format-time-string "%Y-%m-%d-W%V"))))
+                               (unless (re-search-forward "\\*\\*\\* Weekends" (point-max) t)
+                                 (newline)
+                                 (insert "** Weekends")))
+                   :template ("*** TODO %^{What to do this weekend} %^g"
+                              ":PROPERTIES:"
+                              ":CREATED: %<%Y-%m-%dT%H:%M:%S>"
+                              ":END:"))))
                 ("Meetings"
                  :keys "m"
                  :file zino/meeting-file
@@ -2631,11 +2722,11 @@ Similar to `org-capture' like behavior"
   ("M-s-r" . rime-force-enable))
 
 ;;; Architecture
-;;; epdfinfo runs poppler in server mode, receives request from emacs
-;;; poppler render pdf into PNGs on the go and return them to emacs
-;;; poppler can provide rich information about the pdf and also the
-;;; ability to modify
-;;; Download `pdf-tools' from melpa handles dependencies for us.
+;;; 1. epdfinfo runs poppler in server mode, receives request from emacs;
+;;; 2. poppler renders pdf into PNGs on the go and return them to emacs;
+;;; 3. poppler can provide rich information about the pdf and also the
+;;; ability to modify it.
+;; `pdf-tools' handles dependencies for us.
 (use-package pdf-tools
   :if (display-graphic-p)
   :init
@@ -2751,24 +2842,77 @@ Similar to `org-capture' like behavior"
   :custom
   (bookmark-default-file (concat user-emacs-directory "bookmarks"))
   ;; Column width of bookmark name in `bookmark-menu' buffer
-  (bookmark-bmenu-file-column 80))
+  (bookmark-bmenu-file-column 80)
+  (bookmark-use-annotations t))
 
 (use-package bookmark+
-  :straight (:type git :host github :repo "emacsmirror/bookmark-plus")
+  :init
+  (require 'bookmark+)
   :custom
   (bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks")
+  ;; TODO: new feature to auto light when the bookmark is annotated.
   (bmkp-auto-light-when-set nil)
-  (bookmark-automatically-show-annotations 'edit)
+  (bookmark-automatically-show-annotations nil)
+  (bookmark-version-control t)
+  (bmkp-add-bookmarks-here-menu-flag t)
+  (bmkp-auto-light-when-set 'all-in-buffer)
+  (bmkp-light-style-non-autonamed 'region)
   :custom-face
   (bmkp-local-file-without-region ((t (:foreground "#DCDCCC" :weight normal))))
   :bind
-  (:map bookmark-bmenu-mode-map
-        ("M-o" . ace-window)
-        ("M-n" . zino/next-k-lines))
-  :init
-  (require 'bookmark+)
-  (set-face-attribute 'bmkp-local-directory nil :background nil :weight 'normal)
-  (set-face-attribute 'bmkp-local-file-without-region nil :foreground (face-foreground 'default) :weight 'normal))
+  ;; Useful commands
+  ;; ("C-x j . f" . bmkp-file-this-dir-jump): jump to bookmarks under the current dir
+  ;;
+  ;; TODO: new pseudo bookmark type to jump to ones belonging to a given project.
+  ;; Reference: One way to define such a command is to first mark the bookmarks that you want to be the
+  ;; completion candidates, then use ‘C-c C-j’ (command ‘bmkp-bmenu-define-jump-marked-command’) in the
+  ;; bookmark list.
+  (("C-x x <DEL>" . bmkp-delete-bookmarks)
+   ("C-x j c" . (lambda ()
+                  "Most of the code is taken from `bmkp-jump-to-type' to get all bookmarks in the current buffer."
+                  (interactive)
+                  (let* ((type-cands                                  (bmkp-types-alist))
+                         (icicle-unpropertize-completion-result-flag  t)
+                         (type                                        "this-file")
+                         (history                                     (assoc-default type type-cands))
+                         (alist                                       (if history
+                                                                          (funcall
+                                                                           (intern (format "bmkp-%s-alist-only" type)))
+                                                                        bookmark-alist))
+                         (bmk                                         (bmkp-read-bookmark-for-type
+                                                                       type alist nil
+                                                                       ;; PREDICATE if not a recognized type name.
+                                                                       (and (not history)
+                                                                            (bmkp-handler-pred (intern type)))
+                                                                       history)))
+                    (bmkp-jump-to-type bmk))))
+   ;; TODO: edit the bookmark under point
+   :map bookmark-bmenu-mode-map
+   ("M-o" . ace-window)
+   ("M-n" . zino/next-k-lines)
+   ;; ("n" . (lambda ()
+   ;;          (interactive)
+   ;;          (next-logical-line)
+   ;;          (bookmark-bmenu-switch-other-window)))
+   ;; ("p" . (lambda ()
+   ;;          (interactive)
+   ;;          (previous-logical-line)
+   ;;          (bookmark-bmenu-switch-other-window))))
+   ("n" . next-line)
+   ("p" . previous-line))
+  :config
+  (set-face-attribute 'bmkp-local-directory nil :background 'unspecified :weight 'normal)
+  (set-face-attribute 'bmkp-local-file-without-region nil :foreground (face-foreground 'default) :weight 'normal)
+  (add-to-list
+   'display-buffer-alist
+   '("\\*Bookmark Annotation Compose\\*" . ((display-buffer-in-side-window)
+                                            (side . left)
+                                            (slot . 1)
+                                            (window-width . 45))))
+  (add-hook 'find-file-hook (defun light-bookmarks ()
+                              ;; Light all bookmarks in the current buffer.
+                              (let ((bmk-alist (bmkp-this-buffer-alist-only)))
+                                (bmkp-light-bookmarks bmk-alist)))))
 
 ;; Registers
 (use-package register
@@ -2904,9 +3048,14 @@ initial input."
    ;; Minibuffer history
    :map minibuffer-local-map
    ("M-s" . consult-history)                 ;; orig. next-matching-history-element
-   ("M-r" . consult-history)                ;; orig. previous-matching-history-element
-
+   ("M-r" . consult-history)                 ;; orig. previous-matching-history-element
    :map global-map
+   ;; Visit previous marks on the current buffer
+   ;; Original is `back-to-indentation' whose function has been integrated into `smarter-move-beginning-of-line'.
+   ("M-s m" . consult-mark)
+   ("M-s ." . (lambda ()
+                (interactive)
+                (consult-line (thing-at-point 'symbol))))
    ;; Remaps
    ([remap switch-to-buffer-other-window] . consult-buffer-other-window)
    ([remap switch-to-buffer-other-frame] . consult-buffer-other-frame)
@@ -2953,9 +3102,7 @@ initial input."
 (use-package go-mode
   :bind
   (:map go-mode-map
-        ([remap beginning-of-defun] . go-goto-function))
-  :config
-  (setq auto-mode-alist (remove '("\\.go\\'" . go-ts-mode) auto-mode-alist)))
+        ([remap beginning-of-defun] . go-goto-function)))
 
 (use-package go-ts-mode
   :disabled
@@ -3000,7 +3147,10 @@ initial input."
           (python "https://github.com/tree-sitter/tree-sitter-python")
           (toml "https://github.com/tree-sitter/tree-sitter-toml")
           (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
-          (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+          ;; The master branch is not compatible.
+          ;; Ref: https://www.reddit.com/r/emacs/comments/1ahsg2n/trouble_with_treesitter_grammar_versioning
+          ;; (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+          (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "v0.20.3" "typescript/src")
           (yaml "https://github.com/ikatyang/tree-sitter-yaml")
           (c "https://github.com/tree-sitter/tree-sitter-c")
           (cpp "https://github.com/tree-sitter/tree-sitter-cpp")
@@ -3044,7 +3194,6 @@ initial input."
   (tree-sitter-hl-face:function.call ((t (:inherit (link font-lock-function-name-face) :underline nil :weight normal))))
   (tree-sitter-hl-face:property ((t (:inherit font-lock-constant-face))))
   :config
-  (add-to-list 'tree-sitter-major-mode-language-alist '(go-ts-mode . go))
   (add-to-list 'tree-sitter-major-mode-language-alist '(rust-ts-mode . rust)))
 
 (use-package treesitter-context
@@ -3149,6 +3298,18 @@ running process."
                (setq-local format-all-formatters '(("JavaScript" deno)))))
   :bind
   (:map js-mode-map ("C-c C-p" . zino/rustic-popup)))
+
+(use-package typescript-ts-mode
+  :ensure nil)
+
+(use-package toml-ts-mode
+  :ensure nil
+  :custom
+  (toml-ts-mode-indent-offset 0))
+
+(use-package protobuf-mode
+  :config
+  (add-to-list 'auto-mode-alist '("\\.proto\\`" . protobuf-mode)))
 
 (use-package lsp-mode
   :disabled
@@ -3262,6 +3423,10 @@ running process."
   ;; ^ matches beginning of (buffer || string || line)
   ;; $ matches end of (buffer || string || line)
   (add-to-list 'auto-mode-alist '("\\`README\\'" . markdown-mode))
+  ;; `markdown-mode' is enabled to help rendering eldoc buffer content. `markdown-get-lang-mode' is used to
+  ;; determine which language mode to use and `markdown-code-lang-modes' is consulted first. Customize this
+  ;; variable to decide whether we want the treesitter version of lang mode.
+  (add-to-list 'markdown-code-lang-modes '("go" . go-mode))
   :bind
   (:map markdown-mode-map
         ("M-n" . zino/next-k-lines)
@@ -3283,11 +3448,10 @@ running process."
                                           eglot-hover-eldoc-function)))
   :config
   ;; Inlay hints require `clangd-15' and is enabled by default, go get it!
-  (add-to-list 'eglot-server-programs '(c++-mode . ("clangd-15" "--clang-tidy" "--header-insertion=iwyu")))
-  (add-to-list 'eglot-server-programs '(c-mode . ("clangd-15" "--clang-tidy" "--header-insertion=iwyu")))
+  (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
+  (add-to-list 'eglot-server-programs '(c-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(cmake-mode . ("cmake-language-server")))
-  (add-to-list 'eglot-server-programs '((js-mode :language-id "javascript" typescript-mode :language-id
-                                                 "javascript") . (eglot-deno "deno" "lsp")))
+  (add-to-list 'eglot-server-programs '((js-mode typescript-mode typescript-ts-mode) . (eglot-deno "deno" "lsp")))
 
   ;; (add-to-list
   ;;  'eglot-server-programs
@@ -3307,16 +3471,18 @@ running process."
   (add-to-list 'eglot-server-programs '(rust-mode . ("rust-analyzer")))
   (add-to-list 'eglot-server-programs '(beancount-mode . ("beancount-language-server")))
   (add-to-list 'eglot-server-programs '(rust-ts-mode . ("rust-analyzer")))
-  (add-to-list 'eglot-server-programs '((go-mode go-ts-mode) .
-                                        ("gopls" :initializationOptions
-                                         (:hints (
-                                                  :parameterNames t
-                                                  :rangeVariableTypes t
-                                                  :functionTypeParameters t
-                                                  :assignVariableTypes t
-                                                  :compositeLiteralFields t
-                                                  :compositeLiteralTypes t
-                                                  :constantValues t)))))
+  ;; NOTE: If we also specify `go-ts-mode' to be served by `gopls', the builtin `go-ts-mode' will be loaded
+  ;;  and an entry ("\\.go\\'" . go-ts-mode) added into `auto-mode-alist'. So don't specify `go-ts-mode' here
+  ;;  if we don't want to enable `go-ts-mode'.
+  (add-to-list 'eglot-server-programs '((go-mode) . ("gopls" :initializationOptions
+                                                     (:hints (
+                                                              :parameterNames t
+                                                              :rangeVariableTypes t
+                                                              :functionTypeParameters t
+                                                              :assignVariableTypes t
+                                                              :compositeLiteralFields t
+                                                              :compositeLiteralTypes t
+                                                              :constantValues t)))))
 
   ;; (add-to-list 'eglot-server-programs '(conf-toml-mode . ("taplo")))
 
@@ -3335,7 +3501,9 @@ running process."
         ("C-c r"   . eglot-rename)
         ("C-c C-r" . xref-find-references)
         ("C-c H-i" . eglot-find-implementation)
-        ("C-c C-a" . eglot-code-actions))
+        ("C-c C-a" . eglot-code-actions)
+        ("C-c ." . display-local-help))
+  :config
   :hook
   (rust-mode . eglot-ensure)
   (c-mode . eglot-ensure)
@@ -3352,7 +3520,6 @@ running process."
   (python-mode . eglot-ensure)
   (beancount-mode . eglot-ensure)
   (rust-ts-mode . eglot-ensure)
-  (go-ts-mode . eglot-ensure)
   :custom-face
   ;; (eglot-highlight-symbol-face ((t (:foreground "#DFDFDF" :background "#34536c" :weight bold))))
   (eglot-highlight-symbol-face ((t (:inherit bold))))
@@ -3376,7 +3543,15 @@ running process."
   (if (and (boundp 'eglot--version)
            (version<= "1.16" eglot--version))
       (setf (plist-get eglot-events-buffer-config :size) 0)
-    (setq eglot-events-buffer-size 0)))
+    (setq eglot-events-buffer-size 0))
+  (add-hook 'eglot-managed-mode-hook (defun tmp-remove-eglot-eldoc-func ()
+                                       "Temporary fix. Should suppress one of eglot or tide eldoc function when one exits."
+                                       (if (eq major-mode 'js-mode)
+                                           (setq-local eldoc-documentation-functions
+                                                       (delete 'eglot-hover-eldoc-function
+                                                               eldoc-documentation-functions)))))
+  (add-hook 'eglot-managed-mode-hook (defun zino/format-buffer-with-eglot ()
+                                       (add-hook 'before-save-hook 'eglot-format nil t))))
 
 (use-package eglot
   :config
@@ -3478,10 +3653,52 @@ running process."
   ;; :straight (:type git :host github :repo "jdtsmith/eglot-booster")
   :load-path "~/.config/emacs/manually_installed/eglot-booster.el"
   :hook
-  (eglot-managed-mode . eglot-booster))
+  (eglot-managed-mode . eglot-booster)
+  :config
+  (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp"))))
 
 (use-package eglot-x
   :straight (:type git :host github :repo "nemethf/eglot-x"))
+
+(use-package dape
+  :preface
+  ;; By default dape shares the same keybinding prefix as `gud'
+  ;; If you do not want to use any prefix, set it to nil.
+  ;; (setq dape-key-prefix "\C-x\C-a")
+
+  :hook
+  ;; Save breakpoints on quit
+  ((kill-emacs . dape-breakpoint-save)
+   ;; Load breakpoints on startup
+   (after-init . dape-breakpoint-load))
+
+  :init
+  ;; To use window configuration like gud (gdb-mi)
+  ;; (setq dape-buffer-window-arrangement 'gud)
+
+  :config
+  ;; Info buffers to the right
+  (setq dape-buffer-window-arrangement 'right)
+
+  ;; Global bindings for setting breakpoints with mouse
+  (dape-breakpoint-global-mode)
+
+  ;; To not display info and/or buffers on startup
+  ;; (remove-hook 'dape-on-start-hooks 'dape-info)
+  ;; (remove-hook 'dape-on-start-hooks 'dape-repl)
+
+  ;; To display info and/or repl buffers on stopped
+  ;; (add-hook 'dape-on-stopped-hooks 'dape-info)
+  ;; (add-hook 'dape-on-stopped-hooks 'dape-repl)
+
+  ;; Kill compile buffer on build success
+  ;; (add-hook 'dape-compile-compile-hooks 'kill-buffer)
+
+  ;; Save buffers on startup, useful for interpreted languages
+  ;; (add-hook 'dape-on-start-hooks (lambda () (save-some-buffers t t)))
+
+  ;; Projectile users
+  (setq dape-cwd-fn 'projectile-project-root))
 
 (use-package yasnippet
   :hook
@@ -3730,6 +3947,27 @@ running process."
         ("M-a" . ace-swap-window)
         ("M-e" . forward-word)))
 
+(use-package tide
+  :config
+  (add-hook 'typescript-ts-mode-hook (defun setup-tide-mode ()
+                                       (tide-setup)
+                                       (tide-hl-identifier-mode)))
+  (add-hook 'js-mode-hook (defun setup-tide-mode ()
+                            (tide-setup)
+                            (tide-hl-identifier-mode)))
+  :custom-face
+  (tide-hl-identifier-face ((t (:inherit eglot-highlight-symbol-face))))
+  :custom
+  (tide-always-show-documentation t)
+  (tide-completion-show-source t)
+  (tide-hl-identifier-idle-time 0.1)
+  (tide-imenu-flatten nil)
+  ;; For large files the `imenu-create-index-function' `tide-imenu-index' may receive a bloated response from tsserver.
+  (tide-server-max-response-length 1024000)
+  (tide-completion-detailed t)
+  :config
+  (advice-add 'tide-project-root :around 'zino/silence-advice))
+
 (use-package dabbrev
   :bind
   (("M-/" . dabbrev-expand))
@@ -3780,10 +4018,10 @@ running process."
   ;; Optionally use TAB for cycling, default is `corfu-complete'.
   :bind (:map corfu-map
               ("M-SPC"      . corfu-insert-separator)
-              ("<tab>"      . corfu-next)
+              ("TAB"        . corfu-next)
               ("S-TAB"      . corfu-previous)
               ([backtab]    . corfu-previous)
-              ("<ret>" . corfu-insert))
+              ("RET" . corfu-insert))
 
   ;; This is recommended since Dabbrev can be used globally (M-/s ).
   ;; See also `corfu-exclude-modes'.
@@ -3795,7 +4033,9 @@ running process."
   ;; (corfu-bar ((t (:background "#a8a8a8" :weight bold))))
   ;; (corfu-border ((t (:weight bold :width extra-expanded))))
   ;; (corfu-current ((t (:background "#2c3946" :foreground "#bbc2cf"))))
-  )
+  :config
+  (add-hook 'js-mode-hook (defun set-corfu-delay-for-js-mode ()
+                            (setq-local corfu-auto-delay 0.2))))
 
 (use-package corfu
   :config
@@ -3988,6 +4228,8 @@ running process."
   )
 
 (use-package format-all
+  ;; bug: make bookmarks and org-remark notes invalid.
+  :disabled
   :hook
   (prog-mode . format-all-ensure-formatter)
   (prog-mode . format-all-mode)
@@ -4063,7 +4305,7 @@ running process."
      ("Terraform" terraform-fmt)
      ("TOML" prettier)
      ("TSX" prettier)
-     ("TypeScript" prettier)
+     ("TypeScript" deno)
      ("V" v-fmt)
      ("Verilog" istyle-verilog)
      ("Vue" prettier)
@@ -4132,6 +4374,7 @@ running process."
   (advice-add 'lua-beginning-of-proc :around 'zino/better-jumper-advice)
   (advice-add 'lua-end-of-proc :around 'zino/better-jumper-advice)
   (advice-add 'org-open-at-point :around 'zino/better-jumper-advice)
+  (advice-add 'org-open-at-mouse :around 'zino/better-jumper-advice)
   (advice-add 'counsel-bookmark :around 'zino/better-jumper-advice)
   (advice-add 'mark-whole-buffer :around 'zino/better-jumper-advice)
   (advice-add 'beginning-of-defun :around 'zino/better-jumper-advice)
@@ -4155,13 +4398,18 @@ running process."
         ("M-g M-D" . dogears-sidebar)))
 
 (use-package org-remark
-  :config
+  ;; Previous version: 1.0.5
+  :init
+  ;; Turn on `org-remark' highlights on startup
+  (org-remark-global-tracking-mode +1)
+
   (defun zino/org-remark-notes-file-name-function ()
     "Customize notes file."
     (let ((notes-dir (concat "~/Documents/org-remark" (file-name-directory (buffer-file-name)))))
       (make-directory notes-dir t)
       (concat notes-dir (file-name-base (buffer-file-name)) "-notes.org")))
 
+  :config
   ;;; `org-remark' builtin function redefinition
   (defun org-remark-open (point &optional view-only)
     "Open remark note buffer if there is notes from `point' to the beginning
@@ -4202,7 +4450,7 @@ running process."
                  (window (get-buffer-window cbuf)))
         (select-window window))))
 
-  ;;; `org-remark' builtin function redefinition
+  ;; `org-remark' builtin function redefinition
   (defun org-remark-delete (point)
     "Delete the nearest highlight and marginal notes from POINT to the beginning of line.
 
@@ -4239,12 +4487,8 @@ running process."
     (setq-local org-src-window-setup 'other-window))
 
   :config
-  (advice-add 'org-remark-open :after 'zino/org-remark-open-advice))
-
-(use-package org-remark
-  :init
-  ;; Turn on `org-remark' highlights on startup
-  (org-remark-global-tracking-mode +1)
+  (advice-add 'org-remark-open :after 'zino/org-remark-open-advice)
+  (advice-add 'org-remark-highlights-get :around 'zino/silence-advice)
 
   :bind
   ;; (keyboard-translate ?\C-m ?\H-m)
@@ -4268,7 +4512,8 @@ running process."
      (side . left)
      (slot . 1)
      (window-width . 45)))
-  (org-remark-notes-file-name 'zino/org-remark-notes-file-name-function))
+  (org-remark-notes-file-name 'zino/org-remark-notes-file-name-function)
+  (org-remark-icon-notes ""))
 
 (use-package org-bulletproof
   :disabled
@@ -4326,6 +4571,9 @@ running process."
   ("C-=" . er/expand-region))
 
 (use-package isearch
+  ;; Useful commands
+  ;; ("M-s ." . isearch-forward-symbol-at-point)
+  ;; ("M-s M-." . isearch-forward-thing-at-point)
   :preface
   (defun zino/isearch-region-or-forward ()
     "Isearch thing in region if region is active, otherwise perform normal isearch."
@@ -4473,8 +4721,7 @@ running process."
   (defun zino/zap-up-to-char (arg char &optional interactive)
     "Customized `zap-up-to-char' to support reading a double quote from the
 mibuffer. The only difference is this function uses `read-char' instead of
-`read-char-from-minibuffer'. The rest of the doc is copied from the original
-function.
+`read-char-from-minibuffer'.
 
 Kill up to, but not including ARGth occurrence of CHAR.  When run
 interactively, the argument INTERACTIVE is non-nil.  Case is ignored if
@@ -4555,7 +4802,9 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   :hook
   (xref-after-jump . beacon-blink)
   (xref-after-return . beacon-blink)
-  (xref-after-return . recenter))
+  (xref-after-return . recenter)
+  :config
+  (remove-hook 'xref-after-return-hook 'xref-pulse-momentarily))
 
 (use-package dumb-jump
   ;; Does not work with emacs 29.1
@@ -4754,6 +5003,13 @@ New vterm buffer."
   :init
   (add-to-list 'auto-mode-alist '("\\.uml\\'" . plantuml-mode)))
 
+(use-package gud
+  :ensure nil
+  :bind
+  (:map gud-mode-map
+        ;; `gud-mode' inherits `comint-mode' and `g' is bind to `recompile' in `comint-mode-map'.
+        ("g" . self-insert-command)))
+
 (use-package gdb-mi
   :ensure nil
   :bind
@@ -4830,6 +5086,7 @@ New vterm buffer."
   :disabled)
 
 (use-package indent-bars
+  ;; Freezed Old version: commit #fb1a0d6
   :straight (:type git :host github :repo "jdtsmith/indent-bars")
   :hook
   (hack-local-variables . (lambda ()
@@ -4843,6 +5100,7 @@ New vterm buffer."
   (yaml-mode . indent-bars-mode)
   (emacs-lisp-mode . (lambda ()
                        (indent-bars-mode -1)))
+  (git-timemachine-mode . indent-bars-mode)
   :custom
   (indent-bars-color-by-depth
    '(:palette
@@ -4850,8 +5108,9 @@ New vterm buffer."
      :blend 1))
   (indent-bars-pattern ". . . . ")
   (indent-bars-width-frac 0.2)
-  (indent-bars-treesit-support nil)
+  (indent-bars-treesit-support t)
   (indent-bars-display-on-blank-lines t)
+  (indent-bars-depth-update-delay 0.1)
   :hook
   ;; HACK: deal with uncorrectly displayed indent-bars in org mode source block.
   (org-mode . (lambda ()
@@ -4936,7 +5195,9 @@ New vterm buffer."
 (use-package rebox2
   :straight (:type git :host github :repo "lewang/rebox2")
   :bind
-  ("C-:" . rebox-cycle))
+  ("C-:" . rebox-cycle)
+  :custom
+  (rebox-style-loop '(23 25)))
 
 (use-package sh-script
   :ensure nil
@@ -5089,7 +5350,6 @@ New vterm buffer."
   :custom
   (key-chord-two-keys-delay 0.02))
 
-
 (use-package multiple-cursors
   ;; TODO: disable `repeat-mode' temporarily when using multiple cursors
   :bind
@@ -5127,6 +5387,11 @@ New vterm buffer."
   ;; Smoothly scroll over inline-images.
   (org-mode . iscroll-mode))
 
+(use-package goto-chg
+  :bind
+  ("M-m" . goto-last-change)
+  ("M-S-m" . goto-last-change-reverse))
+
 ;; Try it some time.
 ;; (use-package sideline)
 ;; (use-package imenu-everywhere)
@@ -5142,6 +5407,7 @@ New vterm buffer."
 ;; (use-package flycheck-inline)
 ;; (use-package annotate)
 ;; (use-package forge)
+;; (use-package lasgun)
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
@@ -5162,6 +5428,9 @@ New vterm buffer."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(async-shell-command-buffer 'new-buffer nil nil "Customized with use-package emacs")
+ '(bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks" nil nil "Customized with use-package bookmark+")
+ '(bmkp-use-region nil)
  '(connection-local-criteria-alist
    '(((:application eshell)
       eshell-connection-default-profile)
@@ -5246,10 +5515,15 @@ New vterm buffer."
      (tramp-connection-local-default-system-profile
       (path-separator . ":")
       (null-device . "/dev/null"))))
+ '(org-agenda-files
+   '("/Users/zino/Notes/Roam/20231025112701-gtd_archive.org" "/Notes/Roam/20220816100518-gtd.org") nil nil "Customized with use-package org-agenda")
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam))
  '(safe-local-variable-values
-   '((eval when
+   '((format-all-formatters
+      ("Rust"
+       (rustfmt "--edition" "2021" "--config" "tab_spaces=2")))
+     (eval when
            (require 'rainbow-mode nil t)
            (rainbow-mode 1))
      (eval font-lock-add-keywords nil
