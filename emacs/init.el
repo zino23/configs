@@ -5387,6 +5387,35 @@ New vterm buffer."
   ("M-s-<left>" . subword-left)
   ("M-s-<right>" . subword-right))
 
+(use-package string-inflection
+  :config
+  (defun zino/string-inflection-pascal-case ()
+    "FooBar format."
+    (interactive)
+    (string-inflection-insert
+     (string-inflection-pascal-case-function (string-inflection-get-current-word))))
+  (defun zino/string-inflection-snake-case ()
+    "FOO_BAR format."
+    (interactive)
+    (string-inflection-insert
+     (string-inflection-underscore-function (string-inflection-get-current-word))))
+  (defun zino/string-inflection-screaming-snake-case ()
+    "FOO_BAR format."
+    (interactive)
+    (string-inflection-insert
+     (string-inflection-upcase-function (string-inflection-get-current-word))))
+  (defun zino/string-inflection-camal-case ()
+    "fooBar format."
+    (interactive)
+    (string-inflection-insert
+     (string-inflection-camelcase-function (string-inflection-get-current-word))))
+  :bind
+  ("C-c C-c p" . zino/string-inflection-pascal-case)
+  ("C-c C-c s" . zino/string-inflection-snake-case)
+  ("C-c C-c S" . zino/string-inflection-screaming-snake-case)
+  ("C-c C-c c". zino/string-inflection-camal-case)
+  ("C-c C-c k" . string-inflection-kebab-case))
+
 (use-package iscroll
   :hook
   ;; Smoothly scroll over inline-images.
