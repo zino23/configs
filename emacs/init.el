@@ -1753,8 +1753,12 @@ respectively."
         ("b" . backward-char)))
 
 (use-package projectile
-  :config
-  (projectile-mode)
+  :init
+  ;; NOTE: Set this to the folder where you keep your Git repos!
+  (when (file-directory-p "~/dev")
+    (setq projectile-project-search-path '("~/dev")))
+  ;; [use] call `projectile-find-file' with prefix argument will invalidate cache first
+  (setq projectile-switch-project-action #'projectile-find-file)
   :custom
   ;; `alien' indexing method ignores patterns listed in .gitignore, but does not
   ;; respect .projectile
@@ -1763,12 +1767,13 @@ respectively."
   (projectile-globally-ignored-directories nil) ; quick fix for bbatsov/projectile#1777
   :bind-keymap
   ("s-p" . projectile-command-map)
-  :init
-  ;; NOTE: Set this to the folder where you keep your Git repos!
-  (when (file-directory-p "~/dev")
-    (setq projectile-project-search-path '("~/dev")))
-  ;; [use] call `projectile-find-file' with prefix argument will invalidate cache first
-  (setq projectile-switch-project-action #'projectile-find-file))
+  :config
+  (projectile-mode)
+  (let ((map (make-sparse-keymap)))
+    (fset 'projectile-replace-command-map map)
+    (define-key projectile-command-map (kbd "r") 'projectile-replace-command-map)
+    (define-key map (kbd "l") 'projectile-replace)
+    (define-key map (kbd "r") 'projectile-replace-regexp)))
 
 ;; Boost performance of `magit'
 (use-package libgit
