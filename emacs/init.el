@@ -427,8 +427,10 @@ Insert full path if prefix argument `FULL-PATH' is sent."
       (define-key map "\e[1;Q4"  (kbd "C-;"))
       (define-key map "\e[1;Q5"  (kbd "s-e"))
       (define-key map "\e[1;Q6"  (kbd "s-u"))
+      (define-key map "\e[1;Q7"  (kbd "s-o"))
       ;; Use iterm2's builtin feature:
       ;; xterm control sequence can enable modifyOtherKeysMode
+      (define-key map "\e[87;7u" (kbd "C-s-k"))
       (define-key map "\e[88;7u" (kbd "C-s-n"))
       (define-key map "\e[89;7u" (kbd "C-s-p"))
       (define-key map "\e[90;7u" (kbd "s-'"))
@@ -2046,6 +2048,7 @@ Return TEMPLATE as a string."
 
 (use-package org
   :config
+  (require 'ox-md)
   (defun org-mode-setup ()
     "Run after `org-mode' is initiated."
     (org-indent-mode)
@@ -2054,7 +2057,7 @@ Return TEMPLATE as a string."
     (setq-local corfu-auto-delay 0.2))
 
   (defun individual-visibility-source-blocks ()
-    "Fold some blocks in the current buffer."
+    "Fold blocks with header arguments `:hidden' when opening a org-mode buffer."
     (interactive)
     (org-show-block-all)
     (org-block-map
@@ -2532,7 +2535,7 @@ session on it without disturbing the current window configuration."
                    :template ("** %<%Y-%m-%dT%H:%M:%S>"
                               ":PROPERTIES:"
                               ":ANKI_NOTE_TYPE: Basic"
-                              ":ANKI_DECK: %^{Deck|Vocabulary}"
+                              ":ANKI_DECK: %^{Deck|[1] Vocabulary}"
                               ":END:"
                               "*** Front"
                               "%?"
@@ -2785,6 +2788,7 @@ session on it without disturbing the current window configuration."
   :ensure nil
   :bind
   (:map pdf-isearch-minor-mode-map
+        ;; List lines matching STRING or PCRE.
         ("O" . pdf-occur)))
 
 (use-package pdf-links
@@ -3298,6 +3302,7 @@ running process."
 (use-package js
   :config
   (setq js-indent-level 2)
+  (add-to-list 'auto-mode-alist '("\\.mjs\\'" . js-mode))
   :hook
   (js-mode . (lambda ()
                (setq-local format-all-formatters '(("JavaScript" deno)))))
@@ -3496,8 +3501,9 @@ running process."
 
   (cl-defmethod eglot-initialization-options ((server eglot-deno))
     "Passes through required deno initialization options"
-    (list :enable t
-          :lint t))
+    (list
+     :enable t
+     :lint t))
   :bind
   (:map eglot-mode-map
         ("M-." . xref-find-definitions)
@@ -3551,7 +3557,8 @@ running process."
     (setq eglot-events-buffer-size 0))
   (add-hook 'eglot-managed-mode-hook (defun tmp-remove-eglot-eldoc-func ()
                                        "Temporary fix. Should suppress one of eglot or tide eldoc function when one exits."
-                                       (if (eq major-mode 'js-mode)
+                                       (if (or (eq major-mode 'js-mode)
+                                               (eq major-mode 'typescript-ts-mode))
                                            (setq-local eldoc-documentation-functions
                                                        (delete 'eglot-hover-eldoc-function
                                                                eldoc-documentation-functions)))))
