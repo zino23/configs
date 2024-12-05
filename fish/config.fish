@@ -21,19 +21,15 @@ set -gx HOMEBREW_AUTO_UPDATING 0
 set -gx HOMEBREW_UPDATE_PREINSTALL 0
 
 # Abbreviations
-abbr -aU ec emacsclient -n
-abbr -aU rs rsync -chavzP --stats
-abbr -aU gh git help
-abbr -aU gc git checkout
-abbr -aU gcb git checkout -b
-abbr -aU gs git status
-abbr -aU gr grep -n
+abbr ec emacsclient -n
+abbr rs rsync -chavzP --stats
+abbr gh git help
+abbr gc git checkout
+abbr gcb git checkout -b
+abbr gs git status
+abbr gr grep -n
 
 set -gx RUST_BACKTRACE 1
-set -gx GOOS darwin
-set -gx GOPROXY "https://goproxy.cn,direct"
-set -gx GO111MODULE on
-set -gx GOPATH ~/go
 
 # Colored man pages
 # Solarized Dark & Green highlight
