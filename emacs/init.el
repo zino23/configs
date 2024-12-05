@@ -33,7 +33,8 @@
   (use-package-always-ensure t))
 
 ;; Immediately load this extension after loading `use-package'.
-(use-package use-package-ensure-system-package)
+(use-package use-package-ensure-system-package
+  :ensure nil)
 
 (use-package emacs
   ;; Minimum settings use to debug a package.
@@ -430,6 +431,8 @@ Insert full path if prefix argument `FULL-PATH' is sent."
       (define-key map "\e[1;Q7"  (kbd "s-o"))
       ;; Use iterm2's builtin feature:
       ;; xterm control sequence can enable modifyOtherKeysMode
+      (define-key map "\e[85;7u" (kbd "C-s-c"))
+      (define-key map "\e[86;7u" (kbd "C-s-v"))
       (define-key map "\e[87;7u" (kbd "C-s-k"))
       (define-key map "\e[88;7u" (kbd "C-s-n"))
       (define-key map "\e[89;7u" (kbd "C-s-p"))
@@ -1228,7 +1231,6 @@ Save the buffer of the current window and kill it"
   (help-at-pt-timer-delay 1)
   (help-at-pt-display-when-idle '(flymake-iagnostics))
   :config
-  (delete 'eldoc-display-in-buffer eldoc-display-functions)
   :bind
   ("C-h C-." . eldoc-doc-buffer)
   :custom-face
@@ -1755,10 +1757,12 @@ respectively."
         ("b" . backward-char)))
 
 (use-package projectile
-  :init
+  :config
   ;; NOTE: Set this to the folder where you keep your Git repos!
   (when (file-directory-p "~/dev")
-    (setq projectile-project-search-path '("~/dev")))
+    (add-to-list 'projectile-project-search-path "~/dev/"))
+  (when (file-directory-p "~/gitlab")
+    (add-to-list 'projectile-project-search-path "~/gitlab/"))
   ;; [use] call `projectile-find-file' with prefix argument will invalidate cache first
   (setq projectile-switch-project-action #'projectile-find-file)
   :custom
@@ -1767,6 +1771,7 @@ respectively."
   (projectile-indexing-method 'alien)
   (projectile-enable-caching t)
   (projectile-globally-ignored-directories nil) ; quick fix for bbatsov/projectile#1777
+  (projectile-require-project-root t)
   :bind-keymap
   ("s-p" . projectile-command-map)
   :config
@@ -2852,9 +2857,11 @@ session on it without disturbing the current window configuration."
   (bookmark-default-file (concat user-emacs-directory "bookmarks"))
   ;; Column width of bookmark name in `bookmark-menu' buffer
   (bookmark-bmenu-file-column 80)
-  (bookmark-use-annotations t))
+  (bookmark-use-annotations t)
+  (bookmark-save-flag 1))
 
 (use-package bookmark+
+  :straight (:type git :host github :repo "emacsmirror/bookmark-plus")
   :init
   (require 'bookmark+)
   :custom
@@ -3310,6 +3317,7 @@ running process."
   (:map js-mode-map ("C-c C-p" . zino/rustic-popup)))
 
 (use-package typescript-ts-mode
+  :mode ("\\.ts")
   :ensure nil)
 
 (use-package toml-ts-mode
@@ -3574,7 +3582,20 @@ running process."
       (if (stringp found) `(transient . ,found) nil)))
 
   ;; Try rust projects before version-control (vc) projects
-  (add-hook 'project-find-functions 'zino/project-try-cargo-toml nil nil))
+  (add-hook 'project-find-functions 'zino/project-try-cargo-toml nil nil)
+
+  (defun my/eglot-hover-function (cb)
+    "Same as `eglot-hover-eldoc-function`, but throw away its short :echo cookie"
+    (eglot-hover-eldoc-function (lambda (info &rest _ignore)
+                                  ;; ignore the :echo cookie that eglot-hover-eldoc-function offers
+                                  (funcall cb info))))
+  (add-hook
+   'eglot-managed-mode-hook
+   (lambda ()
+     (setq-local eldoc-documentation-functions
+                 (cl-substitute #'my/eglot-hover-function
+                                'eglot-hover-eldoc-function
+                                eldoc-documentation-functions)))))
 
 (use-package eglot
   ;; How to translate LSP configuration examples into Eglot’s format:
@@ -3662,10 +3683,9 @@ running process."
   )
 
 (use-package eglot-booster
-  ;; :straight (:type git :host github :repo "jdtsmith/eglot-booster")
-  :load-path "~/.config/emacs/manually_installed/eglot-booster.el"
+  :straight (:type git :host github :repo "jdtsmith/eglot-booster")
   :hook
-  (eglot-managed-mode . eglot-booster)
+  (eglot-managed-mode . eglot-booster-mode)
   :config
   (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp"))))
 
@@ -4026,6 +4046,7 @@ running process."
   (corfu-popupinfo-min-height 80)
   (corfu-popupinfo-min-width 80)
   (corfu-popupinfo-max-width 150)
+  (corfu-echo-delay '(0.2 . 0))
 
   ;; Optionally use TAB for cycling, default is `corfu-complete'.
   :bind (:map corfu-map
@@ -4042,6 +4063,7 @@ running process."
   (corfu-history-mode)
   (corfu-popupinfo-mode) ; Popup completion info
   :custom-face
+  (corfu-echo ((t (:inherit corfu-default))))
   ;; (corfu-bar ((t (:background "#a8a8a8" :weight bold))))
   ;; (corfu-border ((t (:weight bold :width extra-expanded))))
   ;; (corfu-current ((t (:background "#2c3946" :foreground "#bbc2cf"))))
@@ -4422,46 +4444,6 @@ running process."
       (concat notes-dir (file-name-base (buffer-file-name)) "-notes.org")))
 
   :config
-  ;;; `org-remark' builtin function redefinition
-  (defun org-remark-open (point &optional view-only)
-    "Open remark note buffer if there is notes from `point' to the beginning
-  of the line and automatically unfold the note headline.
-  This is a modified version of the function in `org-remark'."
-    (interactive "d\nP")
-    (when-let ((id
-                ;; #+begin_modified
-                (let ((point-beginning-of-line (line-beginning-position))
-                      remark-id)
-                  (while (>= point point-beginning-of-line)
-                    (if (get-char-property point 'org-remark-id)
-                        (progn
-                          (setq remark-id (get-char-property point
-                                                             'org-remark-id))
-                          (setq point (1- point-beginning-of-line)))
-                      (setq point (1- point))))
-                  remark-id))
-               ;; #+end_modified
-               (ibuf (org-remark-notes-buffer-get-or-create))
-               (cbuf (current-buffer)))
-      (pop-to-buffer ibuf org-remark-notes-display-buffer-action)
-      (widen)
-      (when-let (p (org-find-property org-remark-prop-id id))
-        ;; Somehow recenter is needed when a highlight is deleted and move to a
-        ;; previous highlight.  Otherwise, the cursor is too low to show the
-        ;; entire entry.  It looks like there is no entry.
-        (goto-char p)(org-narrow-to-subtree)(org-end-of-meta-data t)(recenter)
-        ;; #+begin_modified
-        (if (version< emacs-version "29")
-            ;; `org-fold-show-entry' is available after Emacs 29
-            (org-show-hidden-entry)
-          (org-fold-show-entry))
-        ;; #+end_modified
-        )
-      ;; Avoid error when buffer-action is set to display a new frame
-      (when-let ((view-only view-only)
-                 (window (get-buffer-window cbuf)))
-        (select-window window))))
-
   ;; `org-remark' builtin function redefinition
   (defun org-remark-delete (point)
     "Delete the nearest highlight and marginal notes from POINT to the beginning of line.
@@ -4491,7 +4473,7 @@ running process."
   I find myself often do this workflow."
     (interactive)
     (org-remark-mark (region-beginning) (region-end))
-    (org-remark-open (point)))
+    (org-remark-open (1- (point))))
 
   (defun zino/org-remark-open-advice (point &optional view-only)
     "Display source code edit buffer in `other-window' cause a `side-window'
@@ -4543,16 +4525,23 @@ running process."
 (use-package tab-bar
   :config
   (tab-bar-mode +1)
+  (tab-bar-history-mode)
   ;; it is not common to mis-type this
   (global-unset-key (kbd "C-<tab>"))
   :bind
   ("M-<tab>" . tab-next)
   ("M-S-<tab>" . tab-previous)
   ("C-s-<tab>" . tab-bar-select-tab-by-name)
+  ([remap winner-undo] . tab-bar-history-back)
+  ([remap winner-redo] . tab-bar-history-forward)
+  (:repeat-map tab-bar-history-repeat-map
+               ("<left>" . tab-bar-history-back)
+               ("<right>" . tab-bar-history-forward))
   :custom
   (tab-bar-close-button-show nil)
   (tab-bar-show nil)
-  (tab-width 2))
+  (tab-width 2)
+  (tab-bar-history-limit 100))
 
 (use-package tab-bookmark
   :straight (:type git :host github :repo "minad/tab-bookmark"))
@@ -5234,7 +5223,7 @@ New vterm buffer."
         ("C-d" . smart-hungry-delete-forward-char)))
 
 (use-package ascii
-  :load-path "~/.config/emacs/manually_installed"
+  :load-path "~/.config/emacs/manually_installed/ascii.el"
   :commands (ascii-off ascii-on ascii-display)
   :bind ("C-c e" . ascii-toggle)
   :preface
@@ -5432,6 +5421,26 @@ New vterm buffer."
   :bind
   ("M-m" . goto-last-change)
   ("M-S-m" . goto-last-change-reverse))
+
+
+(use-package ledger-mode)
+
+(use-package persistent-scratch)
+
+(use-package activities
+  :config
+  (activities-mode)
+  (activities-tabs-mode)
+  :bind
+  (("C-c C-a C-n" . activities-new)
+   ("C-c C-a C-d" . activities-define)
+   ("C-c C-a C-a" . activities-resume)
+   ("C-c C-a C-s" . activities-suspend)
+   ("C-c C-a C-k" . activities-kill)
+   ("C-c C-a RET" . activities-switch)
+   ("C-c C-a b" . activities-switch-buffer)
+   ("C-c C-a g" . activities-revert)
+   ("C-c C-a l" . activities-list)))
 
 ;; Try it some time.
 ;; (use-package sideline)
