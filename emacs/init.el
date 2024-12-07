@@ -4444,30 +4444,6 @@ running process."
       (concat notes-dir (file-name-base (buffer-file-name)) "-notes.org")))
 
   :config
-  ;; `org-remark' builtin function redefinition
-  (defun org-remark-delete (point)
-    "Delete the nearest highlight and marginal notes from POINT to the beginning of line.
-
-  This function will prompt for confirmation if there is any notes
-  present in the marginal notes buffer.  When the marginal notes
-  buffer is not displayed in the current frame, it will be
-  temporarily displayed together with the prompt for the user to
-  see the notes.
-
-  If there is no notes, this function will not prompt for
-  confirmation and will remove the highlight and deletes the entry
-  in the marginal notes buffer.
-
-  This command is identical with passing a universal argument to
-  `org-remark-remove'."
-    (interactive "d")
-    (let ((bol (line-beginning-position)))
-      (save-excursion
-        (while (>= point bol)
-          (if (get-char-property point 'org-remark-id)
-              (org-remark-remove point :delete)
-            (setq point (1- point)))))))
-
   (defun zino/org-remark-mark-and-open ()
     "Helper function to mark region and open notes buffer.
   I find myself often do this workflow."
