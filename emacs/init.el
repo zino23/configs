@@ -4456,9 +4456,17 @@ running process."
   cannot be splitted."
     (setq-local org-src-window-setup 'other-window))
 
+  (defun my/org-remark-eldoc-function (cb)
+    (let ((help (help-at-pt-kbd-string)))
+      (funcall cb help)
+      t))
+
   :config
   (advice-add 'org-remark-open :after 'zino/org-remark-open-advice)
   (advice-add 'org-remark-highlights-get :around 'zino/silence-advice)
+  (add-hook 'org-remark-mode-hook (lambda ()
+                                    (define-key org-remark-mode-map [remap display-local-help] 'eldoc-print-current-symbol-info)
+                                    (add-to-list 'eldoc-documentation-functions 'my/org-remark-eldoc-function)))
 
   :bind
   ;; (keyboard-translate ?\C-m ?\H-m)
