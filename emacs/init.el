@@ -1908,6 +1908,7 @@ respectively."
   (diff-hl-show-staged-changes nil))
 
 (use-package org-roam
+  :if (sqlite-available-p)
   :config
   (defun org-roam-book-template ()
     "Create a Cornell-style book notes template for org-roam node.
