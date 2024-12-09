@@ -3456,15 +3456,6 @@ running process."
   :init
   ;; Disable logging.
   (fset #'jsonrpc--log-event #'ignore)
-  :preface
-  (defun mp-eglot-eldoc ()
-    "Compose multiple eldoc sources."
-    (setq eldoc-documentation-strategy
-          'eldoc-documentation-compose-eagerly)
-    ;; Customize the order various doc strings are displayed.
-    (setq eldoc-documentation-functions '(flymake-eldoc-function
-                                          eglot-signature-eldoc-function
-                                          eglot-hover-eldoc-function)))
   :config
   ;; Inlay hints require `clangd-15' and is enabled by default, go get it!
   (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
@@ -3563,16 +3554,7 @@ running process."
   (if (and (boundp 'eglot--version)
            (version<= "1.16" eglot--version))
       (setf (plist-get eglot-events-buffer-config :size) 0)
-    (setq eglot-events-buffer-size 0))
-  (add-hook 'eglot-managed-mode-hook (defun tmp-remove-eglot-eldoc-func ()
-                                       "Temporary fix. Should suppress one of eglot or tide eldoc function when one exits."
-                                       (if (or (eq major-mode 'js-mode)
-                                               (eq major-mode 'typescript-ts-mode))
-                                           (setq-local eldoc-documentation-functions
-                                                       (delete 'eglot-hover-eldoc-function
-                                                               eldoc-documentation-functions)))))
-  (add-hook 'eglot-managed-mode-hook (defun zino/format-buffer-with-eglot ()
-                                       (add-hook 'before-save-hook 'eglot-format nil t))))
+    (setq eglot-events-buffer-size 0)))
 
 (use-package eglot
   :config
@@ -3590,13 +3572,23 @@ running process."
     (eglot-hover-eldoc-function (lambda (info &rest _ignore)
                                   ;; ignore the :echo cookie that eglot-hover-eldoc-function offers
                                   (funcall cb info))))
+  (add-hook 'eglot-managed-mode-hook (defun tmp-remove-eglot-eldoc-func ()
+                                       (if (and
+                                            (bound-and-true-p tide-mode)
+                                            (or (eq major-mode 'js-mode)
+                                                (eq major-mode 'typescript-ts-mode)))
+                                           (setq-local eldoc-documentation-functions
+                                                       (delete 'eglot-hover-eldoc-function
+                                                               eldoc-documentation-functions)))))
+  (add-hook 'eglot-managed-mode-hook (defun zino/format-buffer-with-eglot ()
+                                       (add-hook 'before-save-hook 'eglot-format nil t)))
   (add-hook
    'eglot-managed-mode-hook
    (lambda ()
-     (setq-local eldoc-documentation-functions
-                 (cl-substitute #'my/eglot-hover-function
-                                'eglot-hover-eldoc-function
-                                eldoc-documentation-functions)))))
+     (setq-local eldoc-documentation-functions '(my/org-remark-eldoc-function
+                                                 eglot-signature-eldoc-function
+                                                 my/eglot-hover-function
+                                                 t)))))
 
 (use-package eglot
   ;; How to translate LSP configuration examples into Eglot’s format:
@@ -3682,6 +3674,69 @@ running process."
   ;; Run our setup function in ‘rust-mode-hook’.
   ;; (add-hook 'rust-mode-hook #'setup-rust)
   )
+
+(use-package eglot
+  :config
+  (cl-defun eglot-imenu ()
+    "Eglot's `imenu-create-index-function'.
+Returns a list as described in docstring of `imenu--index-alist'."
+    (unless (eglot-server-capable :documentSymbolProvider)
+      (cl-return-from eglot-imenu))
+    (let* ((res (eglot--request (eglot--current-server-or-lose)
+                                :textDocument/documentSymbol
+                                `(:textDocument
+                                  ,(eglot--TextDocumentIdentifier))
+                                :cancel-on-input non-essential))
+           (head (and (cl-plusp (length res)) (elt res 0))))
+      (message "res: %s, head: %s" res head)
+      (when head
+        (eglot--dcase head
+          (((SymbolInformation)) (eglot--imenu-SymbolInformation res))
+          (((DocumentSymbol)) (eglot--imenu-DocumentSymbol res))))))
+
+  (defun eglot-imenu ()
+    "Eglot's `imenu-create-index-function'.
+Returns a list as described in docstring of `imenu--index-alist'."
+    (cl-labels
+        ((unfurl (obj)
+           (eglot--dcase obj
+             (((SymbolInformation)) (list obj))
+             (((DocumentSymbol) name children)
+              (cons obj
+                    (mapcar
+                     (lambda (c)
+                       (plist-put
+                        c :containerName
+                        (let ((existing (plist-get c :containerName)))
+                          (if existing (format "%s::%s" name existing)
+                            name))))
+                     (mapcan #'unfurl children)))))))
+      (mapcar
+       (pcase-lambda (`(,kind . ,objs))
+         (cons
+          (alist-get kind eglot--symbol-kind-names "Unknown")
+          (mapcan (pcase-lambda (`(,container . ,objs))
+                    (let ((elems (mapcar
+                                  (lambda (obj)
+                                    (cons (plist-get obj :name)
+                                          (car (eglot--range-region
+                                                (eglot--dcase obj
+                                                  (((SymbolInformation) location)
+                                                   (plist-get location :range))
+                                                  (((DocumentSymbol) selectionRange)
+                                                   selectionRange))))))
+                                  objs)))
+                      (if container (list (cons container elems)) elems)))
+                  (seq-group-by
+                   (lambda (e) (plist-get e :containerName)) objs))))
+       (seq-group-by
+        (lambda (obj) (plist-get obj :kind))
+        (mapcan #'unfurl
+                (jsonrpc-request (eglot--current-server-or-lose)
+                                 :textDocument/documentSymbol
+                                 `(:textDocument
+                                   ,(eglot--TextDocumentIdentifier))
+                                 :cancel-on-input non-essential)))))))
 
 (use-package eglot-booster
   :straight (:type git :host github :repo "jdtsmith/eglot-booster")
@@ -4458,16 +4513,14 @@ running process."
     (setq-local org-src-window-setup 'other-window))
 
   (defun my/org-remark-eldoc-function (cb)
-    (let ((help (help-at-pt-kbd-string)))
-      (funcall cb help)
-      t))
+    ;; Return the string. Return t if we need to run the provided callback manually.
+    (help-at-pt-kbd-string))
 
   :config
   (advice-add 'org-remark-open :after 'zino/org-remark-open-advice)
   (advice-add 'org-remark-highlights-get :around 'zino/silence-advice)
   (add-hook 'org-remark-mode-hook (lambda ()
-                                    (define-key org-remark-mode-map [remap display-local-help] 'eldoc-print-current-symbol-info)
-                                    (add-to-list 'eldoc-documentation-functions 'my/org-remark-eldoc-function)))
+                                    (define-key org-remark-mode-map [remap display-local-help] 'eldoc-print-current-symbol-info)))
 
   :bind
   ;; (keyboard-translate ?\C-m ?\H-m)
