@@ -3585,13 +3585,18 @@ running process."
                                                                eldoc-documentation-functions)))))
   (add-hook 'eglot-managed-mode-hook (defun zino/format-buffer-with-eglot ()
                                        (add-hook 'before-save-hook 'eglot-format nil t)))
+  (defun my/display-local-help-eldoc-function (_cb)
+    ;; Return the string as doc. Return t if we need to run the provided callback manually.
+    (help-at-pt-kbd-string))
+
   (add-hook
    'eglot-managed-mode-hook
-   (lambda ()
-     (setq-local eldoc-documentation-functions '(my/org-remark-eldoc-function
-                                                 eglot-signature-eldoc-function
+   (defun my/configure-eldoc-documentation-functions ()
+     (setq-local eldoc-documentation-functions '(eglot-signature-eldoc-function
                                                  my/eglot-hover-function
-                                                 t)))))
+                                                 t))
+     (add-hook 'eldoc-documentation-functions #'my/display-local-help-eldoc-function
+               -90 t))))
 
 (use-package eglot
   ;; How to translate LSP configuration examples into Eglot’s format:
