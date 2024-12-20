@@ -180,7 +180,7 @@
   ;;; Check if a font exist:
   ;;; (member "Sarasa Mono SC Nerd" (font-family-list))
   ;; Set up fonts for different charsets.
-  (defun zino/set-font (font-name cn-font-name &optional initial-size cn-font-rescale-ratio)
+  (defun my/set-font (font-name cn-font-name &optional initial-size cn-font-rescale-ratio)
     "Set different font-family for Latin and Chinese charactors."
     (let* ((size (or initial-size 14))
            (ratio (or cn-font-rescale-ratio 0.0))
@@ -191,7 +191,7 @@
         (set-fontset-font t charset cn))
       (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
 
-  (zino/set-font "Berkeley Mono" "Sarasa Mono SC Nerd" 14 1)
+  (my/set-font "Berkeley Mono" "Sarasa Mono SC Nerd" 14 1)
 
   (set-fontset-font
    t 'symbol
@@ -324,7 +324,7 @@ Do not prompt me to create parent directory."
 
 (use-package emacs
   :config
-  (defun zino/toggle-window-dedication ()
+  (defun my/toggle-window-dedication ()
     "Toggle window dedication in the selected window."
     (interactive)
     (set-window-dedicated-p (selected-window)
@@ -332,33 +332,33 @@ Do not prompt me to create parent directory."
     (if (window-dedicated-p (selected-window))
         (message "The current window is dedicated")
       (message "The current window is not dedicated")))
-  (defun zino/toggle-scratch ()
+  (defun my/toggle-scratch ()
     "Toggle `scratch' buffer."
     (interactive)
     (switch-to-buffer-other-window (get-buffer-create "*scratch*"))
     (lisp-interaction-mode))
 
-  (defun delete-to-end-of-buffer ()
+  (defun my/delete-to-end-of-buffer ()
     (interactive)
     (kill-region (point) (point-max)))
   (add-function :before after-focus-change-function 'garbage-collect)
 
   ;; Boxes comment
   ;; Site: https://boxes.thomasjensen.com/
-  (defun boxes-create ()
+  (defun my/boxes-create ()
     "Convert a region into box comments specified by `-d' option."
     (interactive)
     (shell-command-on-region (region-beginning)
                              (region-end) "boxes -d c-cmt2" nil 1 nil))
 
-  (defun boxes-remove ()
+  (defun my/boxes-remove ()
     "Convert a region of box comments into plain code."
     (interactive)
     (shell-command-on-region (region-beginning)
                              (region-end) "boxes -r -d c-cmt2" nil 1 nil))
 
   ;;; File manipulation
-  (defun zino/insert-buffer-file-name (full-path)
+  (defun my/insert-buffer-file-name (full-path)
     "Insert file name of the buffer at point.
 Insert full path if prefix argument `FULL-PATH' is sent."
     (interactive "P")
@@ -367,32 +367,32 @@ Insert full path if prefix argument `FULL-PATH' is sent."
           (setq f (file-name-nondirectory f)))
       (insert f)))
 
-  (defun zino/inhibit-buffer-messages ()
+  (defun my/inhibit-buffer-messages ()
     "Set `inhibit-message' buffer-locally."
     (setq-local inhibit-message t))
 
-  (defun copy-full-path-to-kill-ring ()
+  (defun my/copy-full-path-to-kill-ring ()
     "Copy buffer's full path to kill ring."
     (interactive)
     (when buffer-file-name (kill-new (file-truename buffer-file-name))
           (message buffer-file-name)))
 
-  (defun zino/delete-till-end-of-buffer ()
+  (defun my/delete-till-end-of-buffer ()
     "Delete from point to the end of buffer."
     (interactive)
     (let ((beg (point)))
       (end-of-buffer)
       (kill-region beg (point))))
 
-  (defun zino/silence-advice (oldfun &rest args)
+  (defun my/silence-advice (oldfun &rest args)
     (let ((inhibit-message t))
       (apply oldfun args)))
 
   :bind
-  ("C-S-d" . zino/toggle-window-dedication)
+  ("C-S-d" . my/toggle-window-dedication)
   ("C-c C-z" . delete-to-end-of-buffer)
-  ("C-c C-s" . zino/toggle-scratch)
-  ("C-s-k" . zino/delete-till-end-of-buffer)
+  ("C-c C-s" . my/toggle-scratch)
+  ("C-s-k" . my/delete-till-end-of-buffer)
   :config
   ;; Mandatory, as the dictionary misbehaves!
   (add-to-list 'display-buffer-alist
@@ -573,7 +573,7 @@ Insert full path if prefix argument `FULL-PATH' is sent."
 (global-set-key (kbd "s-3") 'kmacro-start-macro-or-insert-counter)
 (global-set-key (kbd "s-4") 'kmacro-end-or-call-macro)
 
-(global-set-key (kbd "s-b") 'zino/switch-other-buffer)
+(global-set-key (kbd "s-b") 'my/switch-other-buffer)
 
 (global-set-key (kbd "M-s-3") (lambda ()
                                 "Quickly create 3 balanced vertically spit windows."
@@ -589,10 +589,10 @@ Insert full path if prefix argument `FULL-PATH' is sent."
 (global-set-key (kbd "s-j")
                 (lambda ()
                   (interactive)
-                  (zino/smart-join-line -1)))
+                  (my/smart-join-line -1)))
 
 ;; Taken from https://tony-zorman.com/posts/join-lines-comments.html.
-(defun zino/smart-join-line (&optional arg beg end)
+(defun my/smart-join-line (&optional arg beg end)
   "Join this line to previous and fix up whitespace at join.
 If there is a fill prefix, delete it from the beginning of this
 line.
@@ -639,7 +639,7 @@ does not have to do this by oneself."
             (replace-match "" t t))
           (fixup-whitespace))))))
 
-(defun zino/toggle-window-split ()
+(defun my/toggle-window-split ()
   "Toggle between vertical and horizontal split when therea are only two window."
   (interactive)
   (if (= (count-windows) 2)
@@ -665,7 +665,7 @@ does not have to do this by oneself."
           (select-window first-win)
           (if this-win-2nd (other-window 1))))))
 
-(define-key ctl-x-4-map "t" 'zino/toggle-window-split)
+(define-key ctl-x-4-map "t" 'my/toggle-window-split)
 
 ;; The following only undoes remapping instead of remapping to nil
 ;; (define-key global-map [remap ns-print-buffer] nil)
@@ -674,11 +674,11 @@ does not have to do this by oneself."
 ;; the original keybinding is set-goal-column
 (global-unset-key (kbd "C-x C-n"))
 
-(global-set-key (kbd "C-c +") 'zino/increment-number-decimal)
+(global-set-key (kbd "C-c +") 'my/increment-number-decimal)
 
-(global-set-key (kbd "C-d") 'zino/delete-forward-char)
+(global-set-key (kbd "C-d") 'my/delete-forward-char)
 
-(defun zino/delete-forward-char (n)
+(defun my/delete-forward-char (n)
   "Delete the following N chars and keep it in the `kill-ring'."
   (interactive "p*")
   (delete-char n t))
@@ -702,18 +702,18 @@ does not have to do this by oneself."
 (global-set-key (kbd "s-<return>") 'newline-below)
 (global-set-key (kbd "<C-return>") 'newline-below)
 
-(defun zino/next-k-lines ()
+(defun my/next-k-lines ()
   "Move cursor down k lines."
   (interactive)
   (scroll-up 5))
 
-(defun zino/previous-k-lines ()
+(defun my/previous-k-lines ()
   "Move cursor up k lines."
   (interactive)
   (scroll-down 5))
 
-(global-set-key (kbd "M-n") 'zino/next-k-lines)
-(global-set-key (kbd "M-p") 'zino/previous-k-lines)
+(global-set-key (kbd "M-n") 'my/next-k-lines)
+(global-set-key (kbd "M-p") 'my/previous-k-lines)
 ;; (global-set-key (kbd "C-,") 'scroll-up-command)
 ;; (global-set-key (kbd "C-.") 'scroll-down-command)
 
@@ -722,14 +722,14 @@ does not have to do this by oneself."
 (global-set-key (kbd "M-f") 'forward-to-word)
 (global-set-key (kbd "M-e") 'forward-word)
 
-(defun zino/kill-whole-line-without-newline ()
+(defun my/kill-whole-line-without-newline ()
   "Kill the whole line but leave the trailing newline."
   (interactive)
   (kill-whole-line 0))
 
 (global-set-key (kbd "C-k") 'kill-whole-line)
 (global-set-key (kbd "C-S-k") 'kill-line)
-(global-set-key (kbd "C-S-s-k") 'zino/kill-whole-line-without-newline)
+(global-set-key (kbd "C-S-s-k") 'my/kill-whole-line-without-newline)
 
 (defun smarter-move-beginning-of-line (arg)
   "Move point back to indentation of beginning of line.
@@ -780,13 +780,13 @@ point reaches the beginning or end of the buffer, stop there."
 
 (global-set-key (kbd "C-c k") 'copy-line)
 (global-set-key (kbd "C-c C-k") 'copy-line)
-(defun zino/switch-other-buffer ()
+(defun my/switch-other-buffer ()
   "Swithch to the most recent buffer."
   (interactive)
   (switch-to-buffer (other-buffer)))
 
-(global-set-key (kbd "C-c b") 'zino/switch-other-buffer)
-(global-set-key (kbd "C-c C-b") 'zino/switch-other-buffer)
+(global-set-key (kbd "C-c b") 'my/switch-other-buffer)
+(global-set-key (kbd "C-c C-b") 'my/switch-other-buffer)
 
 (global-set-key (kbd "<RET>") 'newline)
 
@@ -798,13 +798,13 @@ point reaches the beginning or end of the buffer, stop there."
                 (when (save-excursion (comment-beginning))
                   `(lambda () (interactive) (,comment-line-break-function))))))
 
-(defun zino/save-buffer-and-exit()
+(defun my/save-buffer-and-exit()
   "Simple convenience function.
 Save the buffer of the current window and kill it"
   (interactive)
   (save-buffer)
   (delete-window))
-(global-set-key (kbd "C-x s-s") #'zino/save-buffer-and-exit)
+(global-set-key (kbd "C-x s-s") #'my/save-buffer-and-exit)
 
 ;; "C-@" is used in rime to toggle between English and Chinese
 (global-unset-key (kbd "C-@"))
@@ -863,41 +863,41 @@ Save the buffer of the current window and kill it"
 
 ;; Reference: https://emacs.stackexchange.com/a/7670/37427
 ;; Edebug a defun or defmacro
-(defvar zino/fns-in-edebug nil
+(defvar my/fns-in-edebug nil
   "List of functions for which `edebug' is instrumented.")
 
-(defconst zino/fns-regexp (concat "(\\s-*"
-                                  "\\(defun\\|defmacro\\)\\s-+"
-                                  "\\(?1:\\(\\w\\|\\s_\\)+\\)\\_>") ; word or symbol char
+(defconst my/fns-regexp (concat "(\\s-*"
+                                "\\(defun\\|defmacro\\)\\s-+"
+                                "\\(?1:\\(\\w\\|\\s_\\)+\\)\\_>") ; word or symbol char
   "Regexp to find defun or defmacro definition.")
 
-(defun zino/toggle-edebug-defun ()
+(defun my/toggle-edebug-defun ()
   "Toggle instrumenting a function or macro for edebug."
   (interactive)
   (let (fn)
     (save-excursion
-      (search-backward-regexp zino/fns-regexp)
+      (search-backward-regexp my/fns-regexp)
       (setq fn (match-string 1))
       (mark-sexp)
       (narrow-to-region (point) (mark))
-      (if (member fn zino/fns-in-edebug)
+      (if (member fn my/fns-in-edebug)
           ;; If the function is already being edebugged, uninstrument it
           (progn
-            (setq zino/fns-in-edebug (delete fn zino/fns-in-edebug))
+            (setq my/fns-in-edebug (delete fn my/fns-in-edebug))
             (eval-region (point) (mark))
             (setq-default eval-expression-print-length 12)
             (setq-default eval-expression-print-level  4)
             (message "Edebug disabled: %s" fn))
         ;; If the function is not being edebugged, instrument it
         (progn
-          (add-to-list 'zino/fns-in-edebug fn)
+          (add-to-list 'my/fns-in-edebug fn)
           (setq-default eval-expression-print-length nil)
           (setq-default eval-expression-print-level  nil)
           (edebug-defun)
           (message "Edebug: %s" fn)))
       (widen))))
 
-(global-set-key (kbd "C-s-x") 'zino/toggle-edebug-defun)
+(global-set-key (kbd "C-s-x") 'my/toggle-edebug-defun)
 
 (use-package windmove
   :ensure nil
@@ -1033,7 +1033,7 @@ Save the buffer of the current window and kill it"
   (abbrev-table-put global-abbrev-table :case-fixed t)
 
   (progn
-    (setq zino/abbrev-table '(("tset" "test")
+    (setq my/abbrev-table '(("tset" "test")
                               ("arch" "architecture")
                               ("conf" "configuration")
                               ("tyep" "type")
@@ -1057,7 +1057,7 @@ Save the buffer of the current window and kill it"
                               ("triat" "trait")
                               ("imme" "immediately")
                               ))
-    (dolist (pair zino/abbrev-table)
+    (dolist (pair my/abbrev-table)
       (let ((from (car pair))
             (to (car (cdr pair))))
         (define-abbrev global-abbrev-table from to)))))
@@ -1692,7 +1692,7 @@ respectively."
   ;; and a flat (Ido-like) menu for M-x.
   (vertico-multiform-commands '((consult-imenu buffer indexed)
                                 (consult-ripgrep buffer indexed)
-                                (zino/consult-ripgrep-thing-at-point buffer indexed)
+                                (my/consult-ripgrep-thing-at-point buffer indexed)
                                 (consult-imenu-multi buffer indexed)))
   :bind
   (:map vertico-multiform-map
@@ -1747,6 +1747,8 @@ respectively."
   ([remap describe-variable] . helpful-variable)
   ([remap describe-key] . helpful-key)
   ([remap describe-command] . helpful-command)
+  ([remap describe-macro] . helpful-macro)
+  ([remap describe-symbol] . helpful-symbol)
   ("C-c C-d" . helpful-at-point)
   ("C-h M-f" . describe-face)
   (:map helpful-mode-map
@@ -1795,8 +1797,8 @@ respectively."
   (("C-x g" . magit-status)
    ([remap vc-diff] . magit-diff-buffer-file)
    :map magit-stash-mode-map
-   ("M-n" . zino/next-k-lines)
-   ("M-p" . zino/previous-k-lines)
+   ("M-n" . my/next-k-lines)
+   ("M-p" . my/previous-k-lines)
    ("M-s-n" . magit-section-forward-sibling)
    ("M-s-p" . magit-section-backward-sibling))
   :custom
@@ -1952,7 +1954,7 @@ Return TEMPLATE as a string."
            (propertize "${tags:40}" 'face 'org-tag)))
   :config
   (org-roam-db-autosync-mode)
-  (defun zino/org-roam-node-find-other-window ()
+  (defun my/org-roam-node-find-other-window ()
     (interactive)
     (org-roam-node-find 'other-windw))
   :config
@@ -1960,7 +1962,7 @@ Return TEMPLATE as a string."
   (global-set-key (kbd "s-n f") 'org-roam-node-find)
   ;; Keybindings containing `4' before normal key actions often means to execute
   ;; the action in other window.
-  (global-set-key (kbd "s-n 4 f") 'zino/org-roam-node-find-other-window))
+  (global-set-key (kbd "s-n 4 f") 'my/org-roam-node-find-other-window))
 
 (use-package magit-todos
   ;; Not compatible with Emacs 28
@@ -2080,24 +2082,24 @@ Return TEMPLATE as a string."
                   (org-babel-get-src-block-info))))
            (org-hide-block-toggle))))))
 
-  (defun zino/advise-org-edit-src-code (f &rest args)
+  (defun my/advise-org-edit-src-code (f &rest args)
     "Temporarily make current window undedicated if needed."
     (let ((dedicated-p (window-dedicated-p)))
       (if dedicated-p
           (progn
-            (zino/toggle-window-dedication)
+            (my/toggle-window-dedication)
             (apply f args)
-            (zino/toggle-window-dedication)))))
+            (my/toggle-window-dedication)))))
 
   ;; set `org-src-window-setup' to 'current-window
   ;; this will not work, tinker later
-  ;; (advice-add 'org-edit-src-code :around 'zino/advise-org-edit-src-code)
+  ;; (advice-add 'org-edit-src-code :around 'my/advise-org-edit-src-code)
 
-  (defun zino/org-babel-tangle-rename ()
+  (defun my/org-babel-tangle-rename ()
     (let ((tangle-file (buffer-file-name)))
-      (rename-file tangle-file zino/org-babel-tangle-dir t)))
+      (rename-file tangle-file my/org-babel-tangle-dir t)))
 
-  (defun zino/org-edit-src-code-advice (oldfun &rest args)
+  (defun my/org-edit-src-code-advice (oldfun &rest args)
     "Call OLDFUN with ARGS, then set a jump point with `better-jumper-set-jump'."
     (apply oldfun args)
     (setq-local completion-at-point-functions (remove 'cape-dabbrev completion-at-point-functions)))
@@ -2153,16 +2155,16 @@ specified as an an \"attachment:\" style link."
 
   :config
   ;; `cape-dabbrev' slows Emacs down
-  (advice-add 'org-edit-src-code :around 'zino/org-edit-src-code-advice)
+  (advice-add 'org-edit-src-code :around 'my/org-edit-src-code-advice)
 
   ;; NOTE: Enable it when we want to tangle a file, edit the file with lsp enabled,
   ;; and detangle it back to the org source block.
-  (add-hook 'org-babel-post-tangle-hook 'zino/org-babel-tangle-rename)
-  ;; (remove-hook 'org-babel-post-tangle-hook 'zino/org-babel-tangle-rename)
+  (add-hook 'org-babel-post-tangle-hook 'my/org-babel-tangle-rename)
+  ;; (remove-hook 'org-babel-post-tangle-hook 'my/org-babel-tangle-rename)
 
   ;; NOTE: Use absolute links to make `org-babel-detangle' work when the filename of
   ;; the tangled file is transformed in `org-babel-post-tangle-hook', namely
-  ;; `zino/org-babel-tangle-dir'.
+  ;; `my/org-babel-tangle-dir'.
   (setq org-babel-tangle-use-relative-file-links nil)
 
   :config
@@ -2333,8 +2335,8 @@ specified as an an \"attachment:\" style link."
   :after ob-go
   :config
   ;; org-agenda
-  (defvar  zino/GTD-file "~/Notes/Roam/20220816100518-gtd.org")
-  (defvar zino/org-babel-tangle-dir "~/dev/org-babel-tangle/")
+  (defvar  my/GTD-file "~/Notes/Roam/20220816100518-gtd.org")
+  (defvar my/org-babel-tangle-dir "~/dev/org-babel-tangle/")
   (setf (cdr (assoc 'file org-link-frame-setup)) 'find-file)
   (setq org-babel-js-cmd "deno run")
   (org-babel-do-load-languages
@@ -2442,13 +2444,13 @@ specified as an an \"attachment:\" style link."
 
 (use-package org-journal
   :preface
-  (defun zino/org-journal-new-todo (prefix)
+  (defun my/org-journal-new-todo (prefix)
     "Create a new todo entry in `org-journal'."
     (interactive "P")
     (org-journal-new-entry prefix)
     (org-todo))
 
-  (defun zino/org-journal-cycle-after-open-current-journal-file ()
+  (defun my/org-journal-cycle-after-open-current-journal-file ()
     "Toggle visibility according to buffer's setting."
     (org-cycle t))
 
@@ -2475,7 +2477,7 @@ Similar to `org-capture' like behavior"
   :config
   (setq org-journal-dir "~/Notes/Roam/Journal/")
   (setq org-journal-file-type 'weekly)
-  (advice-add 'org-journal-open-current-journal-file :after 'zino/org-journal-cycle-after-open-current-journal-file)
+  (advice-add 'org-journal-open-current-journal-file :after 'my/org-journal-cycle-after-open-current-journal-file)
 
   :custom
   ;; Start on Monday
@@ -2487,7 +2489,7 @@ Similar to `org-capture' like behavior"
   (("C-c j o" . org-journal-open-current-journal-file)
    ("C-c j n" . org-journal-new-entry)
    ("C-c j s" . org-journal-search)
-   ("C-c j t" . zino/org-journal-new-todo)
+   ("C-c j t" . my/org-journal-new-todo)
    :map org-journal-mode-map
    ("C-x s-s" . org-journal-save-entry-and-exit))
   :hook
@@ -2503,9 +2505,9 @@ Similar to `org-capture' like behavior"
   (org-noter-hide-other t)
   (org-noter-notes-window-behavior '(scroll))
   :config
-  (defun zino/no-op (&rest args))
-  (advice-add 'org-noter--set-notes-scroll :override 'zino/no-op)
-  (defun zino/org-noter-with-org-roam-node ()
+  (defun my/no-op (&rest args))
+  (advice-add 'org-noter--set-notes-scroll :override 'my/no-op)
+  (defun my/org-noter-with-org-roam-node ()
     "Create an `org-noter' session based on an `org-roam' node.
 Integrate the workflow of opening a `org-roam' node and creating an `org-noter'
 session on it without disturbing the current window configuration."
@@ -2516,7 +2518,7 @@ session on it without disturbing the current window configuration."
     (org-noter 0))
   :bind
   (("M-s-." . org-noter)
-   ("<f7>" . zino/org-noter-with-org-roam-node)
+   ("<f7>" . my/org-noter-with-org-roam-node)
    :map org-noter-doc-mode-map
    ("i" . org-noter-insert-precise-note)
    ("M-i" . org-noter-insert-note)))
@@ -2527,16 +2529,16 @@ session on it without disturbing the current window configuration."
 
 (use-package doct
   :init
-  (setq zino/roam-dir "~/Notes/Roam/"
-        zino/anki-file "~/Notes/Roam/20220517104105-anki.org"
-        zino/contacts-file "~/Notes/Roam/20220620203106-contacts.org"
-        zino/meeting-file (concat zino/roam-dir "20221115143855-meeting.org")
-        zino/anecdote-file (concat zino/roam-dir "20240207175232-anecdote.org")
-        zino/weekly-plan-file (concat zino/roam-dir "20240430174046-weekly_plan.org"))
+  (setq my/roam-dir "~/Notes/Roam/"
+        my/anki-file "~/Notes/Roam/anki-20220517104105.org"
+        my/contacts-file "~/Notes/Roam/contacts-20220620203106.org"
+        my/meeting-file (concat my/roam-dir "meeting-20221115143855.org")
+        my/anecdote-file (concat my/roam-dir "anecdote-20240207175232.org")
+        my/weekly-plan-file (concat my/roam-dir "weekly_plan-20240430174046.org"))
   (setq org-capture-templates
         (doct '(("Anki"
                  :keys "a"  ;; "a" for "Anki"
-                 :file zino/anki-file
+                 :file my/anki-file
                  :children
                  (("Basic card with a front and a back"
                    :keys "b"
@@ -2571,7 +2573,7 @@ session on it without disturbing the current window configuration."
                               "%?"))))
                 ("Contacts"
                  :keys "c"  ;; "c" for "Contacts"
-                 :file zino/contacts-file
+                 :file my/contacts-file
                  :children
                  (("Family"
                    :keys "f"
@@ -2595,7 +2597,7 @@ session on it without disturbing the current window configuration."
                               "%?"))))
                 ("Get Things Done"
                  :keys "g"  ;; "g" for "Get Things Done"
-                 :file zino/GTD-file
+                 :file my/GTD-file
                  :children
                  (("Questions"
                    :keys "q"
@@ -2644,7 +2646,7 @@ session on it without disturbing the current window configuration."
                    :after-finalize org-fold-hide-drawer-all)))
                 ("Weekly Plan"
                  :keys "w"
-                 :file zino/weekly-plan-file
+                 :file my/weekly-plan-file
                  :after-finalize org-fold-hide-drawer-all
                  :children
                  (("Weekdays"
@@ -2691,7 +2693,7 @@ session on it without disturbing the current window configuration."
                               ":END:"))))
                 ("Meetings"
                  :keys "m"
-                 :file zino/meeting-file
+                 :file my/meeting-file
                  :children
                  (("Random"
                    :keys "r"
@@ -2706,7 +2708,7 @@ session on it without disturbing the current window configuration."
                    :after-finalize org-fold-hide-drawer-all)))
                 ("Anecdote"
                  :keys "n"
-                 :file zino/anecdote-file
+                 :file my/anecdote-file
                  :type plain
                  :template ("* %^{What is it about} %^g"
                             ":PROPERTIES:"
@@ -2750,7 +2752,7 @@ session on it without disturbing the current window configuration."
   :init
   (pdf-tools-install)
   :preface
-  (defun zino/pdf-tools-toggle-mouse-1-use ()
+  (defun my/pdf-tools-toggle-mouse-1-use ()
     "Toggle `pdf-view-selection-style' between word and glyph."
     (interactive)
     (if (eq pdf-view-selection-style 'glyph)
@@ -2763,7 +2765,7 @@ session on it without disturbing the current window configuration."
         ("p" . pdf-view-previous-line-or-previous-page)
         ("," . pdf-view-previous-page)
         ("." . pdf-view-next-page)
-        ("C-<down-mouse-1>" . zino/pdf-tools-toggle-mouse-1-use)
+        ("C-<down-mouse-1>" . my/pdf-tools-toggle-mouse-1-use)
         ("[" . shrink-window-horizontally)
         ("]" . enlarge-window-horizontally)
         ("s" . isearch-forward)
@@ -2785,7 +2787,7 @@ session on it without disturbing the current window configuration."
   (pdf-view-continuous t)
   (pdf-view-display-size 'fit-page)
   (pdf-view-resize-factor 1.1)
-  ;; Select by word by default and use `zino/pdf-tools-toggle-mouse-1-use' to toggle
+  ;; Select by word by default and use `my/pdf-tools-toggle-mouse-1-use' to toggle
   (pdf-view-selection-style 'word)
   (pdf-view-use-imagemagick t)
   (pdf-cache-prefetch-delay 0.1)
@@ -2910,7 +2912,7 @@ session on it without disturbing the current window configuration."
    ;; TODO: edit the bookmark under point
    :map bookmark-bmenu-mode-map
    ("M-o" . ace-window)
-   ("M-n" . zino/next-k-lines)
+   ("M-n" . my/next-k-lines)
    ;; ("n" . (lambda ()
    ;;          (interactive)
    ;;          (next-logical-line)
@@ -2947,7 +2949,7 @@ session on it without disturbing the current window configuration."
   )
 
 
-(defun zino/increment-number-decimal (&optional arg)
+(defun my/increment-number-decimal (&optional arg)
   "Increment the number forward from point by ARG."
   (interactive "p*")
   (save-excursion
@@ -2963,10 +2965,10 @@ session on it without disturbing the current window configuration."
           (replace-match (format (concat "%0" (int-to-string field-width) "d")
                                  answer)))))))
 
-(defun zino/decrement-number-decimal (&optional arg)
+(defun my/decrement-number-decimal (&optional arg)
   "Decrement the number forward from point by ARG."
   (interactive "p*")
-  (zino/increment-number-decimal (if arg (- arg) -1)))
+  (my/increment-number-decimal (if arg (- arg) -1)))
 
 (use-package fzf
   :bind
@@ -2990,7 +2992,7 @@ session on it without disturbing the current window configuration."
 
 (use-package consult
   :preface
-  (defun zino/consult-imenu-thing-at-point (prompt items)
+  (defun my/consult-imenu-thing-at-point (prompt items)
     "Select from imenu ITEMS given PROMPT string with the symbol at point as
 initial input."
     (consult-imenu--deduplicate items)
@@ -3019,7 +3021,7 @@ initial input."
       :initial (thing-at-point 'symbol)
       :sort nil)))
 
-  (defun zino/consult-ripgrep-thing-at-point (dir)
+  (defun my/consult-ripgrep-thing-at-point (dir)
     "Search with `rg' for files in DIR with `thing-at-point' as initial input."
     (interactive "P")
     (consult--grep "Ripgrep" #'consult--ripgrep-make-builder dir (thing-at-point 'symbol t)))
@@ -3034,7 +3036,7 @@ initial input."
   (("M-i" . consult-imenu)
    ("C-s-i" . (lambda ()
                 (interactive)
-                (zino/consult-imenu-thing-at-point
+                (my/consult-imenu-thing-at-point
                  "Go to item: "
                  (consult--slow-operation "Building Imenu..."
                    (consult-imenu--items)))))
@@ -3051,7 +3053,7 @@ initial input."
    ("M-s g" . consult-grep)
    ("M-s G" . consult-git-grep)
    ("M-s s" . consult-ripgrep)
-   ("M-s M-s" . zino/consult-ripgrep-thing-at-point)
+   ("M-s M-s" . my/consult-ripgrep-thing-at-point)
    ("M-s l" . consult-line)
    ("M-s L" . consult-line-multi)
    ("M-s k" . consult-keep-lines)
@@ -3257,12 +3259,12 @@ initial input."
   ;; (remove-hook 'rustic-mode-hook 'flycheck-mode)
   :bind
   (
-   :map rust-mode-map ("C-c C-p" . zino/rustic-popup)
-   ;; :map rust-ts-mode-map ("C-c C-p" . zino/rustic-popup)
+   :map rust-mode-map ("C-c C-p" . my/rustic-popup)
+   ;; :map rust-ts-mode-map ("C-c C-p" . my/rustic-popup)
    :map rustic-compilation-mode-map
    ("p" . previous-error-no-select)
-   ("M-p" . zino/previous-k-lines)
-   ("M-n" . zino/next-k-lines)
+   ("M-p" . my/previous-k-lines)
+   ("M-n" . my/next-k-lines)
    ("M-[" . compilation-previous-error)
    ("M-]" . compilation-next-error)
    ("g" . (lambda ()
@@ -3275,7 +3277,7 @@ initial input."
   ;; `rustic.el'.
   ;; (setq auto-mode-alist (delete '("\\.rs\\'" . rustic-mode) auto-mode-alist))
   ;; (setf (alist-get "\\.rs\\'" auto-mode-alist nil nil 'string=) 'rust-mode)
-  (defun zino/rustic-popup (&optional args)
+  (defun my/rustic-popup (&optional args)
     "Setup popup.
 If directory is not in a rust project call `read-directory-name'."
     (interactive "P")
@@ -3319,7 +3321,7 @@ running process."
   (js-mode . (lambda ()
                (setq-local format-all-formatters '(("JavaScript" deno)))))
   :bind
-  (:map js-mode-map ("C-c C-p" . zino/rustic-popup)))
+  (:map js-mode-map ("C-c C-p" . my/rustic-popup)))
 
 (use-package typescript-ts-mode
   :mode ("\\.ts")
@@ -3452,8 +3454,8 @@ running process."
   (add-to-list 'markdown-code-lang-modes '("go" . go-mode))
   :bind
   (:map markdown-mode-map
-        ("M-n" . zino/next-k-lines)
-        ("M-p" . zino/previous-k-lines)))
+        ("M-n" . my/next-k-lines)
+        ("M-p" . my/previous-k-lines)))
 
 (use-package eglot
   ;;; Performance tweaking
@@ -3563,13 +3565,13 @@ running process."
 (use-package eglot
   :config
   ;; https://github.com/joaotavora/eglot/issues/98
-  (defun zino/project-try-cargo-toml (dir)
+  (defun my/project-try-cargo-toml (dir)
     "Try to locate a Rust project above DIR."
     (let ((found (locate-dominating-file dir "Cargo.toml")))
       (if (stringp found) `(transient . ,found) nil)))
 
   ;; Try rust projects before version-control (vc) projects
-  (add-hook 'project-find-functions 'zino/project-try-cargo-toml nil nil)
+  (add-hook 'project-find-functions 'my/project-try-cargo-toml nil nil)
 
   (defun my/eglot-hover-function (cb)
     "Same as `eglot-hover-eldoc-function`, but throw away its short :echo cookie"
@@ -3584,7 +3586,7 @@ running process."
                                            (setq-local eldoc-documentation-functions
                                                        (delete 'eglot-hover-eldoc-function
                                                                eldoc-documentation-functions)))))
-  (add-hook 'eglot-managed-mode-hook (defun zino/format-buffer-with-eglot ()
+  (add-hook 'eglot-managed-mode-hook (defun my/format-buffer-with-eglot ()
                                        (add-hook 'before-save-hook 'eglot-format nil t)))
   (defun my/display-local-help-eldoc-function (_cb)
     ;; Return the string as doc. Return t if we need to run the provided callback manually.
@@ -3877,7 +3879,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
     (setq eldoc-documentation-strategy 'eldoc-documentation-compose-eagerly)
     (setq flycheck-display-errors-function nil)
     (setq flycheck-help-echo-function nil))
-  (defun zino/flycheck-next-error-advice (oldfun &rest args)
+  (defun my/flycheck-next-error-advice (oldfun &rest args)
     (apply oldfun args)
     (recenter))
 
@@ -3921,7 +3923,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
                ("[" . flycheck-previous-error)
                ("]" . flycheck-next-error))
   :config
-  (advice-add 'flycheck-next-error :around 'zino/flycheck-next-error-advice))
+  (advice-add 'flycheck-next-error :around 'my/flycheck-next-error-advice))
 
 ;; Show matching parenthesis
 (use-package mic-paren
@@ -3939,15 +3941,15 @@ Returns a list as described in docstring of `imenu--index-alist'."
 (use-package anki-editor
   ;; Check https://github.com/louietan/anki-editor/issues/76
   :hook
-  (org-capture-after-finalize . zino/anki-editor-reset-cloze-num)
+  (org-capture-after-finalize . my/anki-editor-reset-cloze-num)
   (org-capture . anki-editor-mode)
   :config
-  (defun zino/anki-editor-reset-cloze-num ()
+  (defun my/anki-editor-reset-cloze-num ()
     "Reset cloze number of current card to 1."
     (interactive)
     (setq anki-editor-cur-cloze-num 1))
 
-  (defun zino/anki-editor-cloze-region-auto-incr ()
+  (defun my/anki-editor-cloze-region-auto-incr ()
     "Cloze active region or word under corsor without hint.
   Automatically increase cloze number"
     (interactive)
@@ -3955,36 +3957,36 @@ Returns a list as described in docstring of `imenu--index-alist'."
     (sp-forward-sexp)
     (setq anki-editor-cur-cloze-num (1+ anki-editor-cur-cloze-num)))
 
-  (defun zino/anki-editor-cloze-region-not-incr ()
+  (defun my/anki-editor-cloze-region-not-incr ()
     "Cloze active region or word under corsor without hint.
   Do not increase cloze number"
     (interactive)
     (anki-editor-cloze-dwim anki-editor-cur-cloze-num "")
     (sp-forward-sexp))
 
-  (defun zino/anki-editor-push-tree ()
+  (defun my/anki-editor-push-tree ()
     "Push cards of the org subtree under cursor to Anki."
     (interactive)
     (anki-editor-push-notes '(4))
-    (zino/anki-editor-reset-cloze-num))
+    (my/anki-editor-reset-cloze-num))
 
-  (defun zino/anki-editor-push-buffer ()
+  (defun my/anki-editor-push-buffer ()
     "Push cards of this buffer."
     (interactive)
     (anki-editor-push-notes)
-    (zino/anki-editor-reset-cloze-num))
+    (my/anki-editor-reset-cloze-num))
 
   :config
   ;; initialize cloze states
-  (zino/anki-editor-reset-cloze-num)
+  (my/anki-editor-reset-cloze-num)
   (setq anki-editor-create-decks t
         anki-editor-org-tags-as-anki-tags t)
   :bind
   ("C-c m i" . anki-editor-insert-note)
-  ("C-c m r" . zino/anki-editor-reset-cloze-num)
-  ("C-c m c" . zino/anki-editor-cloze-region-auto-incr)
-  ("C-c m p" . zino/anki-editor-push-tree)
-  ("C-c m b" . zino/anki-editor-push-buffer))
+  ("C-c m r" . my/anki-editor-reset-cloze-num)
+  ("C-c m c" . my/anki-editor-cloze-region-auto-incr)
+  ("C-c m p" . my/anki-editor-push-tree)
+  ("C-c m b" . my/anki-editor-push-buffer))
 
 (use-package ankiorg
   :straight (:host github :repo "orgtre/ankiorg"))
@@ -4063,7 +4065,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
   (tide-server-max-response-length 1024000)
   (tide-completion-detailed t)
   :config
-  (advice-add 'tide-project-root :around 'zino/silence-advice))
+  (advice-add 'tide-project-root :around 'my/silence-advice))
 
 (use-package dabbrev
   :bind
@@ -4441,7 +4443,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
 
 (use-package better-jumper
   :preface
-  (defun zino/better-jumper-advice (oldfun &rest args)
+  (defun my/better-jumper-advice (oldfun &rest args)
     "Call OLDFUN with ARGS, then set a jump point with `better-jumper-set-jump'."
     (let ((old-pos (point)))
       (better-jumper-set-jump old-pos)
@@ -4461,30 +4463,30 @@ Returns a list as described in docstring of `imenu--index-alist'."
   :config
   (better-jumper-mode 1)
 
-  (advice-add 'xref-find-definitions :around 'zino/better-jumper-advice)
-  (advice-add 'zino/switch-other-buffer :around 'zino/better-jumper-advice)
-  (advice-add 'helm-imenu :around 'zino/better-jumper-advice)
-  (advice-add 'widget-button-press :around 'zino/better-jumper-advice)
-  (advice-add 'org-return :around 'zino/better-jumper-advice)
-  (advice-add 'beginning-of-buffer :around 'zino/better-jumper-advice)
-  (advice-add 'end-of-buffer :around 'zino/better-jumper-advice)
-  (advice-add 'c-beginning-of-defun :around 'zino/better-jumper-advice)
-  (advice-add 'c-end-of-defun :around 'zino/better-jumper-advice)
-  (advice-add 'lua-beginning-of-proc :around 'zino/better-jumper-advice)
-  (advice-add 'lua-end-of-proc :around 'zino/better-jumper-advice)
-  (advice-add 'org-open-at-point :around 'zino/better-jumper-advice)
-  (advice-add 'org-open-at-mouse :around 'zino/better-jumper-advice)
-  (advice-add 'counsel-bookmark :around 'zino/better-jumper-advice)
-  (advice-add 'mark-whole-buffer :around 'zino/better-jumper-advice)
-  (advice-add 'beginning-of-defun :around 'zino/better-jumper-advice)
-  (advice-add 'end-of-defun :around 'zino/better-jumper-advice)
-  (advice-add 'org-roam-node-find :around 'zino/better-jumper-advice)
-  (advice-add 'zino/find-user-init-file :around 'zino/better-jumper-advice)
-  (advice-add 'avy-goto-char-timer :around 'zino/better-jumper-advice)
-  (advice-add 'helm-maybe-exit-minibuffer :around 'zino/better-jumper-advice)
-  (advice-add 'consult-imenu :around 'zino/better-jumper-advice)
-  (advice-add 'consult-line :around 'zino/better-jumper-advice)
-  (advice-add 'symbols-outline-move-depth-up :around 'zino/better-jumper-advice))
+  (advice-add 'xref-find-definitions :around 'my/better-jumper-advice)
+  (advice-add 'my/switch-other-buffer :around 'my/better-jumper-advice)
+  (advice-add 'helm-imenu :around 'my/better-jumper-advice)
+  (advice-add 'widget-button-press :around 'my/better-jumper-advice)
+  (advice-add 'org-return :around 'my/better-jumper-advice)
+  (advice-add 'beginning-of-buffer :around 'my/better-jumper-advice)
+  (advice-add 'end-of-buffer :around 'my/better-jumper-advice)
+  (advice-add 'c-beginning-of-defun :around 'my/better-jumper-advice)
+  (advice-add 'c-end-of-defun :around 'my/better-jumper-advice)
+  (advice-add 'lua-beginning-of-proc :around 'my/better-jumper-advice)
+  (advice-add 'lua-end-of-proc :around 'my/better-jumper-advice)
+  (advice-add 'org-open-at-point :around 'my/better-jumper-advice)
+  (advice-add 'org-open-at-mouse :around 'my/better-jumper-advice)
+  (advice-add 'counsel-bookmark :around 'my/better-jumper-advice)
+  (advice-add 'mark-whole-buffer :around 'my/better-jumper-advice)
+  (advice-add 'beginning-of-defun :around 'my/better-jumper-advice)
+  (advice-add 'end-of-defun :around 'my/better-jumper-advice)
+  (advice-add 'org-roam-node-find :around 'my/better-jumper-advice)
+  (advice-add 'my/find-user-init-file :around 'my/better-jumper-advice)
+  (advice-add 'avy-goto-char-timer :around 'my/better-jumper-advice)
+  (advice-add 'helm-maybe-exit-minibuffer :around 'my/better-jumper-advice)
+  (advice-add 'consult-imenu :around 'my/better-jumper-advice)
+  (advice-add 'consult-line :around 'my/better-jumper-advice)
+  (advice-add 'symbols-outline-move-depth-up :around 'my/better-jumper-advice))
 
 (use-package dogears
   :init (dogears-mode 1)
@@ -4502,21 +4504,21 @@ Returns a list as described in docstring of `imenu--index-alist'."
   ;; Turn on `org-remark' highlights on startup
   (org-remark-global-tracking-mode +1)
 
-  (defun zino/org-remark-notes-file-name-function ()
+  (defun my/org-remark-notes-file-name-function ()
     "Customize notes file."
     (let ((notes-dir (concat "~/Documents/org-remark" (file-name-directory (buffer-file-name)))))
       (make-directory notes-dir t)
       (concat notes-dir (file-name-base (buffer-file-name)) "-notes.org")))
 
   :config
-  (defun zino/org-remark-mark-and-open ()
+  (defun my/org-remark-mark-and-open ()
     "Helper function to mark region and open notes buffer.
   I find myself often do this workflow."
     (interactive)
     (org-remark-mark (region-beginning) (region-end))
     (org-remark-open (1- (point))))
 
-  (defun zino/org-remark-open-advice (point &optional view-only)
+  (defun my/org-remark-open-advice (point &optional view-only)
     "Display source code edit buffer in `other-window' cause a `side-window'
   cannot be splitted."
     (setq-local org-src-window-setup 'other-window))
@@ -4526,8 +4528,8 @@ Returns a list as described in docstring of `imenu--index-alist'."
     (help-at-pt-kbd-string))
 
   :config
-  (advice-add 'org-remark-open :after 'zino/org-remark-open-advice)
-  (advice-add 'org-remark-highlights-get :around 'zino/silence-advice)
+  (advice-add 'org-remark-open :after 'my/org-remark-open-advice)
+  (advice-add 'org-remark-highlights-get :around 'my/silence-advice)
   (add-hook 'org-remark-mode-hook (lambda ()
                                     (define-key org-remark-mode-map [remap display-local-help] 'eldoc-print-current-symbol-info)))
 
@@ -4542,7 +4544,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
    ("C-x C-n d" . org-remark-delete)
    ("C-x C-n y" . org-remark-mark-yellow)
    ("C-x C-n l" . org-remark-mark-red-line)
-   ("C-x C-n e" . zino/org-remark-mark-and-open)
+   ("C-x C-n e" . my/org-remark-mark-and-open)
    ("C-x C-n t" . org-remark-toggle))
   (:repeat-map org-remark-repeat-map
                ("[" . org-remark-view-prev)
@@ -4553,8 +4555,9 @@ Returns a list as described in docstring of `imenu--index-alist'."
      (side . left)
      (slot . 1)
      (window-width . 45)))
-  (org-remark-notes-file-name 'zino/org-remark-notes-file-name-function)
-  (org-remark-icon-notes ""))
+  (org-remark-notes-file-name 'my/org-remark-notes-file-name-function)
+  (org-remark-icon-notes "")
+  (org-remark-icon-position-adjusted "(m)"))
 
 (use-package org-bulletproof
   :disabled
@@ -4623,7 +4626,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
   ;; ("M-s ." . isearch-forward-symbol-at-point)
   ;; ("M-s M-." . isearch-forward-thing-at-point)
   :preface
-  (defun zino/isearch-region-or-forward ()
+  (defun my/isearch-region-or-forward ()
     "Isearch thing in region if region is active, otherwise perform normal isearch."
     (interactive)
     (if (use-region-p)
@@ -4638,7 +4641,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
   (isearch-allow-scroll 'unlimited)
 
   :bind
-  ("C-s-s" . zino/isearch-region-or-forward)
+  ("C-s-s" . my/isearch-region-or-forward)
   (:repeat-map isearch-repeat-map
                ("s" . isearch-repeat-forward)
                ("r" . isearch-repeat-backward))
@@ -4679,17 +4682,17 @@ Returns a list as described in docstring of `imenu--index-alist'."
 (use-package cc-mode
   :ensure nil
   :config
-  (defconst zino/cc-style
+  (defconst my/cc-style
     '("cc-mode"
       (c-offsets-alist . ((innamespace . [0])))))
-  (c-add-style "cc-mode" zino/cc-style)
+  (c-add-style "cc-mode" my/cc-style)
   :bind
   (:map c-mode-base-map
         ([remap c-indent-line-or-region] . indent-for-tab-command)))
 
 (use-package org-present
   :init
-  (defun zino/org-present-on-start ()
+  (defun my/org-present-on-start ()
     (visual-fill-column-mode 1)
     (setq-local visual-fill-column-width 120)
     (setq-local org-hide-emphasis-markers t)
@@ -4697,14 +4700,14 @@ Returns a list as described in docstring of `imenu--index-alist'."
     ;; (face-remap-add-relative 'org-block-end-line '(:background "#282c34"))
     )
 
-  (defun zino/org-present-on-quit ()
+  (defun my/org-present-on-quit ()
     (visual-fill-column-mode -1)
     (setq-local org-hide-emphasis-markers nil)
     ;; (face-remap-add-relative 'org-block-begin-line '(:foreground "#83898d" :background "#23272e"))
     ;; (face-remap-add-relative 'org-block-end-line '(:foreground "#83898d" :background "#23272e"))
     )
 
-  (defun zino/org-present-prepare-slide (buffer-name heading)
+  (defun my/org-present-prepare-slide (buffer-name heading)
     ;; Show only top-level headlines.
     (org-overview)
     ;; Unfold the current entry.
@@ -4712,10 +4715,10 @@ Returns a list as described in docstring of `imenu--index-alist'."
     ;; Show only direct subheadings of the slide but don't expand them
     (org-fold-show-children))
   :hook
-  (org-present-mode . zino/org-present-on-start)
-  (org-present-mode-quit . zino/org-present-on-quit)
+  (org-present-mode . my/org-present-on-start)
+  (org-present-mode-quit . my/org-present-on-quit)
   :config
-  (add-hook 'org-present-after-navigate-functions 'zino/org-present-prepare-slide)
+  (add-hook 'org-present-after-navigate-functions 'my/org-present-prepare-slide)
   :custom
   (visual-fill-column-center-text t))
 
@@ -4737,19 +4740,19 @@ Returns a list as described in docstring of `imenu--index-alist'."
 (use-package ansi-color
   :ensure nil
   :config
-  (defun zino/ansi-colorize-region (&optional beg end _len)
+  (defun my/ansi-colorize-region (&optional beg end _len)
     (interactive)
     (let ((beg (or beg (point-min)))
           (end (or end (point-max)))
           (buffer-read-only nil))
       (ansi-color-apply-on-region beg end t)))
-  (defun zino/text-mode-and-ansi-colorize-buffer ()
+  (defun my/text-mode-and-ansi-colorize-buffer ()
     (text-mode)
-    (zino/ansi-colorize-region (point-min) (point-max) 0)
-    (setq-local after-change-functions (add-to-list 'after-change-functions 'zino/ansi-colorize-region)))
-  (add-to-list 'auto-mode-alist '("\\.log\\(\\.[0-9]*-[0-9]*-[0-9]*\\)?" . zino/text-mode-and-ansi-colorize-buffer))
+    (my/ansi-colorize-region (point-min) (point-max) 0)
+    (setq-local after-change-functions (add-to-list 'after-change-functions 'my/ansi-colorize-region)))
+  (add-to-list 'auto-mode-alist '("\\.log\\(\\.[0-9]*-[0-9]*-[0-9]*\\)?" . my/text-mode-and-ansi-colorize-buffer))
   :hook
-  (compilation-filter . zino/ansi-colorize-region))
+  (compilation-filter . my/ansi-colorize-region))
 
 (use-package xterm-color
   :disabled
@@ -4766,7 +4769,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
 
 (use-package avy-zap
   :config
-  (defun zino/zap-up-to-char (arg char &optional interactive)
+  (defun my/zap-up-to-char (arg char &optional interactive)
     "Customized `zap-up-to-char' to support reading a double quote from the
 mibuffer. The only difference is this function uses `read-char' instead of
 `read-char-from-minibuffer'.
@@ -4791,11 +4794,11 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   :bind
   ("M-z" . avy-zap-up-to-char-dwim)
   ("M-Z" . avy-zap-to-char-dwim)
-  ("C-z" . zino/zap-up-to-char))
+  ("C-z" . my/zap-up-to-char))
 
 (use-package crux
   :preface
-  (defun zino/find-user-init-file (other-window)
+  (defun my/find-user-init-file (other-window)
     "Open `user-init-file' in the current or other window based on OTHER-WINDOW."
     (interactive "P")
     (if current-prefix-arg
@@ -4807,7 +4810,7 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   ("s-d" . crux-duplicate-current-line-or-region)
   ("C-<backspace>" . crux-kill-line-backwards)
   ;; ("s-r" . crux-recentf-find-file)
-  ("C-c I" . zino/find-user-init-file)
+  ("C-c I" . my/find-user-init-file)
   ("C-c D" . crux-delete-file-and-buffer))
 
 (use-package pulsar
@@ -4909,7 +4912,7 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
 
 (use-package vterm-toggle
   :config
-  (defun zino/vterm-toggle(&optional args)
+  (defun my/vterm-toggle(&optional args)
     "Vterm toggle.
 Optional argument ARGS ."
     (interactive "P")
@@ -4956,7 +4959,7 @@ New vterm buffer."
           (vterm-other-window buffer-name)))))
 
   :bind
-  ("s-e" . zino/vterm-toggle)
+  ("s-e" . my/vterm-toggle)
   :config
   (setq vterm-toggle-fullscreen-p nil)
   ;; (add-to-list 'display-buffer-alist
@@ -5172,18 +5175,18 @@ New vterm buffer."
 (use-package embark
   :config
   (eval-when-compile
-    (defmacro zino/embark-ace-action (fn)
-      `(defun ,(intern (concat "zino/embark-ace-" (symbol-name fn))) ()
+    (defmacro my/embark-ace-action (fn)
+      `(defun ,(intern (concat "my/embark-ace-" (symbol-name fn))) ()
          (interactive)
          (with-demoted-errors "%s"
            (require 'ace-window)
            (let ((aw-dispatch-always t))
              (aw-switch-to-window (aw-select nil))
              (call-interactively (symbol-function ',fn)))))))
-  (define-key embark-general-map (kbd "o") (zino/embark-ace-action projectile-find-file))
-  (define-key embark-general-map (kbd "n") (zino/embark-ace-action org-roam-node-find))
-  (define-key embark-buffer-map (kbd "o") (zino/embark-ace-action switch-to-buffer))
-  (define-key embark-buffer-map (kbd "o") (zino/embark-ace-action consult-ripgrep))
+  (define-key embark-general-map (kbd "o") (my/embark-ace-action projectile-find-file))
+  (define-key embark-general-map (kbd "n") (my/embark-ace-action org-roam-node-find))
+  (define-key embark-buffer-map (kbd "o") (my/embark-ace-action switch-to-buffer))
+  (define-key embark-buffer-map (kbd "o") (my/embark-ace-action consult-ripgrep))
   :bind
   ("s-o" . embark-act))
 
@@ -5297,15 +5300,15 @@ New vterm buffer."
 (use-package emacs
   :ensure nil
   :config
-  (add-hook 'after-init-hook (defun zino/set-split-window-configs ()
+  (add-hook 'after-init-hook (defun my/set-split-window-configs ()
                                "Note frame width could change during loading `init.el'."
                                ;; At most two windows horizontally.
                                (interactive)
                                (setq split-width-threshold (1+ (/ (frame-width) 2)))
                                (setq split-height-threshold (window-height (selected-window)))
-                               (setq split-window-preferred-function 'zino/split-window-sensibly)))
+                               (setq split-window-preferred-function 'my/split-window-sensibly)))
   :config
-  (defun zino/split-window-sensibly (&optional window)
+  (defun my/split-window-sensibly (&optional window)
     ;; Customized `split-window-sensibly' to prefer split horizontally.
     (let ((window (or window (selected-window))))
       (or (and (window-splittable-p window t)
@@ -5432,31 +5435,31 @@ New vterm buffer."
 
 (use-package string-inflection
   :config
-  (defun zino/string-inflection-pascal-case ()
+  (defun my/string-inflection-pascal-case ()
     "FooBar format."
     (interactive)
     (string-inflection-insert
      (string-inflection-pascal-case-function (string-inflection-get-current-word))))
-  (defun zino/string-inflection-snake-case ()
+  (defun my/string-inflection-snake-case ()
     "FOO_BAR format."
     (interactive)
     (string-inflection-insert
      (string-inflection-underscore-function (string-inflection-get-current-word))))
-  (defun zino/string-inflection-screaming-snake-case ()
+  (defun my/string-inflection-screaming-snake-case ()
     "FOO_BAR format."
     (interactive)
     (string-inflection-insert
      (string-inflection-upcase-function (string-inflection-get-current-word))))
-  (defun zino/string-inflection-camal-case ()
+  (defun my/string-inflection-camal-case ()
     "fooBar format."
     (interactive)
     (string-inflection-insert
      (string-inflection-camelcase-function (string-inflection-get-current-word))))
   :bind
-  ("C-c C-c p" . zino/string-inflection-pascal-case)
-  ("C-c C-c s" . zino/string-inflection-snake-case)
-  ("C-c C-c S" . zino/string-inflection-screaming-snake-case)
-  ("C-c C-c c". zino/string-inflection-camal-case)
+  ("C-c C-c p" . my/string-inflection-pascal-case)
+  ("C-c C-c s" . my/string-inflection-snake-case)
+  ("C-c C-c S" . my/string-inflection-screaming-snake-case)
+  ("C-c C-c c". my/string-inflection-camal-case)
   ("C-c C-c k" . string-inflection-kebab-case))
 
 (use-package iscroll
@@ -5630,11 +5633,13 @@ New vterm buffer."
       (path-separator . ":")
       (null-device . "/dev/null"))))
  '(org-agenda-files
-   '("/Users/zino/Notes/Roam/20231025112701-gtd_archive.org" "/Notes/Roam/20220816100518-gtd.org") nil nil "Customized with use-package org-agenda")
+   '("/Users/my/Notes/Roam/20231025112701-gtd_archive.org" "/Notes/Roam/20220816100518-gtd.org") nil nil "Customized with use-package org-agenda")
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam))
  '(safe-local-variable-values
-   '((format-all-formatters
+   '((system-time-locale . "C")
+     (lsp-rust-analyzer-proc-macro-enable . t)
+     (format-all-formatters
       ("Rust"
        (rustfmt "--edition" "2021" "--config" "tab_spaces=2")))
      (eval when
@@ -5654,7 +5659,7 @@ New vterm buffer."
      (c++-indent-offset . 2)
      (eval global-set-key
            (kbd "C-c C-p")
-           'zino/rustic-popup)
+           'my/rustic-popup)
      (god-local-mode)
      (eval remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
      (read-only . t)
