@@ -265,8 +265,9 @@
   (mouse-wheel-progressive-speed nil)
   ;; Keyboard scroll one line at a time
   (scroll-step 0)
-  ;; Never recenter when scrolling off-screen
-  (scroll-conservatively 10000)
+  ;; > 100 for Never recenter when scrolling off-screen
+  ;; 0 for always recenter when point is off screen
+  (scroll-conservatively 0)
   ;; Needed to smoothly scrolll inline images
   (make-cursor-line-fully-visible nil)
   ;; Disable the visible bell
