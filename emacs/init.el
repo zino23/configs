@@ -2393,6 +2393,9 @@ specified as an an \"attachment:\" style link."
   (org-mode . org-appear-mode))
 
 (use-package org-sticky-header
+  ;; Checkout wip/27-fix-fetch-stickyline due to issue:
+  ;; https://github.com/alphapapa/org-sticky-header/issues/27 
+  :load-path "~/.config/emacs/manually_installed/org-sticky-header/"
   :hook
   (org-mode . org-sticky-header-mode)
   :custom
