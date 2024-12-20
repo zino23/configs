@@ -5478,15 +5478,33 @@ New vterm buffer."
   (activities-mode)
   (activities-tabs-mode)
   :bind
-  (("C-, C-a C-n" . activities-new)
-   ("C-, C-a C-d" . activities-define)
-   ("C-, C-a C-a" . activities-resume)
-   ("C-, C-a C-s" . activities-suspend)
-   ("C-, C-a C-k" . activities-kill)
-   ("C-, C-a RET" . activities-switch)
-   ("C-, C-a b" . activities-switch-buffer)
-   ("C-, C-a g" . activities-revert)
-   ("C-, C-a l" . activities-list)))
+  (("C-, C-x C-n" . activities-new)
+   ("C-, C-x C-d" . activities-define)
+   ("C-, C-x C-a" . activities-resume)
+   ("C-, C-x C-s" . activities-suspend)
+   ("C-, C-x C-k" . activities-kill)
+   ("C-, C-x RET" . activities-switch)
+   ("C-, C-x b" . activities-switch-buffer)
+   ("C-, C-x d" . activities-discard)
+   ("C-, C-x g" . activities-revert)
+   ("C-, C-x l" . activities-list)))
+
+(use-package annotate
+  :init
+  (annotate-mode)
+  :custom
+  (annotate-use-echo-area t)
+  (annotate-use-message t)
+  :bind
+  (("C-, C-a" . annotate-annotate)
+   ("C-, C-d" . annotate-delete-annotation)
+   ("C-, C-p" . annotate-change-annotation-text-position)
+   ("C-, C-c" . annotate-change-annotation-colors)
+   ("C-, C-s" . annotate-show-annotation-summary)
+   ("C-, ]"   . annotate-goto-next-annotation)
+   ("C-, ["   . annotate-goto-previous-annotation))
+  :config
+  (add-hook 'find-file-hook 'annotate-mode))
 
 ;; Try it some time.
 ;; (use-package sideline)
@@ -5501,7 +5519,6 @@ New vterm buffer."
 ;; (use-package imenu-list)
 ;; (use-package git-gutter+)
 ;; (use-package flycheck-inline)
-;; (use-package annotate)
 ;; (use-package forge)
 ;; (use-package lasgun)
 
