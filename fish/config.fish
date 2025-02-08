@@ -54,16 +54,6 @@ setenv LESS_TERMCAP_ZV $(tput rsubm)
 setenv LESS_TERMCAP_ZO $(tput ssupm)
 setenv LESS_TERMCAP_ZW $(tput rsupm)
 
-if test -d "$HOME/.pyenv"
-    set -gx PYENV_ROOT $HOME/.pyenv
-    set -gx fish_user_paths $PYENV_ROOT/bin $fish_user_paths
-    pyenv init - | source
-end
-
-# For compilers to find libffi you may need to set:
-set -gx LDFLAGS -L/usr/local/opt/libffi/lib
-set -gx CPPFLAGS -I/usr/local/opt/libffi/include
-
 ## Let's fish
 function display_fish_user_paths -d 'Display contents $fish_user_paths with indexes'
     echo $fish_user_paths | tr " " "\n" | nl
@@ -131,3 +121,5 @@ end
 set fish_greeting
 
 source $XDG_CONFIG_HOME/fish/env.fish
+
+eval "$(/opt/homebrew/bin/brew shellenv)"
