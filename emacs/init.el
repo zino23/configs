@@ -34,7 +34,13 @@
 
 ;; Immediately load this extension after loading `use-package'.
 (use-package use-package-ensure-system-package
-  :ensure nil)
+  :ensure t)
+
+(use-package system-packages
+  :config
+  (if (eq system-type 'darwin)
+      (setq system-packages-package-manager 'port))
+  (setq system-packages-use-sudo t))
 
 (use-package emacs
   ;; Minimum settings use to debug a package.
@@ -388,11 +394,37 @@ Insert full path if prefix argument `FULL-PATH' is sent."
     (let ((inhibit-message t))
       (apply oldfun args)))
 
+  ;; https://stackoverflow.com/questions/2289883/emacs-copy-matching-lines
+  (defun my/copy-lines-matching-re (re)
+    "find all lines matching the regexp RE in the current buffer
+putting the matching lines in a buffer named *matching*"
+    (interactive "sRegexp to match: ")
+    (let ((result-buffer (get-buffer-create "*matching*")))
+      (with-current-buffer result-buffer
+        (erase-buffer))
+      (save-match-data
+        (save-excursion
+          (goto-char (point-min))
+          (while (re-search-forward re nil t)
+            (princ (buffer-substring-no-properties (line-beginning-position)
+                                                   (line-beginning-position 2))
+                   result-buffer))))
+      (pop-to-buffer result-buffer)))
+
+  (defun my/scroll-other-window-down-one-line ()
+    (interactive)
+    (scroll-other-window-down 1))
+  (defun my/scroll-other-window-one-line ()
+    (interactive)
+    (scroll-other-window 1))
+
   :bind
-  ("C-S-d" . my/toggle-window-dedication)
+  ("C-c C-c d" . my/toggle-window-dedication)
   ("C-c C-z" . delete-to-end-of-buffer)
   ("C-c C-s" . my/toggle-scratch)
   ("C-s-k" . my/delete-till-end-of-buffer)
+  ("C-M-S-n" . my/scroll-other-window-one-line)
+  ("C-M-S-p" . my/scroll-other-window-down-one-line)
   :config
   ;; Mandatory, as the dictionary misbehaves!
   (add-to-list 'display-buffer-alist
@@ -430,6 +462,14 @@ Insert full path if prefix argument `FULL-PATH' is sent."
       (define-key map "\e[1;Q5"  (kbd "s-e"))
       (define-key map "\e[1;Q6"  (kbd "s-u"))
       (define-key map "\e[1;Q7"  (kbd "s-o"))
+      (define-key map "\e[1;R1"  (kbd "s-<left>"))
+      (define-key map "\e[1;R2"  (kbd "s-<right>"))
+      (define-key map "\e[1;R3"  (kbd "s-<up>"))
+      (define-key map "\e[1;R4"  (kbd "s-<down>"))
+      (define-key map "\e[1;R5"  (kbd "C-M-S-v"))
+      (define-key map "\e[1;R6"  (kbd "C-M-S-n"))
+      (define-key map "\e[1;R7"  (kbd "C-M-S-p"))
+      (define-key map "\e[1;R8"  (kbd "C-M-S-l"))
       ;; Use iterm2's builtin feature:
       ;; xterm control sequence can enable modifyOtherKeysMode
       (define-key map "\e[85;7u" (kbd "C-s-c"))
@@ -1091,6 +1131,8 @@ Save the buffer of the current window and kill it"
 
 (use-package dired
   :ensure nil
+  :ensure-system-package
+  (gls . coreutils)
   :commands
   (dired dired-jump)
   :bind
@@ -1111,7 +1153,6 @@ Save the buffer of the current window and kill it"
   :custom
   (dired-dwim-target t)
   (dired-create-destination-dirs 'always)
-  (dired-listing-switches "-alGuh --group-directories-first")
   (auto-revert-verbose nil)
   (dired-clean-confirm-killing-deleted-buffers nil)
   (dired-omit-verbose nil)
@@ -1121,8 +1162,12 @@ Save the buffer of the current window and kill it"
   :config
   (setq ls-lisp-use-insert-directory-program t)
   ;; In MacOS `ls' does not have `--group-directories-first' option, use `gls'.
-  (if (eq system-type 'darwin)
-      (setq insert-directory-program (string-trim (shell-command-to-string "which gls")))))
+  (if (and (and (eq system-type 'darwin)
+                (eq 0 (shell-command "which gls"))))
+
+      (progn
+        (setq insert-directory-program (string-trim (shell-command-to-string "which gls")))
+        (setq dired-listing-switches "-alGuh --group-directories-first"))))
 
 (use-package nerd-icons-dired
   :hook
@@ -1934,7 +1979,7 @@ Return TEMPLATE as a string."
   (org-roam-completion-everywhere nil)
   (org-roam-capture-templates
    '(("c" "Default" entry "* %?"
-      :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: fold")
+      :target (file+head "${slug}-%<%Y%m%d%H%M%S>.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: fold")
       :empty-lines-before 1
       :unnarrowed nil)))
   (org-roam-dailies-capture-templates
@@ -1971,6 +2016,7 @@ Return TEMPLATE as a string."
   (magit-todos-insert-after '(bottom) nil nil "Changed by setter of obsolete option `magit-todos-insert-at'"))
 
 (use-package magit-delta
+  :ensure-system-package delta
   :hook
   (magit-mode . magit-delta-mode)
   :custom
@@ -2408,8 +2454,8 @@ specified as an an \"attachment:\" style link."
 (use-package ultra-scroll-mac
   :if (eq window-system 'mac)
   :straight (:type git :host github :repo "jdtsmith/ultra-scroll-mac")
-  :init
-  (setq scroll-conservatively 101) ; important for jumbo images
+  ;; :init
+  ;; (setq scroll-conservatively 101) ; important for jumbo images
   :config
   (ultra-scroll-mac-mode 1)
   (add-hook 'pdf-view-mode-hook (defun disable-ultra-scroll-mac-mode-in-pdf-view ()
@@ -2547,7 +2593,7 @@ session on it without disturbing the current window configuration."
                    :template ("** %<%Y-%m-%dT%H:%M:%S>"
                               ":PROPERTIES:"
                               ":ANKI_NOTE_TYPE: Basic"
-                              ":ANKI_DECK: %^{Deck|[1] Vocabulary}"
+                              ":ANKI_DECK: %^{Deck|[1] English}"
                               ":END:"
                               "*** Front"
                               "%?"
@@ -2559,7 +2605,7 @@ session on it without disturbing the current window configuration."
                    :template ("** %<%Y-%m-%dT%H:%M:%S>"
                               ":PROPERTIES:"
                               ":ANKI_NOTE_TYPE: Cloze"
-                              ":ANKI_DECK: %^{Deck|Vocabulary}"
+                              ":ANKI_DECK: %^{Deck|[1] English}"
                               ":END:"
                               "*** Text"
                               "%?"
@@ -3235,7 +3281,10 @@ initial input."
   :custom
   (rust-indent-offset 4)
   :config
-  (add-to-list 'auto-mode-alist '("\\.rs\\.~\\(.*\\)~" . rust-mode)))
+  (add-to-list 'auto-mode-alist '("\\.rs\\.~\\(.*\\)~" . rust-mode))
+  (add-hook 'rust-mode-hook (defun my/rust-mode-hook ()
+                              ;; TODO(zino): read `fill-column' from rustfmt.toml.
+                              (setq-local fill-column 80))))
 
 (use-package rust-ts-mode
   :disabled
@@ -3578,7 +3627,7 @@ running process."
     (eglot-hover-eldoc-function (lambda (info &rest _ignore)
                                   ;; ignore the :echo cookie that eglot-hover-eldoc-function offers
                                   (funcall cb info))))
-  (add-hook 'eglot-managed-mode-hook (defun tmp-remove-eglot-eldoc-func ()
+  (add-hook 'eglot-managed-mode-hook (defun my/remove-eglot-eldoc-func ()
                                        (if (and
                                             (bound-and-true-p tide-mode)
                                             (or (eq major-mode 'js-mode)
@@ -4301,7 +4350,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
   :ensure-system-package
   (rg . ripgrep)
   :custom
-  (rg-executable (executable-find "rg"))
+  ;; (rg-executable (executable-find "rg"))
   (rg-custom-type-aliases '(("sls" . "*.sls")))
   (rg-hide-command nil)
   :config
@@ -4591,7 +4640,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
   (tab-bar-close-button-show nil)
   (tab-bar-show nil)
   (tab-width 2)
-  (tab-bar-history-limit 100))
+  (tab-bar-history-limit 400))
 
 (use-package tab-bookmark
   :straight (:type git :host github :repo "minad/tab-bookmark"))
@@ -4731,7 +4780,6 @@ Returns a list as described in docstring of `imenu--index-alist'."
   (:map god-local-mode-map
         ("C-w" . forward-to-word)
         ("C-." . xref-find-definitions)
-        ("C-," . xref-go-back)
         ("C-i" . better-jumper-jump-forward))
   :custom
   (god-mode-enable-function-key-translation nil))
@@ -5046,6 +5094,7 @@ New vterm buffer."
         ("<tab>" . indent-for-tab-command)))
 
 (use-package plantuml-mode
+  :ensure-system-package plantuml
   :custom
   (plantuml-executable-path "plantuml")
   (plantuml-default-exec-mode 'executable)
@@ -5438,23 +5487,10 @@ New vterm buffer."
   (defun my/string-inflection-pascal-case ()
     "FooBar format."
     (interactive)
-    (string-inflection-insert
-     (string-inflection-pascal-case-function (string-inflection-get-current-word))))
-  (defun my/string-inflection-snake-case ()
-    "FOO_BAR format."
-    (interactive)
-    (string-inflection-insert
-     (string-inflection-underscore-function (string-inflection-get-current-word))))
-  (defun my/string-inflection-screaming-snake-case ()
-    "FOO_BAR format."
-    (interactive)
-    (string-inflection-insert
-     (string-inflection-upcase-function (string-inflection-get-current-word))))
-  (defun my/string-inflection-camal-case ()
-    "fooBar format."
-    (interactive)
-    (string-inflection-insert
-     (string-inflection-camelcase-function (string-inflection-get-current-word))))
+    (string-inflection--single-or-region #'string-inflection-pascal-case-function))
+  (defalias 'my/string-inflection-snake-case 'string-inflection-underscore)
+  (defalias 'my/string-inflection-screaming-snake-case 'string-inflection-upcase)
+  (defalias 'my/string-inflection-camal-case 'string-inflection-lower-camelcase)
   :bind
   ("C-c C-c p" . my/string-inflection-pascal-case)
   ("C-c C-c s" . my/string-inflection-snake-case)
@@ -5484,7 +5520,7 @@ New vterm buffer."
   :bind
   (("C-, C-x C-n" . activities-new)
    ("C-, C-x C-d" . activities-define)
-   ("C-, C-x C-a" . activities-resume)
+   ("C-, C-x C-r" . activities-resume)
    ("C-, C-x C-s" . activities-suspend)
    ("C-, C-x C-k" . activities-kill)
    ("C-, C-x RET" . activities-switch)
@@ -5498,7 +5534,7 @@ New vterm buffer."
   (annotate-mode)
   :custom
   (annotate-use-echo-area t)
-  (annotate-use-message t)
+  (annotate-use-messages nil)
   :bind
   (("C-, C-a" . annotate-annotate)
    ("C-, C-d" . annotate-delete-annotation)
@@ -5509,6 +5545,30 @@ New vterm buffer."
    ("C-, ["   . annotate-goto-previous-annotation))
   :config
   (add-hook 'find-file-hook 'annotate-mode))
+
+(use-package rust-playground
+  :bind
+  ("C-, C-r" . rust-playground)
+  :custom
+  (rust-playground-basedir "~/dev/rust-playground"))
+
+(use-package ledger-mode
+  :mode ("\\.ledger\\'")
+  :custom
+  (ledger-post-account-alignment-column 2))
+
+
+(use-package gptel
+  :config
+  ;; OPTIONAL configuration
+  (setq gptel-model   'deepseek-reasoner
+        gptel-backend
+        (gptel-make-openai "K"     ;Any name you want
+          :host "api.siliconflow.cn"
+          :endpoint "/v1/chat/completions"
+          :stream t
+          :key "sk-otnrupkriiktjdufayfoyxhajjfkwrfgwxqfvdghhncvgzgh"             ;can be a function that returns the key
+          :models '(Pro/deepseek-ai/DeepSeek-R1))))
 
 ;; Try it some time.
 ;; (use-package sideline)
