@@ -1330,7 +1330,9 @@ Save the buffer of the current window and kill it"
   ;; (show-paren-match-expression ((t (:inherit nil :background "#282c34" :weight bold))))
   )
 
-(use-package nerd-icons)
+(use-package nerd-icons
+  :custom (nerd-icons-font-family "Symbols Nerd Font Mono")
+  :config (nerd-icons-install-fonts t))
 
 (use-package solarized-theme
   :disabled
