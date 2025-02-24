@@ -61,21 +61,6 @@
   (setq native-comp-async-report-warnings-errors nil))
 
 (use-package emacs
-  :init
-  ;; Bootstrap `straight'.
-  (defvar bootstrap-version)
-  (let ((bootstrap-file
-         (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
-        (bootstrap-version 6))
-    (unless (file-exists-p bootstrap-file)
-      (with-current-buffer
-          (url-retrieve-synchronously
-           "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
-           'silent 'inhibit-cookies)
-        (goto-char (point-max))
-        (eval-print-last-sexp)))
-    (load bootstrap-file nil 'nomessage))
-
   :config
   ;; UI
   (if (display-graphic-p)
@@ -1831,11 +1816,11 @@ respectively."
     (define-key map (kbd "r") 'projectile-replace-regexp)))
 
 ;; Boost performance of `magit'
-(use-package libgit
-  :load-path "~/.config/emacs/manually_installed/libegit2/"
-  :straight (:type git :host github :repo "magit/libegit2")
-  :custom
-  (libgit-auto-rebuild t))
+;; `libegit2' has stalled since 2023, need to confirm its usability.
+;; (use-package libgit
+;;   :load-path "site-lisp/libegit2/"
+;;   :custom
+;;   (libgit-auto-rebuild t))
 
 (use-package magit
   :bind
@@ -2433,7 +2418,7 @@ specified as an an \"attachment:\" style link."
   ;; This package depends on `org-mode'. Use straight to install it will cause `org-mode' version
   ;; incompatibility. Setting `(straight-use-package 'org)' brings another problem that some packages are not
   ;; compatible with the latest `org-mode'.
-  :load-path "~/.config/emacs/manually_installed/org-mac-image-paste/"
+  :load-path "site-lisp/org-mac-image-paste/"
   :config (org-mac-image-paste-mode 1)
   :bind (:map org-mode-map ("<f6>" . org-mac-image-paste-refresh-this-node)))
 
@@ -2444,7 +2429,7 @@ specified as an an \"attachment:\" style link."
 (use-package org-sticky-header
   ;; Checkout wip/27-fix-fetch-stickyline due to issue:
   ;; https://github.com/alphapapa/org-sticky-header/issues/27 
-  :load-path "~/.config/emacs/manually_installed/org-sticky-header/"
+  :load-path "site-lisp/org-sticky-header/"
   :hook
   (org-mode . org-sticky-header-mode)
   :custom
@@ -2453,7 +2438,7 @@ specified as an an \"attachment:\" style link."
 
 (use-package ultra-scroll-mac
   :if (eq window-system 'mac)
-  :straight (:type git :host github :repo "jdtsmith/ultra-scroll-mac")
+  :load-path "site-lisp/ultra-scroll/"
   ;; :init
   ;; (setq scroll-conservatively 101) ; important for jumbo images
   :config
@@ -2859,7 +2844,7 @@ session on it without disturbing the current window configuration."
 
 (use-package doc-toc
   :ensure nil
-  :straight (:type git :host github :repo "dalanicolai/doc-tools-toc"))
+  :load-path "site-lisp/doc-tools-toc/")
 
 (use-package nov
   :init
@@ -2914,9 +2899,7 @@ session on it without disturbing the current window configuration."
   (bookmark-save-flag 1))
 
 (use-package bookmark+
-  :straight (:type git :host github :repo "emacsmirror/bookmark-plus")
-  :init
-  (require 'bookmark+)
+  :load-path "site-lisp/bookmark-plus/"
   :custom
   (bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks")
   ;; TODO: new feature to auto light when the bookmark is annotated.
@@ -3267,7 +3250,7 @@ initial input."
 
 (use-package treesitter-context
   :after posframe-plus
-  :straight (:type git :host github :repo "zbelial/treesitter-context.el")
+  :load-path "site-lisp/treesitter-context/"
   :custom
   (treesitter-context-hide-frame-after-move t)
   (treesitter-context-idle-time 0.1))
@@ -3799,14 +3782,14 @@ Returns a list as described in docstring of `imenu--index-alist'."
                                  :cancel-on-input non-essential)))))))
 
 (use-package eglot-booster
-  :straight (:type git :host github :repo "jdtsmith/eglot-booster")
+  :load-path "site-lisp/eglot-booster/"
   :hook
   (eglot-managed-mode . eglot-booster-mode)
   :config
   (add-to-list 'eglot-server-programs '((js-mode typescript-mode) . (eglot-deno "deno" "lsp"))))
 
 (use-package eglot-x
-  :straight (:type git :host github :repo "nemethf/eglot-x"))
+  :load-path "site-lisp/eglot-x/")
 
 (use-package dape
   :preface
@@ -3878,7 +3861,6 @@ Returns a list as described in docstring of `imenu--index-alist'."
 
 (use-package flymake-cursor
   :after flymake
-  :straight (:type git :host github :repo "flymake/emacs-flymake-cursor")
   :config (flymake-cursor-mode 1)
   :bind
   ("s-." . flymake-cursor-show-errors-at-point-now))
@@ -3898,8 +3880,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
   (eglot-managed-mode . manually-activate-flymake))
 
 (use-package flymake-popon
-  :after flymake
-  :straight (:repo "https://codeberg.org/akib/emacs-flymake-popon.git"))
+  :after flymake)
 
 (use-package flycheck
   ;; Does not provide diagnostics while editing in `rust-mode'.
@@ -4038,7 +4019,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
   ("C-c m b" . my/anki-editor-push-buffer))
 
 (use-package ankiorg
-  :straight (:host github :repo "orgtre/ankiorg"))
+  :load-path "site-lisp/ankiorg/")
 
 (use-package font-lock
   :ensure nil
@@ -4642,9 +4623,6 @@ Returns a list as described in docstring of `imenu--index-alist'."
   (tab-width 2)
   (tab-bar-history-limit 400))
 
-(use-package tab-bookmark
-  :straight (:type git :host github :repo "minad/tab-bookmark"))
-
 ;;; Language support
 (use-package python
   :config
@@ -5041,7 +5019,7 @@ New vterm buffer."
   (screenshot-line-numbers-p t))
 
 (use-package explain-pause-mode
-  :straight (explain-pause-mode :type git :host github :repo "lastquestion/explain-pause-mode"))
+  :load-path "site-lisp/explain-pause-mode/")
 
 (use-package breadcrumb
   ;; :init
@@ -5049,14 +5027,13 @@ New vterm buffer."
   ;;               '((:eval (breadcrumb-project-crumbs))
   ;;                 (:eval (and imenu--index-alist
   ;;                             (concat "  ◊  " (breadcrumb-imenu-crumbs))))))
-  :straight (:type git :host github :repo "joaotavora/breadcrumb")
   :custom
   (breadcrumb-project-max-length 0)
   (breadcrumb-imenu-max-length 80))
 
 (use-package window-stool
   :disabled
-  :straight (:type git :host github :repo "jaszhe/window-stool")
+  :load-path "site-lisp/window-stool/"
   :hook
   (prog-mode . window-stool-mode))
 
@@ -5073,10 +5050,10 @@ New vterm buffer."
   :disabled)
 
 (use-package tla-mode
-  :straight (:type git :host github :repo "emacsattic/tla-mode"))
+  :load-path "site-lisp/tla-mode/")
 
 (use-package tla-tools
-  :straight (:type git :host github :repo "mrc/tla-tools"))
+  :load-path "site-lisp/tla-tools/")
 
 (use-package separedit
   :bind
@@ -5085,7 +5062,6 @@ New vterm buffer."
 (use-package org-ql)
 
 (use-package beancount
-  :straight (:type git :host github :repo "beancount/beancount-mode")
   :init
   (add-to-list 'auto-mode-alist '("\\.beancount\\'" . beancount-mode))
   :commands beancount-mode
@@ -5157,7 +5133,7 @@ New vterm buffer."
 (use-package prog-face-refine)
 
 (use-package peek
-  :straight (:type git :host sourcehut :repo "meow_king/peek")
+  :load-path "site-lisp/peek"
   :bind
   (("C-c p d" . peek-xref-definition)
    ("C-c p p" . peek-overlay-dwim)
@@ -5166,7 +5142,6 @@ New vterm buffer."
    ("M-s-p" . peek-prev-line)
    ("M-n" . nil)
    ("M-p" . nil))
-
   :custom
   (peek-method 'overlay)
   :custom-face
@@ -5179,15 +5154,13 @@ New vterm buffer."
   :disabled)
 
 (use-package org-valign
-  :disabled
-  )
+  :disabled)
 
 (use-package org-modern
   :disabled)
 
 (use-package indent-bars
   ;; Freezed Old version: commit #fb1a0d6
-  :straight (:type git :host github :repo "jdtsmith/indent-bars")
   :hook
   (hack-local-variables . (lambda ()
                             ;; Read `indent-bars-space-override' from
@@ -5246,7 +5219,7 @@ New vterm buffer."
   ([remap query-replace-regexp] . vr/query-replace))
 
 (use-package posframe-plus
-  :straight (:type git :host github :repo "zbelial/posframe-plus"))
+  :load-path "site-lisp/posframe-plus/")
 
 (use-package symbols-outline
   :custom
@@ -5293,7 +5266,7 @@ New vterm buffer."
   ("C-x u" . vundo))
 
 (use-package rebox2
-  :straight (:type git :host github :repo "lewang/rebox2")
+  :load-path "site-lisp/rebox2/"
   :bind
   ("C-:" . rebox-cycle)
   :custom
@@ -5322,7 +5295,7 @@ New vterm buffer."
         ("C-d" . smart-hungry-delete-forward-char)))
 
 (use-package ascii
-  :load-path "~/.config/emacs/manually_installed/ascii.el"
+  :load-path "site-lisp"
   :commands (ascii-off ascii-on ascii-display)
   :bind ("C-c e" . ascii-toggle)
   :preface
@@ -5419,11 +5392,6 @@ New vterm buffer."
                       (ediff-get-region-contents ediff-current-difference 'B ediff-control-buffer))))
   (defun add-d-to-ediff-mode-map () (define-key ediff-mode-map "d" 'ediff-copy-both-to-C))
   (add-hook 'ediff-keymap-setup-hook 'add-d-to-ediff-mode-map))
-
-(use-package gcmh
-  :disabled
-  :straight (:host gitlab :repo "koral/gcmh")
-  :config (gcmh-mode 1))
 
 (use-package easy-kill
   :bind

@@ -1,0 +1,52 @@
+[submodule "emacs/site-lisp/ultra-scroll"]
+	path = emacs/site-lisp/ultra-scroll
+	url = git@github.com:jdtsmith/ultra-scroll.git
+[submodule "emacs/site-lisp/doc-tools-toc"]
+	path = emacs/site-lisp/doc-tools-toc
+	url = git@github.com:dalanicolai/doc-tools-toc.git
+[submodule "emacs/site-lisp/bookmark-plus"]
+	path = emacs/site-lisp/bookmark-plus
+	url = git@github.com:emacsmirror/bookmark-plus.git
+[submodule "emacs/site-lisp/treesitter-context"]
+	path = emacs/site-lisp/treesitter-context
+	url = git@github.com:zbelial/treesitter-context.el.git
+[submodule "emacs/site-lisp/eglot-booster"]
+	path = emacs/site-lisp/eglot-booster
+	url = git@github.com:jdtsmith/eglot-booster.git
+[submodule "emacs/site-lisp/eglot-x"]
+	path = emacs/site-lisp/eglot-x
+	url = git@github.com:nemethf/eglot-x.git
+[submodule "emacs/site-lisp/ankiorg"]
+	path = emacs/site-lisp/ankiorg
+	url = git@github.com:orgtre/ankiorg.git
+[submodule "emacs/site-lisp/explain-pause-mode"]
+	path = emacs/site-lisp/explain-pause-mode
+	url = git@github.com:lastquestion/explain-pause-mode.git
+[submodule "emacs/site-lisp/window-stool"]
+	path = emacs/site-lisp/window-stool
+	url = git@github.com:JasZhe/window-stool.git
+[submodule "emacs/site-lisp/tla-mode"]
+	path = emacs/site-lisp/tla-mode
+	url = git@github.com:emacsattic/tla-mode.git
+[submodule "emacs/site-lisp/tla-tools"]
+	path = emacs/site-lisp/tla-tools
+	url = git@github.com:mrc/tla-tools.git
+[submodule "emacs/site-lisp/peek"]
+	path = emacs/site-lisp/peek
+	url = git@github.com:Ziqi-Yang/peek.git
+[submodule "emacs/site-lisp/posframe-plus"]
+	path = emacs/site-lisp/posframe-plus
+	url = git@github.com:zbelial/posframe-plus.git
+[submodule "emacs/site-lisp/rebox2"]
+	path = emacs/site-lisp/rebox2
+	url = git@github.com:lewang/rebox2.git
+[submodule "emacs/site-lisp/org-mac-image-paste"]
+	path = emacs/site-lisp/org-mac-image-paste
+	url = git@github.com:jdtsmith/org-mac-image-paste.git
+[submodule "emacs/site-lisp/org-sticky-header"]
+	path = emacs/site-lisp/org-sticky-header
+	url = git@github.com:alphapapa/org-sticky-header.git
+	branch = wip/27-fix-fetch-stickyline
+[submodule "emacs/site-lisp/libegit2"]
+	path = emacs/site-lisp/libegit2
+	url = git@github.com:emacsorphanage/libegit2.git
