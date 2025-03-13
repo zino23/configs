@@ -471,6 +471,7 @@ putting the matching lines in a buffer named *matching*"
       (define-key map "\e[96;7u" (kbd "C-<backspace>"))
       (define-key map "\e[97;7u" (kbd "C-M-a"))
       (define-key map "\e[98;7u" (kbd "C-M-b"))
+      (define-key map "\e[99;7u" (kbd "M-s-5"))
       (define-key map "\e[100;7u" (kbd "C-M-d"))
       (define-key map "\e[101;7u" (kbd "C-M-e"))
       (define-key map "\e[102;7u" (kbd "C-M-f"))
@@ -1059,29 +1060,29 @@ Save the buffer of the current window and kill it"
 
   (progn
     (setq my/abbrev-table '(("tset" "test")
-                              ("arch" "architecture")
-                              ("conf" "configuration")
-                              ("tyep" "type")
-                              ("env" "environment")
-                              ("fiel" "file")
-                              ("recieve" "receive")
-                              ("sturct" "struct")
-                              ("adn" "and")
-                              ("teh" "the")
-                              ("JS" "JavaScript")
-                              ("arch" "architecture")
-                              ("hte" "the")
-                              ("wiat" "wait")
-                              ("smae" "same")
-                              ("accordign" "according")
-                              ("lgo" "log")
-                              ("taht" "that")
-                              ("contorl" "control")
-                              ("requset" "request")
-                              ("reqeust" "request")
-                              ("triat" "trait")
-                              ("imme" "immediately")
-                              ))
+                            ("arch" "architecture")
+                            ("conf" "configuration")
+                            ("tyep" "type")
+                            ("env" "environment")
+                            ("fiel" "file")
+                            ("recieve" "receive")
+                            ("sturct" "struct")
+                            ("adn" "and")
+                            ("teh" "the")
+                            ("JS" "JavaScript")
+                            ("arch" "architecture")
+                            ("hte" "the")
+                            ("wiat" "wait")
+                            ("smae" "same")
+                            ("accordign" "according")
+                            ("lgo" "log")
+                            ("taht" "that")
+                            ("contorl" "control")
+                            ("requset" "request")
+                            ("reqeust" "request")
+                            ("triat" "trait")
+                            ("imme" "immediately")
+                            ))
     (dolist (pair my/abbrev-table)
       (let ((from (car pair))
             (to (car (cdr pair))))
@@ -2438,15 +2439,15 @@ specified as an an \"attachment:\" style link."
   (org-sticky-header-always-show-header nil)
   (org-sticky-header-full-path 'full))
 
-(use-package ultra-scroll-mac
+(use-package ultra-scroll
   :if (eq window-system 'mac)
   :load-path "site-lisp/ultra-scroll/"
   ;; :init
   ;; (setq scroll-conservatively 101) ; important for jumbo images
   :config
-  (ultra-scroll-mac-mode 1)
+  (ultra-scroll-mode 1)
   (add-hook 'pdf-view-mode-hook (defun disable-ultra-scroll-mac-mode-in-pdf-view ()
-                                  (ultra-scroll-mac-mode -1))))
+                                  (ultra-scroll-mode -1))))
 
 (use-package org-agenda
   :ensure nil
@@ -3607,7 +3608,7 @@ running process."
   ;; Try rust projects before version-control (vc) projects
   (add-hook 'project-find-functions 'my/project-try-cargo-toml nil nil)
 
-  (defun my/eglot-hover-function (cb)
+  (defun my/eglot-hover-eldoc-function (cb)
     "Same as `eglot-hover-eldoc-function`, but throw away its short :echo cookie"
     (eglot-hover-eldoc-function (lambda (info &rest _ignore)
                                   ;; ignore the :echo cookie that eglot-hover-eldoc-function offers
@@ -3630,7 +3631,8 @@ running process."
    'eglot-managed-mode-hook
    (defun my/configure-eldoc-documentation-functions ()
      (setq-local eldoc-documentation-functions '(eglot-signature-eldoc-function
-                                                 my/eglot-hover-function
+                                                 my/eglot-hover-eldoc-function
+                                                 eglot-highlight-eldoc-function
                                                  t))
      (add-hook 'eldoc-documentation-functions #'my/display-local-help-eldoc-function
                -90 t))))
@@ -4182,12 +4184,6 @@ Returns a list as described in docstring of `imenu--index-alist'."
   :hook
   (minibuffer-setup . corfu-enable-in-minibuffer))
 
-(use-package corfu-terminal
-  :config
-  ;; Use `corfu-terminal-mode' if we are inside a terminal.
-  (unless (display-graphic-p)
-    (corfu-terminal-mode +1)))
-
 ;; Add extensions for `completion-at-point-functions'
 (use-package cape
   ;; Bind dedicated completion commands
@@ -4518,7 +4514,9 @@ Returns a list as described in docstring of `imenu--index-alist'."
   (advice-add 'helm-maybe-exit-minibuffer :around 'my/better-jumper-advice)
   (advice-add 'consult-imenu :around 'my/better-jumper-advice)
   (advice-add 'consult-line :around 'my/better-jumper-advice)
-  (advice-add 'symbols-outline-move-depth-up :around 'my/better-jumper-advice))
+  (advice-add 'symbols-outline-move-depth-up :around 'my/better-jumper-advice)
+  (advice-add 'flymake-goto-prev-error :around 'my/better-jumper-advice)
+  (advice-add 'flymake-goto-next-error :around 'my/better-jumper-advice))
 
 (use-package dogears
   :init (dogears-mode 1)
@@ -4554,10 +4552,6 @@ Returns a list as described in docstring of `imenu--index-alist'."
     "Display source code edit buffer in `other-window' cause a `side-window'
   cannot be splitted."
     (setq-local org-src-window-setup 'other-window))
-
-  (defun my/org-remark-eldoc-function (cb)
-    ;; Return the string. Return t if we need to run the provided callback manually.
-    (help-at-pt-kbd-string))
 
   :config
   (advice-add 'org-remark-open :after 'my/org-remark-open-advice)
@@ -4829,9 +4823,10 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
   (defun my/find-user-init-file (other-window)
     "Open `user-init-file' in the current or other window based on OTHER-WINDOW."
     (interactive "P")
-    (if current-prefix-arg
-        (find-file-other-window user-init-file)
-      (find-file user-init-file)))
+    (let ((init-file (or user-init-file "~/.config/emacs/init.el")))
+      (if current-prefix-arg
+          (find-file-other-window init-file)
+        (find-file init-file))))
 
   :bind
   ("C-s-o" . crux-smart-open-line-above)
@@ -5250,7 +5245,9 @@ New vterm buffer."
   ("C-/" . undo-only)
   ("M-_" . undo-redo)
   :custom
-  (undo-no-redo t))
+  (undo-no-redo t)
+  :custom-face
+  (next-error ((t (:inherit (bold region))))))
 
 (use-package undo-hl
   ;; Too distracting
@@ -5540,6 +5537,32 @@ New vterm buffer."
           :key "sk-otnrupkriiktjdufayfoyxhajjfkwrfgwxqfvdghhncvgzgh"             ;can be a function that returns the key
           :models '(Pro/deepseek-ai/DeepSeek-R1))))
 
+(use-package aider
+  :vc (:url "git@github.com:tninja/aider.el.git"))
+
+(use-package aidermacs
+  :vc (:url "git@github.com:MatthewZMD/aidermacs.git")
+  :config
+  (global-set-key (kbd "C-c C-a") 'aidermacs-transient-menu)
+  (aidermacs-setup-minor-mode)
+  (setenv "ANTHROPIC_API_KEY"))
+
+(use-package page-break-lines
+  :init (global-page-break-lines-mode))
+
+(use-package pulse
+  :ensure nil
+  :custom-face
+  (pulse-highlight-face ((t nil)))
+  (pulse-highlight-start-face ((t nil))))
+
+(use-package faces
+  :ensure nil
+  :custom-face
+  (variable-pitch ((t (:weight regular :height 180 :family "Fira Code"))))
+  (variable-pitch-text ((t (:inherit variable-pitch :height 1.0))))
+  (help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150)))))
+
 ;; Try it some time.
 ;; (use-package sideline)
 ;; (use-package imenu-everywhere)
@@ -5663,7 +5686,7 @@ New vterm buffer."
       (path-separator . ":")
       (null-device . "/dev/null"))))
  '(org-agenda-files
-   '("/Users/my/Notes/Roam/20231025112701-gtd_archive.org" "/Notes/Roam/20220816100518-gtd.org") nil nil "Customized with use-package org-agenda")
+   '("/Users/zino/Notes/Roam/20231025112701-gtd_archive.org" "/Notes/Roam/20220816100518-gtd.org") nil nil "Customized with use-package org-agenda")
  '(package-selected-packages
    '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam))
  '(safe-local-variable-values
