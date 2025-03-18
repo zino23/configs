@@ -32,15 +32,6 @@
   :custom
   (use-package-always-ensure t))
 
-;; Immediately load this extension after loading `use-package'.
-(use-package use-package-ensure-system-package
-  :ensure t)
-
-(use-package system-packages
-  :config
-  (if (eq system-type 'darwin)
-      (setq system-packages-package-manager 'port))
-  (setq system-packages-use-sudo t))
 
 (use-package emacs
   ;; Minimum settings use to debug a package.
@@ -1117,8 +1108,6 @@ Save the buffer of the current window and kill it"
 
 (use-package dired
   :ensure nil
-  :ensure-system-package
-  (gls . coreutils)
   :commands
   (dired dired-jump)
   :bind
@@ -1331,9 +1320,7 @@ Save the buffer of the current window and kill it"
   ;; (show-paren-match-expression ((t (:inherit nil :background "#282c34" :weight bold))))
   )
 
-(use-package nerd-icons
-  :custom (nerd-icons-font-family "Symbols Nerd Font Mono")
-  :config (nerd-icons-install-fonts t))
+(use-package nerd-icons)
 
 (use-package solarized-theme
   :disabled
@@ -2004,7 +1991,7 @@ Return TEMPLATE as a string."
   (magit-todos-insert-after '(bottom) nil nil "Changed by setter of obsolete option `magit-todos-insert-at'"))
 
 (use-package magit-delta
-  :ensure-system-package delta
+  :if (eq 0 (shell-command "which delta"))
   :hook
   (magit-mode . magit-delta-mode)
   :custom
@@ -3503,28 +3490,14 @@ running process."
   (add-to-list 'eglot-server-programs '(c-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(cmake-mode . ("cmake-language-server")))
   (add-to-list 'eglot-server-programs '((js-mode typescript-mode typescript-ts-mode) . (eglot-deno "deno" "lsp")))
-
-  ;; (add-to-list
-  ;;  'eglot-server-programs
-  ;;  '((js-mode js-ts-mode tsx-ts-mode typescript-ts-mode typescript-mode)
-  ;;    "typescript-language-server" "--stdio"
-  ;;    :initializationOptions
-  ;;    (:preferences (
-  ;;                   :includeInlayParameterNameHints "all"
-  ;;                   :includeInlayParameterNameHintsWhenArgumentMatchesName t
-  ;;                   :includeInlayFunctionParameterTypeHints t
-  ;;                   :includeInlayVariableTypeHints t
-  ;;                   :includeInlayVariableTypeHintsWhenTypeMatchesName t
-  ;;                   :includeInlayPRopertyDeclarationTypeHints t
-  ;;                   :includeInlayFunctionLikeReturnTypeHints t
-  ;;                   :includeInlayEnumMemberValueHints t))))
+  ;; lua-language-server's indent formatting respects `tab-width', and not .luarc.json. Not sure why.
   (add-to-list 'eglot-server-programs '(lua-mode . ("lua-language-server")))
   (add-to-list 'eglot-server-programs '(rust-mode . ("rust-analyzer")))
   (add-to-list 'eglot-server-programs '(beancount-mode . ("beancount-language-server")))
   (add-to-list 'eglot-server-programs '(rust-ts-mode . ("rust-analyzer")))
   ;; NOTE: If we also specify `go-ts-mode' to be served by `gopls', the builtin `go-ts-mode' will be loaded
-  ;;  and an entry ("\\.go\\'" . go-ts-mode) added into `auto-mode-alist'. So don't specify `go-ts-mode' here
-  ;;  if we don't want to enable `go-ts-mode'.
+  ;;  and it will add an entry ("\\.go\\'" . go-ts-mode) to `auto-mode-alist'. So don't specify `go-ts-mode'
+  ;;  here if we don't want make `go-ts-mode' the default mode to serve go files.
   (add-to-list 'eglot-server-programs '((go-mode) . ("gopls" :initializationOptions
                                                      (:hints (
                                                               :parameterNames t
@@ -3635,9 +3608,10 @@ running process."
                                                  eglot-highlight-eldoc-function
                                                  t))
      (add-hook 'eldoc-documentation-functions #'my/display-local-help-eldoc-function
-               -90 t))))
+               -90 t)))
 
-(use-package eglot
+  ;; Configure LSP server (from eglot's doc):
+  ;;
   ;; How to translate LSP configuration examples into Eglot’s format:
   ;;
   ;; Usually LSP servers will say something like
@@ -4326,8 +4300,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
 ;; Customize `rg-menu' to pass additional flags to rg:
 ;; https://emacs.stackexchange.com/questions/74040/using-rg-ripgrep-passing-files-without-match-option-flag
 (use-package rg
-  :ensure-system-package
-  (rg . ripgrep)
+  :if (eq 0 (shell-command "which rg"))
   :custom
   ;; (rg-executable (executable-find "rg"))
   (rg-custom-type-aliases '(("sls" . "*.sls")))
@@ -5067,7 +5040,7 @@ New vterm buffer."
         ("<tab>" . indent-for-tab-command)))
 
 (use-package plantuml-mode
-  :ensure-system-package plantuml
+  :if (eq 0 (shell-command "which plantuml"))
   :custom
   (plantuml-executable-path "plantuml")
   (plantuml-default-exec-mode 'executable)
