@@ -50,3 +50,6 @@
 [submodule "emacs/site-lisp/libegit2"]
 	path = emacs/site-lisp/libegit2
 	url = git@github.com:emacsorphanage/libegit2.git
+[submodule "emacs/site-lisp/eglot"]
+	path = emacs/site-lisp/eglot
+	url = git@github.com:joaotavora/eglot.git
