@@ -33,6 +33,15 @@
   :custom
   (use-package-always-ensure t))
 
+;; Immediately load this extension after loading `use-package'.
+(use-package use-package-ensure-system-package
+  :ensure nil)
+
+(use-package system-packages
+  :config
+  (if (eq system-type 'darwin)
+      (setq system-packages-package-manager 'port))
+  (setq system-packages-use-sudo t))
 
 (use-package emacs
   ;; Minimum settings use to debug a package.
@@ -174,8 +183,15 @@
         (set-fontset-font t charset cn))
       (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
 
-  (my/set-font "Berkeley Mono" "LXGW WenKai" 14 1)
-
+  ;; (my/set-font "Berkeley Mono" "Sarasa Mono SC Nerd" 14 1)
+  (let*
+      ((preferred-font "Berkekely Mono")
+       (fallback-font "Iosevka NF")
+       (font (if (member preferred-font (font-family-list))
+                 preferred-font
+               fallback-font)))
+    (my/set-font font "LXGW WenKai" 21 1))
+  
   (set-fontset-font
    t 'symbol
    (font-spec
@@ -273,6 +289,7 @@
   :custom-face
   (variable-pitch ((t (:height 1.2 :family "Bookerly"))))
   :config
+  (setq ring-bell-function 'ignore)
   (setq remote-file-name-inhibit-cache nil)
   (setq vc-ignore-dir-regexp
         (format "%s\\|%s"
@@ -949,7 +966,10 @@ Save the buffer of the current window and kill it"
   :ensure nil
   :bind
   (:map minibuffer-mode-map
-        ("s-n" . other-window-prefix)))
+        ("s-n" . other-window-prefix))
+  :config
+  (add-hook 'minibuffer-mode-hook (defun my/control-g-directly-exit-in-minibuffer ()
+                                    (delete-selection-mode -1))))
 
 (use-package elisp-mode
   :ensure nil)
@@ -1148,7 +1168,9 @@ Save the buffer of the current window and kill it"
 
 (use-package nerd-icons-dired
   :hook
-  (dired-mode . nerd-icons-dired-mode))
+  (dired-mode . nerd-icons-dired-mode)
+  :config
+  (setq nerd-icons-font-family "Iosevka NF"))
 
 (use-package diredfl
   :commands (diredfl-global-mode)
@@ -2499,7 +2521,7 @@ Similar to `org-capture' like behavior"
   ;; Change default prefix key, needs to be set before loading
   (setq org-journal-prefix-key "C-c j")
   :config
-  (setq org-journal-dir "~/Notes/Roam/Journal/")
+  (setq org-journal-dir "~/Journal/")
   (setq org-journal-file-type 'weekly)
   (advice-add 'org-journal-open-current-journal-file :after 'my/org-journal-cycle-after-open-current-journal-file)
 
@@ -2738,30 +2760,28 @@ session on it without disturbing the current window configuration."
                             ":END:"))))))
 
 (use-package rime
-  :disabled
   :custom
   (default-input-method "rime")
-  (rime-librime-root "~/.config/emacs/manually_installed/librime/dist")
-  (rime-disable-predicates
-   '(rime-predicate-prog-in-code-p
-     rime-predicate-auto-english-p
-     rime-predicate-punctuation-after-ascii-p
-     rime-predicate-punctuation-line-begin-p
-     rime-predicate-tex-math-or-command-p
-     rime-predicate-org-latex-mode-p
-     rime-predicate-current-uppercase-letter-p))
+  ;; (rime-disable-predicates
+  ;;  '(rime-predicate-prog-in-code-p
+  ;;    rime-predicate-auto-english-p
+  ;;    rime-predicate-punctuation-after-ascii-p
+  ;;    rime-predicate-punctuation-line-begin-p
+  ;;    rime-predicate-tex-math-or-command-p
+  ;;    rime-predicate-org-latex-mode-p
+  ;;    rime-predicate-current-uppercase-letter-p))
   (rime-cursor "˰")
   (rime-posframe-style 'vertical)
   (rime-show-candidate 'posframe)
-  (rime-emacs-module-header-root "/usr/local/Cellar/emacs-plus@29/29.0.60/include/")
-
-  :config
-  (define-key rime-active-mode-map (kbd "M-S-j") 'rime-inline-ascii)
-  (setq rime-translate-keybindings
-        '("C-f" "C-b" "C-n" "C-p" "C-g" "<left>" "<right>" "<up>"
-          "<down>" "<prior>" "<next>" "<delete>" "C-`" "C-v" "M-v"))
+  ;; :config
+  ;; (define-key rime-active-mode-map (kbd "M-S-j") 'rime-inline-ascii)
+  ;; (setq rime-translate-keybindings
+  ;;       '("C-f" "C-b" "C-n" "C-p" "C-g" "<left>" "<right>" "<up>"
+  ;;         "<down>" "<prior>" "<next>" "<delete>" "C-`" "C-v" "M-v"))
   :bind
-  ("M-s-r" . rime-force-enable))
+  (:map rime-mode-map
+        ("M-s-r" . rime-force-enable)
+        ("C-`" . rime-send-keybinding)))
 
 ;;; Architecture
 ;;; 1. epdfinfo runs poppler in server mode, receives request from emacs;
@@ -2845,7 +2865,15 @@ session on it without disturbing the current window configuration."
         ("n" . next-line)
         ("p" . previous-line)
         ("f" . forward-char)
-        ("b" . backward-char)))
+        ("b" . backward-char)
+        ("o" . nov-goto-toc)
+        ("<return>" . nov-browse-url)
+        :map nov-button-map
+        ("n" . next-line)
+        ("p" . previous-line))
+  :config
+  (add-hook 'nov-mode-hook (defun my/nov-mode-setup ()
+                             (blink-cursor-mode -1))))
 
 (use-package beacon
   :config
@@ -3251,90 +3279,94 @@ initial input."
   (rust-mode . cargo-minor-mode)
   (rust-ts-mode . cargo-minor-mode))
 
-(use-package rust-mode
-  :custom
-  (rust-indent-offset 4)
-  :config
-  (add-to-list 'auto-mode-alist '("\\.rs\\.~\\(.*\\)~" . rust-mode))
-  (add-hook 'rust-mode-hook (defun my/rust-mode-hook ()
-                              ;; TODO(zino): read `fill-column' from rustfmt.toml.
-                              (setq-local fill-column 80))))
+;; (use-package rust-mode
+;;   :custom
+;;   (rust-indent-offset 4)
+;;   :config
+;;   (add-to-list 'auto-mode-alist '("\\.rs\\.~\\(.*\\)~" . rust-mode))
+;;   (add-hook 'rust-mode-hook (defun my/rust-mode-hook ()
+;;                               ;; TODO(zino): read `fill-column' from rustfmt.toml.
+;;                               (setq-local fill-column 80))))
 
-(use-package rust-ts-mode
-  :disabled
-  :config
-  (add-hook 'rust-ts-mode-hook (defun treesit-font-lock-feature-list-for-rust-ts-mode ()
-                                 (setq-local treesit-font-lock-feature-list
-                                             '((comment definition)
-                                               (keyword string)
-                                               (assignment attribute builtin constant escape-sequence number
-                                                           type operator function identifier)
-                                               (bracket delimiter function error variable property))))))
+;; (use-package rust-ts-mode
+;;   :disabled
+;;   :config
+;;   (add-hook 'rust-ts-mode-hook (defun treesit-font-lock-feature-list-for-rust-ts-mode ()
+;;                                  (setq-local treesit-font-lock-feature-list
+;;                                              '((comment definition)
+;;                                                (keyword string)
+;;                                                (assignment attribute builtin constant escape-sequence number
+;;                                                            type operator function identifier)
+;;                                                (bracket delimiter function error variable property))))))
+
+;; (use-package rustic
+;;   :custom
+;;   (rustic-lsp-client 'eglot)
+;;   (rustic-default-test-arguments nil)
+;;   ;; :config
+;;   ;; NOTE: These hooks are added in `rustic.el'. Remove them if intend to use
+;;   ;; `flymake'.
+;;   ;; (remove-hook 'rustic-mode-hook 'flymake-mode-off)
+;;   ;; (remove-hook 'rustic-mode-hook 'flycheck-mode)
+;;   :bind
+;;   (
+;;    :map rust-mode-map ("C-c C-p" . my/rustic-popup)
+;;    ;; :map rust-ts-mode-map ("C-c C-p" . my/rustic-popup)
+;;    :map rustic-compilation-mode-map
+;;    ("p" . previous-error-no-select)
+;;    ("M-p" . my/previous-k-lines)
+;;    ("M-n" . my/next-k-lines)
+;;    ("M-[" . compilation-previous-error)
+;;    ("M-]" . compilation-next-error)
+;;    ("g" . (lambda ()
+;;             (interactive)
+;;             (rustic-recompile)
+;;             ;; So that the window will auto scroll to the end of the buffer.
+;;             (end-of-buffer))))
+;;   :config
+;;   ;; Reverse the action of making `rustic-mode' default for rust files in
+;;   ;; `rustic.el'.
+;;   ;; (setq auto-mode-alist (delete '("\\.rs\\'" . rustic-mode) auto-mode-alist))
+;;   ;; (setf (alist-get "\\.rs\\'" auto-mode-alist nil nil 'string=) 'rust-mode)
+;;   (defun my/rustic-popup (&optional args)
+;;     "Setup popup.
+;; If directory is not in a rust project call `read-directory-name'."
+;;     (interactive "P")
+;;     (rustic--inheritenv
+;;      (setq rustic--popup-rust-src-name buffer-file-name)
+;;      (let ((func (lambda ()
+;;                    (let ((buf (get-buffer-create rustic-popup-buffer-name))
+;;                          (win (split-window-below))
+;;                          (inhibit-read-only t))
+;;                      (rustic-popup-insert-contents buf)
+;;                      (set-window-buffer win buf)
+;;                      (select-window win)
+;;                      ;; (fit-window-to-buffer nil nil nil nil nil t)
+;;                      ;; (set-window-text-height win (+ (window-height) 1))
+;;                      ))))
+;;        (if args
+;;            (let ((dir (read-directory-name "Rust project:")))
+;;              (let ((default-directory dir))
+;;                (funcall func)))
+;;          (funcall func)))))
+
+;;   (defun rustic-process-kill-p (proc &optional no-error)
+;;     "Override to not prompt.
+
+;; Don't allow two rust processes at once. If NO-ERROR is t, don't throw error if user chooses not to kill
+;; running process."
+;;     (condition-case ()
+;;         (progn
+;;           (interrupt-process proc)
+;;           (sit-for 0.5)
+;;           (delete-process proc))
+;;       (error nil))))
 
 (use-package rustic
+  :vc (:url "git@github.com:emacs-rustic/rustic.git")
   :custom
   (rustic-lsp-client 'eglot)
-  (rustic-default-test-arguments nil)
-  ;; :config
-  ;; NOTE: These hooks are added in `rustic.el'. Remove them if intend to use
-  ;; `flymake'.
-  ;; (remove-hook 'rustic-mode-hook 'flymake-mode-off)
-  ;; (remove-hook 'rustic-mode-hook 'flycheck-mode)
-  :bind
-  (
-   :map rust-mode-map ("C-c C-p" . my/rustic-popup)
-   ;; :map rust-ts-mode-map ("C-c C-p" . my/rustic-popup)
-   :map rustic-compilation-mode-map
-   ("p" . previous-error-no-select)
-   ("M-p" . my/previous-k-lines)
-   ("M-n" . my/next-k-lines)
-   ("M-[" . compilation-previous-error)
-   ("M-]" . compilation-next-error)
-   ("g" . (lambda ()
-            (interactive)
-            (rustic-recompile)
-            ;; So that the window will auto scroll to the end of the buffer.
-            (end-of-buffer))))
-  :config
-  ;; Reverse the action of making `rustic-mode' default for rust files in
-  ;; `rustic.el'.
-  ;; (setq auto-mode-alist (delete '("\\.rs\\'" . rustic-mode) auto-mode-alist))
-  ;; (setf (alist-get "\\.rs\\'" auto-mode-alist nil nil 'string=) 'rust-mode)
-  (defun my/rustic-popup (&optional args)
-    "Setup popup.
-If directory is not in a rust project call `read-directory-name'."
-    (interactive "P")
-    (rustic--inheritenv
-     (setq rustic--popup-rust-src-name buffer-file-name)
-     (let ((func (lambda ()
-                   (let ((buf (get-buffer-create rustic-popup-buffer-name))
-                         (win (split-window-below))
-                         (inhibit-read-only t))
-                     (rustic-popup-insert-contents buf)
-                     (set-window-buffer win buf)
-                     (select-window win)
-                     ;; (fit-window-to-buffer nil nil nil nil nil t)
-                     ;; (set-window-text-height win (+ (window-height) 1))
-                     ))))
-       (if args
-           (let ((dir (read-directory-name "Rust project:")))
-             (let ((default-directory dir))
-               (funcall func)))
-         (funcall func)))))
-
-  (defun rustic-process-kill-p (proc &optional no-error)
-    "Override to not prompt.
-
-Don't allow two rust processes at once. If NO-ERROR is t, don't throw error if user chooses not to kill
-running process."
-    (condition-case ()
-        (progn
-          (interrupt-process proc)
-          (sit-for 0.5)
-          (delete-process proc))
-      (error nil))))
-
-(use-package cmake-mode)
+  (rustic-analyzer-command '("rustup" "run" "stable" "rust-analyzer")))
 
 (use-package js
   :config
@@ -3547,9 +3579,10 @@ running process."
   (python-mode . eglot-ensure)
   (beancount-mode . eglot-ensure)
   (rust-ts-mode . eglot-ensure)
-  :custom-face
+  (rustic-mode . eglot-ensure)
+  ;; :custom-face
   ;; (eglot-highlight-symbol-face ((t (:foreground "#DFDFDF" :background "#34536c" :weight bold))))
-  (eglot-highlight-symbol-face ((t (:inherit bold))))
+  ;; (eglot-highlight-symbol-face ((t (:inherit bold))))
   ;; (eglot-inlay-hint-face ((t (:foreground "#5B6268" :height 1.0 :family "Iosevka"))))
 
   ;;; For `doom-one' theme.
@@ -3602,15 +3635,12 @@ running process."
   (add-hook
    'eglot-managed-mode-hook
    (defun my/configure-eldoc-documentation-functions ()
-     (setq-local eldoc-documentation-functions '(eglot-signature-eldoc-function
-                                                 my/eglot-hover-eldoc-function
-                                                 eglot-highlight-eldoc-function
-                                                 t))
-     (add-hook 'eldoc-documentation-functions #'my/display-local-help-eldoc-function
-               -90 t)))
+     (setq eldoc-documentation-functions
+           (cl-substitute #'my/eglot-hover-function #'eglot-hover-eldoc-function
+                          eldoc-documentation-functions))
+     (add-hook 'eldoc-documentation-functions #'my/display-local-help-eldoc-function -90 t))))
 
-  ;; Configure LSP server (from eglot's doc):
-  ;;
+(use-package eglot
   ;; How to translate LSP configuration examples into Eglot’s format:
   ;;
   ;; Usually LSP servers will say something like
@@ -4525,6 +4555,10 @@ Returns a list as described in docstring of `imenu--index-alist'."
   cannot be splitted."
     (setq-local org-src-window-setup 'other-window))
 
+  (defun my/org-remark-eldoc-function (cb)
+    ;; Return the string. Return t if we need to run the provided callback manually.
+    (help-at-pt-kbd-string))
+
   :config
   (advice-add 'org-remark-open :after 'my/org-remark-open-advice)
   (advice-add 'org-remark-highlights-get :around 'my/silence-advice)
@@ -5128,40 +5162,40 @@ New vterm buffer."
 (use-package org-modern
   :disabled)
 
-(use-package indent-bars
-  ;; Freezed Old version: commit #fb1a0d6
-  :hook
-  (hack-local-variables . (lambda ()
-                            ;; Read `indent-bars-space-override' from
-                            ;; `.dir-locals.el' first.
-                            (when (or (derived-mode-p 'rust-mode)
-                                      (derived-mode-p 'rust-ts-mode))
-                              (indent-bars-mode))))
-  (prog-mode . indent-bars-mode)
-  (salt-mode . indent-bars-mode)
-  (yaml-mode . indent-bars-mode)
-  (emacs-lisp-mode . (lambda ()
-                       (indent-bars-mode -1)))
-  (git-timemachine-mode . indent-bars-mode)
-  :custom
-  (indent-bars-color-by-depth
-   '(:palette
-     (outline-1 outline-2 outline-3 outline-4 outline-5 outline-6 outline-7)
-     :blend 1))
-  (indent-bars-pattern ". . . . ")
-  (indent-bars-width-frac 0.2)
-  (indent-bars-treesit-support t)
-  (indent-bars-display-on-blank-lines t)
-  (indent-bars-depth-update-delay 0.1)
-  :hook
-  ;; HACK: deal with uncorrectly displayed indent-bars in org mode source block.
-  (org-mode . (lambda ()
-                (let ((color (face-background 'org-block))
-                      (num 30))
-                  (cl-loop for i from 1 to num
-                           for face = (intern (format "indent-bars-%d" i))
-                           do
-                           (face-remap-add-relative face `(:foreground ,color)))))))
+;; (use-package indent-bars
+;;   ;; Freezed Old version: commit #fb1a0d6
+;;   :hook
+;;   (hack-local-variables . (lambda ()
+;;                             ;; Read `indent-bars-space-override' from
+;;                             ;; `.dir-locals.el' first.
+;;                             (when (or (derived-mode-p 'rust-mode)
+;;                                       (derived-mode-p 'rust-ts-mode))
+;;                               (indent-bars-mode))))
+;;   (prog-mode . indent-bars-mode)
+;;   (salt-mode . indent-bars-mode)
+;;   (yaml-mode . indent-bars-mode)
+;;   ;; (emacs-lisp-mode . (lambda ()
+;;   ;;                      (indent-bars-mode -1)))
+;;   (git-timemachine-mode . indent-bars-mode)
+;;   :custom
+;;   (indent-bars-color-by-depth
+;;    '(:palette
+;;      (outline-1 outline-2 outline-3 outline-4 outline-5 outline-6 outline-7)
+;;      :blend 1))
+;;   (indent-bars-pattern ". . . . ")
+;;   (indent-bars-width-frac 0.2)
+;;   (indent-bars-treesit-support t)
+;;   (indent-bars-display-on-blank-lines t)
+;;   (indent-bars-depth-update-delay 0.1)
+;;   :hook
+;;   ;; HACK: deal with uncorrectly displayed indent-bars in org mode source block.
+;;   (org-mode . (lambda ()
+;;                 (let ((color (face-background 'org-block))
+;;                       (num 30))
+;;                   (cl-loop for i from 1 to num
+;;                            for face = (intern (format "indent-bars-%d" i))
+;;                            do
+;;                            (face-remap-add-relative face `(:foreground ,color)))))))
 
 (use-package embark
   :config
@@ -5556,148 +5590,15 @@ New vterm buffer."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(dictionary-word-definition-face ((t (:family "Fira Code"))))
- '(help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150))))
- '(mmm-default-submode-face ((t nil)))
- '(next-error ((t (:inherit (bold region)))))
- '(pulse-highlight-face ((t nil)))
- '(pulse-highlight-start-face ((t nil)))
- '(variable-pitch ((t (:weight regular :height 180 :family "Fira Code"))))
- '(variable-pitch-text ((t (:inherit variable-pitch :height 1.0)))))
+ )
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(async-shell-command-buffer 'new-buffer nil nil "Customized with use-package emacs")
- '(bmkp-last-as-first-bookmark-file "~/.config/emacs/bookmarks" nil nil "Customized with use-package bookmark+")
- '(bmkp-use-region nil)
- '(connection-local-criteria-alist
-   '(((:application eshell)
-      eshell-connection-default-profile)
-     ((:application tramp :machine "localhost")
-      tramp-connection-local-darwin-ps-profile)
-     ((:application tramp :machine "192.168.0.104")
-      tramp-connection-local-darwin-ps-profile)
-     ((:application tramp)
-      tramp-connection-local-default-system-profile tramp-connection-local-default-shell-profile)))
- '(connection-local-profile-alist
-   '((eshell-connection-default-profile
-      (eshell-path-env-list))
-     (tramp-connection-local-darwin-ps-profile
-      (tramp-process-attributes-ps-args "-acxww" "-o" "pid,uid,user,gid,comm=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" "-o" "state=abcde" "-o" "ppid,pgid,sess,tty,tpgid,minflt,majflt,time,pri,nice,vsz,rss,etime,pcpu,pmem,args")
-      (tramp-process-attributes-ps-format
-       (pid . number)
-       (euid . number)
-       (user . string)
-       (egid . number)
-       (comm . 52)
-       (state . 5)
-       (ppid . number)
-       (pgrp . number)
-       (sess . number)
-       (ttname . string)
-       (tpgid . number)
-       (minflt . number)
-       (majflt . number)
-       (time . tramp-ps-time)
-       (pri . number)
-       (nice . number)
-       (vsize . number)
-       (rss . number)
-       (etime . tramp-ps-time)
-       (pcpu . number)
-       (pmem . number)
-       (args)))
-     (tramp-connection-local-busybox-ps-profile
-      (tramp-process-attributes-ps-args "-o" "pid,user,group,comm=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" "-o" "stat=abcde" "-o" "ppid,pgid,tty,time,nice,etime,args")
-      (tramp-process-attributes-ps-format
-       (pid . number)
-       (user . string)
-       (group . string)
-       (comm . 52)
-       (state . 5)
-       (ppid . number)
-       (pgrp . number)
-       (ttname . string)
-       (time . tramp-ps-time)
-       (nice . number)
-       (etime . tramp-ps-time)
-       (args)))
-     (tramp-connection-local-bsd-ps-profile
-      (tramp-process-attributes-ps-args "-acxww" "-o" "pid,euid,user,egid,egroup,comm=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" "-o" "state,ppid,pgid,sid,tty,tpgid,minflt,majflt,time,pri,nice,vsz,rss,etimes,pcpu,pmem,args")
-      (tramp-process-attributes-ps-format
-       (pid . number)
-       (euid . number)
-       (user . string)
-       (egid . number)
-       (group . string)
-       (comm . 52)
-       (state . string)
-       (ppid . number)
-       (pgrp . number)
-       (sess . number)
-       (ttname . string)
-       (tpgid . number)
-       (minflt . number)
-       (majflt . number)
-       (time . tramp-ps-time)
-       (pri . number)
-       (nice . number)
-       (vsize . number)
-       (rss . number)
-       (etime . number)
-       (pcpu . number)
-       (pmem . number)
-       (args)))
-     (tramp-connection-local-default-shell-profile
-      (shell-file-name . "/bin/sh")
-      (shell-command-switch . "-c"))
-     (tramp-connection-local-default-system-profile
-      (path-separator . ":")
-      (null-device . "/dev/null"))))
- '(org-agenda-files
-   '("/Users/zino/Notes/Roam/20231025112701-gtd_archive.org" "/Notes/Roam/20220816100518-gtd.org") nil nil "Customized with use-package org-agenda")
- '(package-selected-packages
-   '(explain-pause-mode json-rpc eglot eldoc-box flycheck-eglot nginx-mode git-modes screenshot magit nyan-mode orderless kind-icon corfu fish-completion esh-autosuggest pulsar crux helm-swoop bm avy-zap tree-sitter realgud god-mode magit-todos org-present company-lsp abbrev go-dlv elfeed json-mode nasm-mode flycheck-vale anki-editor flycheck-rust flycheck fzf consult helm expand-region gn-mode company-graphviz-dot graphviz-dot-mode org-remark rust-mode cape yaml-mode rime dired-rsync rg company org-roam))
- '(safe-local-variable-values
-   '((system-time-locale . "C")
-     (lsp-rust-analyzer-proc-macro-enable . t)
-     (format-all-formatters
-      ("Rust"
-       (rustfmt "--edition" "2021" "--config" "tab_spaces=2")))
-     (eval when
-           (require 'rainbow-mode nil t)
-           (rainbow-mode 1))
-     (eval font-lock-add-keywords nil
-           `((,(concat "("
-                       (regexp-opt
-                        '("sp-do-move-op" "sp-do-move-cl" "sp-do-put-op" "sp-do-put-cl" "sp-do-del-op" "sp-do-del-cl")
-                        t)
-                       "\\_>")
-              1 'font-lock-variable-name-face)))
-     (global-hl-todo-mode)
-     (indent-bars-spacing . 2)
-     (c-ts-indent-offset . 2)
-     (c++-ts-indent-offset . 2)
-     (c++-indent-offset . 2)
-     (eval global-set-key
-           (kbd "C-c C-p")
-           'my/rustic-popup)
-     (god-local-mode)
-     (eval remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
-     (read-only . t)
-     (comment-style quote box)
-     (indent-bars--offset . 2)
-     (indent-bars-spacing-override . 2)
-     (indent-bars-spacing-override . 4)
-     (god-local-mode . t)
-     (completion-styles orderless basic partial-completion)
-     (auto-mode-alist
-      ("backend\\.sls" . python-mode))))
- '(semantic-which-function-use-color t)
- '(treesit-font-lock-level 3))
+ '(package-selected-packages nil)
+ '(package-vc-selected-packages '((aider :url "git@github.com:tninja/aider.el.git"))))
 
 ;; Set at the end of init.el when `load-path' is ready.
 (setq elisp-flymake-byte-compile-load-path load-path)
