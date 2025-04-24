@@ -29,7 +29,19 @@ abbr gcb git checkout -b
 abbr gs git status
 abbr gr grep -n
 
-set -gx RUST_BACKTRACE 1
+# Use emacs keybindings.
+fish_default_key_bindings
+
+# Manual path
+set -l os_name (uname -s)
+set -l cpu_arch (uname -m)
+if test $os_name = "Darwin"
+    # homebrew is installed to /opt/homebrew/ for macos running on arm64
+    if test $cpu_arch = "arm64"
+        set -gax MANPATH /opt/homebrew/share/man
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    end
+end
 
 # Colored man pages
 # Solarized Dark & Green highlight
@@ -121,4 +133,3 @@ end
 set fish_greeting
 
 source $XDG_CONFIG_HOME/fish/env.fish
-
