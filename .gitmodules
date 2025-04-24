@@ -53,3 +53,6 @@
 [submodule "emacs/site-lisp/eglot"]
 	path = emacs/site-lisp/eglot
 	url = git@github.com:joaotavora/eglot.git
+[submodule "emacs/site-lisp/org-noter"]
+	path = emacs/site-lisp/org-noter
+	url = git@github.com:org-noter/org-noter.git
