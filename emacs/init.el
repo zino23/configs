@@ -15,7 +15,8 @@
 ;; Initialize package sources
 (setq package-archives '(("melpa" . "https://melpa.org/packages/")
                          ("elpa" . "https://elpa.gnu.org/packages/")
-                         ("nongnu" . "https://elpa.nongnu.org/nongnu/")))
+                         ("nongnu" . "https://elpa.nongnu.org/nongnu/")
+                         ("gnu-devel" . "https://elpa.gnu.org/devel/")))
 
 (setopt package-install-upgrade-built-in t)
 
@@ -173,7 +174,7 @@
         (set-fontset-font t charset cn))
       (setq face-font-rescale-alist (if (/= ratio 0.0) `((,cn-font-name . ,ratio)) nil))))
 
-  (my/set-font "Berkeley Mono" "Sarasa Mono SC Nerd" 14 1)
+  (my/set-font "Berkeley Mono" "LXGW WenKai" 14 1)
 
   (set-fontset-font
    t 'symbol
@@ -897,6 +898,7 @@ Save the buffer of the current window and kill it"
       (setq fn (match-string 1))
       (mark-sexp)
       (narrow-to-region (point) (mark))
+      (pop-mark)
       (if (member fn my/fns-in-edebug)
           ;; If the function is already being edebugged, uninstrument it
           (progn
@@ -1949,12 +1951,12 @@ Return TEMPLATE as a string."
       template))
 
   :custom
-  (org-roam-directory "~/Notes/Roam")
+  (org-roam-directory "~/Notes")
   (org-roam-dailies-directory "Journal/")
   (org-roam-completion-everywhere nil)
   (org-roam-capture-templates
    '(("c" "Default" entry "* %?"
-      :target (file+head "${slug}-%<%Y%m%d%H%M%S>.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: fold")
+      :target (file+head "${slug}.org" "#+TITLE: ${slug}\n#+FILETAGS: %^{tags}\n#+CREATED: %<%Y-%m-%d>\n#+STARTUP: fold")
       :empty-lines-before 1
       :unnarrowed nil)))
   (org-roam-dailies-capture-templates
@@ -2082,8 +2084,9 @@ Return TEMPLATE as a string."
   (defun org-mode-setup ()
     "Run after `org-mode' is initiated."
     (org-indent-mode)
-    (set-face-attribute 'org-table nil :font (font-spec :name "Sarasa Mono SC Nerd" :size 16))
-    (if (display-graphic-p) (set-fontset-font t nil "Sarasa Mono SC Nerd" nil 'append))
+    (when (member "Sarasa Mono SC Nerd" (font-family-list))
+      (set-face-attribute 'org-table nil :font (font-spec :name "Sarasa Mono SC Nerd" :size 16))
+      (if (display-graphic-p) (set-fontset-font t nil "Sarasa Mono SC Nerd" nil 'append)))
     (setq-local corfu-auto-delay 0.2))
 
   (defun individual-visibility-source-blocks ()
@@ -2526,8 +2529,9 @@ Similar to `org-capture' like behavior"
   (org-noter-hide-other t)
   (org-noter-notes-window-behavior '(scroll))
   :config
-  (defun my/no-op (&rest args))
-  (advice-add 'org-noter--set-notes-scroll :override 'my/no-op)
+  (setq org-noter-notes-search-path "~/Books")
+  (setq org-noter-highlight-selected-text t)
+  :config
   (defun my/org-noter-with-org-roam-node ()
     "Create an `org-noter' session based on an `org-roam' node.
 Integrate the workflow of opening a `org-roam' node and creating an `org-noter'
@@ -2565,14 +2569,11 @@ session on it without disturbing the current window configuration."
                    :keys "b"
                    :type plain
                    :headline "Dispatch Shelf"
-                   :template ("** %<%Y-%m-%dT%H:%M:%S>"
+                   :template ("** %^{The front}"
                               ":PROPERTIES:"
                               ":ANKI_NOTE_TYPE: Basic"
                               ":ANKI_DECK: %^{Deck|[1] English}"
                               ":END:"
-                              "*** Front"
-                              "%?"
-                              "*** Back"
                               "%x"))
                   ("Cloze"
                    :keys "c"
@@ -3480,11 +3481,12 @@ running process."
         ("M-p" . my/previous-k-lines)))
 
 (use-package eglot
+  :load-path "site-lisp/eglot/"
   ;;; Performance tweaking
-  :init
-  ;; Disable logging.
-  (fset #'jsonrpc--log-event #'ignore)
   :config
+  ;; (fset #'jsonrpc--log-event #'ignore)
+  ;; Tweak logging.
+  (setf (plist-get eglot-events-buffer-config :size) 0)  
   ;; Inlay hints require `clangd-15' and is enabled by default, go get it!
   (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(c-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
@@ -3565,10 +3567,7 @@ running process."
   :config
   ;; Stop `eglot' from turning on `flymake-mode'. Useful when `flycheck-mode' is intended for use.
   ;; (add-to-list 'eglot-stay-out-of 'flymake)
-  (if (and (boundp 'eglot--version)
-           (version<= "1.16" eglot--version))
-      (setf (plist-get eglot-events-buffer-config :size) 0)
-    (setq eglot-events-buffer-size 0)))
+  )
 
 (use-package eglot
   :config
@@ -4291,8 +4290,8 @@ Returns a list as described in docstring of `imenu--index-alist'."
 (use-package clipetty
   :if (not window-system)
   :ensure t
-  :config
-  (add-hook 'after-init-hook 'global-clipetty-mode))
+  :init
+  (global-clipetty-mode))
 
 ;; git-modes
 (use-package git-modes)
