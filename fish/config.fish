@@ -122,4 +122,3 @@ set fish_greeting
 
 source $XDG_CONFIG_HOME/fish/env.fish
 
-eval "$(/opt/homebrew/bin/brew shellenv)"
