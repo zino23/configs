@@ -4130,6 +4130,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
      try-complete-lisp-symbol)))
 
 (use-package corfu
+  :load-path "site-lisp/corfu/"
   :custom
   (corfu-cycle t)                      ;; Enable cycling for `corfu-next/previous'
   (corfu-auto t)                       ;; Enable auto completion

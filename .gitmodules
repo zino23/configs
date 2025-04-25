@@ -56,3 +56,6 @@
 [submodule "emacs/site-lisp/org-noter"]
 	path = emacs/site-lisp/org-noter
 	url = git@github.com:org-noter/org-noter.git
+[submodule "emacs/site-lisp/corfu"]
+	path = emacs/site-lisp/corfu
+	url = git@github.com:minad/corfu.git
