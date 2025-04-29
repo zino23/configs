@@ -3976,7 +3976,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
 (use-package button-lock)
 
 (use-package anki-editor
-  ;; Check https://github.com/louietan/anki-editor/issues/76
+  :load-path "site-lisp/anki-editor/"
   :hook
   (org-capture-after-finalize . my/anki-editor-reset-cloze-num)
   (org-capture . anki-editor-mode)
