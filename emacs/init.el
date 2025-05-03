@@ -5568,7 +5568,7 @@ New vterm buffer."
   :custom-face
   (variable-pitch ((t (:weight regular :height 180 :family "Fira Code"))))
   (variable-pitch-text ((t (:inherit variable-pitch :height 1.0))))
-  (help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 150)))))
+  (help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 120)))))
 
 ;; Try it some time.
 ;; (use-package sideline)
