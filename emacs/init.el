@@ -3636,7 +3636,7 @@ initial input."
    'eglot-managed-mode-hook
    (defun my/configure-eldoc-documentation-functions ()
      (setq eldoc-documentation-functions
-           (cl-substitute #'my/eglot-hover-function #'eglot-hover-eldoc-function
+           (cl-substitute #'my/eglot-hover-eldoc-function #'eglot-hover-eldoc-function
                           eldoc-documentation-functions))
      (add-hook 'eldoc-documentation-functions #'my/display-local-help-eldoc-function -90 t))))
 
