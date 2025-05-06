@@ -185,7 +185,7 @@
 
   ;; (my/set-font "Berkeley Mono" "Sarasa Mono SC Nerd" 14 1)
   (let*
-      ((preferred-font "Berkekely Mono")
+      ((preferred-font "Berkeley Mono")
        (fallback-font "Iosevka NF")
        (font (if (member preferred-font (font-family-list))
                  preferred-font
