@@ -3363,7 +3363,7 @@ initial input."
 ;;       (error nil))))
 
 (use-package rustic
-  :vc (:url "git@github.com:emacs-rustic/rustic.git")
+  :load-path "site-lisp/rustic/"
   :custom
   (rustic-lsp-client 'eglot)
   (rustic-analyzer-command '("rustup" "run" "stable" "rust-analyzer")))
@@ -5548,11 +5548,10 @@ New vterm buffer."
   :vc (:url "git@github.com:tninja/aider.el.git"))
 
 (use-package aidermacs
-  :vc (:url "git@github.com:MatthewZMD/aidermacs.git")
+  :load-path "site-lisp/aidermacs/"
   :config
   (global-set-key (kbd "C-c C-a") 'aidermacs-transient-menu)
-  (aidermacs-setup-minor-mode)
-  (setenv "ANTHROPIC_API_KEY"))
+  (aidermacs-setup-minor-mode))
 
 (use-package page-break-lines
   :init (global-page-break-lines-mode))

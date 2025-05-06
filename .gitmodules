@@ -62,3 +62,9 @@
 [submodule "emacs/site-lisp/anki-editor"]
 	path = emacs/site-lisp/anki-editor
 	url = git@github.com:anki-editor/anki-editor.git
+[submodule "emacs/site-lisp/aidermacs"]
+	path = emacs/site-lisp/aidermacs
+	url = git@github.com:MatthewZMD/aidermacs.git
+[submodule "emacs/site-lisp/rustic"]
+	path = emacs/site-lisp/rustic
+	url = git@github.com:emacs-rustic/rustic.git
