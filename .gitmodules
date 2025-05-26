@@ -77,3 +77,9 @@
 [submodule "emacs/site-lisp/doom-modeline"]
 	path = emacs/site-lisp/doom-modeline
 	url = git@github.com:seagle0128/doom-modeline.git
+[submodule "emacs/site-lisp/guix"]
+	path = emacs/site-lisp/guix
+	url = git@github.com:alezost/guix.el.git
+[submodule "emacs/site-lisp/fzf"]
+	path = emacs/site-lisp/fzf
+	url = git@github.com:bling/fzf.el.git
