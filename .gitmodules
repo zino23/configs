@@ -68,3 +68,12 @@
 [submodule "emacs/site-lisp/rustic"]
 	path = emacs/site-lisp/rustic
 	url = git@github.com:emacs-rustic/rustic.git
+[submodule "emacs/site-lisp/popper"]
+	path = emacs/site-lisp/popper
+	url = git@github.com:karthink/popper.git
+[submodule "emacs/site-lisp/cape"]
+	path = emacs/site-lisp/cape
+	url = git@github.com:minad/cape.git
+[submodule "emacs/site-lisp/doom-modeline"]
+	path = emacs/site-lisp/doom-modeline
+	url = git@github.com:seagle0128/doom-modeline.git

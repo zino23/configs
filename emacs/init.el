@@ -1344,7 +1344,9 @@ Save the buffer of the current window and kill it"
   ;; (show-paren-match-expression ((t (:inherit nil :background "#282c34" :weight bold))))
   )
 
-(use-package nerd-icons)
+(use-package nerd-icons
+  :config
+  (setq nerd-icons-scale-factor 1))
 
 (use-package solarized-theme
   :disabled
@@ -1492,6 +1494,7 @@ Save the buffer of the current window and kill it"
   (orderless-match-face-3 ((t :foreground "#D0BF8F" :inherit bold))))
 
 (use-package doom-modeline
+  :load-path "site-lisp/doom-modeline"
   :init (doom-modeline-mode 1)
   :custom
   (doom-modeline-height 24)
@@ -1503,8 +1506,82 @@ Save the buffer of the current window and kill it"
   (doom-modeline-modal-icon t)
   (doom-modeline-highlight-modified-buffer-name t)
   :custom-face
-  ;; (doom-modeline-buffer-modified ((t (:background unspecified :inherit (warning bold)))))
-  (doom-modeline-buffer-modified ((t (:background unspecified :inherit (bold))))))
+  (doom-modeline-buffer-modified ((t (:background unspecified :inherit (bold)))))
+  :config
+  ;; NOTE: This does not work.  We have to define our own segment.
+  ;; 
+  ;; Override attributes of the face used for padding.
+  ;; If the space character is very thin in the modeline, for example if a
+  ;; variable pitch font is used there, then segments may appear unusually close.
+  ;; To use the space character from the `fixed-pitch' font family instead, set
+  ;; this variable to `(list :family (face-attribute 'fixed-pitch :family))'.
+  ;; (setq doom-modeline-spc-face-overrides (propertize " " 'face (doom-modeline-spc-face) 'display '((space :relative-width 1.0))))
+  (defsubst my/doom-modeline-vspc ()
+    (propertize " "
+                'face (doom-modeline-spc-face)
+                'display '((space :relative-width 1))))
+
+  (defsubst my/doom-modeline--buffer-mode-icon ()
+    "The icon of the current major mode."
+    (when (and doom-modeline-icon doom-modeline-major-mode-icon)
+      (when-let* ((icon (or doom-modeline--buffer-file-icon
+                            (doom-modeline-update-buffer-file-icon))))
+        (unless (string-empty-p icon)
+          (concat
+           (if doom-modeline-major-mode-color-icon
+               (doom-modeline-display-icon icon)
+             (doom-modeline-propertize-icon
+              icon
+              (doom-modeline-face)))
+           (my/doom-modeline-vspc))))))
+
+  (defsubst my/doom-modeline-buffer-state-icon ()
+    (when doom-modeline-buffer-state-icon
+      (when-let* ((icon (doom-modeline-update-buffer-file-state-icon)))
+        (unless (string-empty-p icon)
+          (concat
+           (doom-modeline-display-icon icon)
+           (my/doom-modeline-vspc))))))
+  
+  (doom-modeline-def-segment my/buffer-info
+    (concat
+     (doom-modeline-spc)
+     (my/doom-modeline--buffer-mode-icon)
+     (my/doom-modeline-buffer-state-icon)
+     (doom-modeline--buffer-name)))
+
+  (doom-modeline-def-segment my/check
+    "Displays color-coded error status in the current buffer with pretty icons."
+    (when-let* ((sep (doom-modeline-spc))
+                (vsep (my/doom-modeline-vspc))
+                (seg (cond
+                      ((and (bound-and-true-p flymake-mode)
+                            (bound-and-true-p flymake--state)) ; only support 26+
+                       doom-modeline--flymake)
+                      ((and (bound-and-true-p flycheck-mode)
+                            (bound-and-true-p flycheck--automatically-enabled-checkers))
+                       doom-modeline--flycheck))))
+      (concat
+       sep
+       (let ((str))
+         (dolist (s (split-string seg " "))
+           (setq str
+                 (concat str
+                         (if (string-match-p "^[0-9]+$" s)
+                             (concat vsep
+                                     (doom-modeline-display-text s)
+                                     vsep)
+                           (doom-modeline-display-icon s)))))
+         (propertize str
+                     'help-echo (get-text-property 0 'help-echo seg)
+                     'mouse-face 'doom-modeline-highlight
+                     'local-map (get-text-property 0 'local-map seg)))
+       sep)))
+
+  (doom-modeline-def-modeline 'my/doom-modeline-main
+    '(eldoc bar window-state workspace-name window-number modals matches follow my/buffer-info remote-host buffer-position word-count parrot selection-info)
+    '(compilation objed-state misc-info project-name persp-name battery grip irc mu4e gnus github debug repl lsp minor-modes input-method indent-info buffer-encoding major-mode process vcs my/check time))
+  (doom-modeline-set-modeline 'my/doom-modeline-main 'default))
 
 (use-package doom-themes
   :disabled
@@ -4172,6 +4249,10 @@ Returns a list as described in docstring of `imenu--index-alist'."
   ;; (corfu-bar ((t (:background "#a8a8a8" :weight bold))))
   ;; (corfu-border ((t (:weight bold :width extra-expanded))))
   ;; (corfu-current ((t (:background "#2c3946" :foreground "#bbc2cf"))))
+  ;; :config
+  ;; Emacs 30 and newer: Disable Ispell completion function.
+  ;; Try `cape-dict' as an alternative.
+  ;; (setq text-mode-ispell-word-completion nil)
   :config
   (add-hook 'js-mode-hook (defun set-corfu-delay-for-js-mode ()
                             (setq-local corfu-auto-delay 0.2))))
@@ -4190,6 +4271,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
 
 ;; Add extensions for `completion-at-point-functions'
 (use-package cape
+  :load-path "site-lisp/cape"
   ;; Bind dedicated completion commands
   ;; Alternative prefix keys: C-c p, M-p, M-+, ...
   ;; :bind (("C-c p p" . completion-at-point) ;; capf
@@ -4208,19 +4290,21 @@ Returns a list as described in docstring of `imenu--index-alist'."
   ;;        ("C-c p &" . cape-sgml)
   ;;        ("C-c p r" . cape-rfc1345))
   :init
-  ;; Add `completion-at-point-functions', used by `completion-at-point'.
-  ;; NOTE: The order matters!
-  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
-  (add-to-list 'completion-at-point-functions #'cape-file)
+  ;; Add to the global default value of `completion-at-point-functions' which is
+  ;; used by `completion-at-point'.  The order of the functions matters, the
+  ;; first function returning a result wins.  Note that the list of buffer-local
+  ;; completion functions takes precedence over the global list.
+  (add-hook 'completion-at-point-functions #'cape-dabbrev)
+  (add-hook 'completion-at-point-functions #'cape-file)
   ;; (add-to-list 'completion-at-point-functions #'cape-elisp-block)
-  (add-to-list 'completion-at-point-functions #'cape-history)
+  (add-hook 'completion-at-point-functions #'cape-history)
   ;;(add-to-list 'completion-at-point-functions #'cape-keyword)
   ;;(add-to-list 'completion-at-point-functions #'cape-tex)
   ;;(add-to-list 'completion-at-point-functions #'cape-sgml)
   ;;(add-to-list 'completion-at-point-functions #'cape-rfc1345)
   ;;(add-to-list 'completion-at-point-functions #'cape-abbrev)
   ;;(add-to-list 'completion-at-point-functions #'cape-dict)
-  ;;(add-to-list 'completion-at-point-functions #'cape-symbol)
+  (add-hook 'completion-at-point-functions #'cape-elisp-symbol)
   ;;(add-to-list 'completion-at-point-functions #'cape-line)
   :custom
   (cape-dabbrev-min-length 6))
@@ -4280,7 +4364,13 @@ Returns a list as described in docstring of `imenu--index-alist'."
   :custom
   (kind-icon-default-face 'corfu-default) ; to compute blended backgrounds correctly
   :config
-  (add-to-list 'corfu-margin-formatters 'kind-icon-margin-formatter))
+  ;; To enable for completion UI's with margin-formatters capability such as corfu:
+  (add-to-list 'corfu-margin-formatters 'kind-icon-margin-formatter)
+  (setq kind-icon-default-style 
+        ;; Make height smaller to fully show corfu candidates.
+        ;; Reference: https://github.com/jdtsmith/kind-icon/issues/40
+        '(:padding 0 :stroke 0 :margin 0 :radius 0 :height 0.8 :scale 1.0 :background nil))
+  (setq kind-icon-blend-background nil))
 
 (use-package lsp-bridge
   :disabled
@@ -4756,8 +4846,6 @@ Returns a list as described in docstring of `imenu--index-alist'."
 
 (use-package god-mode
   :bind
-  ("S-<escape>" . god-mode-all)
-  ("C-c g" . god-local-mode)
   (:map god-local-mode-map
         ("C-w" . forward-to-word)
         ("C-." . xref-find-definitions)
@@ -5534,15 +5622,15 @@ New vterm buffer."
 
 (use-package gptel
   :config
-  ;; OPTIONAL configuration
-  (setq gptel-model   'deepseek-reasoner
-        gptel-backend
-        (gptel-make-openai "K"     ;Any name you want
+  (setq gptel-backend
+        (gptel-make-openai "K"     ; Any name you want
           :host "api.siliconflow.cn"
           :endpoint "/v1/chat/completions"
           :stream t
-          :key "sk-otnrupkriiktjdufayfoyxhajjfkwrfgwxqfvdghhncvgzgh"             ;can be a function that returns the key
-          :models '(Pro/deepseek-ai/DeepSeek-R1))))
+          :key (getenv "OPENAI_API_KEY")
+          :models '(Pro/deepseek-ai/DeepSeek-R1)))
+  (global-set-key (kbd "C-c g") #'gptel)
+  (global-set-key (kbd "C-c RET") #'gptel-send))
 
 (use-package aider
   :vc (:url "git@github.com:tninja/aider.el.git"))
@@ -5568,6 +5656,9 @@ New vterm buffer."
   (variable-pitch ((t (:weight regular :height 180 :family "Fira Code"))))
   (variable-pitch-text ((t (:inherit variable-pitch :height 1.0))))
   (help-key-binding ((t (:inherit fixed-pitch :background "grey19" :foreground "LightBlue" :box (:line-width (-1 . -1) :color "grey35") :height 120)))))
+
+(use-package popper
+  :load-path "site-lisp/popper/")
 
 ;; Try it some time.
 ;; (use-package sideline)
