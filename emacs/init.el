@@ -456,6 +456,8 @@ putting the matching lines in a buffer named *matching*"
       (define-key map "\e[1;Q5"  (kbd "s-e"))
       (define-key map "\e[1;Q6"  (kbd "s-u"))
       (define-key map "\e[1;Q7"  (kbd "s-o"))
+      (define-key map "\e[1;Q8"  (kbd "s-n"))
+      (define-key map "\e[1;Q9"  (kbd "C-s-k"))
       (define-key map "\e[1;R1"  (kbd "s-<left>"))
       (define-key map "\e[1;R2"  (kbd "s-<right>"))
       (define-key map "\e[1;R3"  (kbd "s-<up>"))
@@ -464,6 +466,17 @@ putting the matching lines in a buffer named *matching*"
       (define-key map "\e[1;R6"  (kbd "C-M-S-n"))
       (define-key map "\e[1;R7"  (kbd "C-M-S-p"))
       (define-key map "\e[1;R8"  (kbd "C-M-S-l"))
+      (define-key map "\e[1;S1"  (kbd "C-,"))
+      (define-key map "\e[1;S2"  (kbd "C-'"))
+      (define-key map "\e[1;S3"  (kbd "C-s-f"))
+      (define-key map "\e[1;S4"  (kbd "C-s-z"))
+      (define-key map "\e[1;S5"  (kbd "C-M-,"))
+      (define-key map "\e[1;S6"  (kbd "C-s-t"))
+      (define-key map "\e[1;S7"  (kbd "C-s-x"))
+      (define-key map "\e[1;S8"  (kbd "C-<return>"))
+      (define-key map "\e[1;S9"  (kbd "C-M-i"))
+      (define-key map "\e[1;T1"  (kbd "s-q"))
+      (define-key map "\e[1;T2"  (kbd "s-'"))
       ;; Use iterm2's builtin feature:
       ;; xterm control sequence can enable modifyOtherKeysMode
       (define-key map "\e[85;7u" (kbd "C-s-c"))
@@ -471,12 +484,9 @@ putting the matching lines in a buffer named *matching*"
       (define-key map "\e[87;7u" (kbd "C-s-k"))
       (define-key map "\e[88;7u" (kbd "C-s-n"))
       (define-key map "\e[89;7u" (kbd "C-s-p"))
-      (define-key map "\e[90;7u" (kbd "s-'"))
       (define-key map "\e[91;7u" (kbd "C-:"))
       (define-key map "\e[92;7u" (kbd "M-s-<left>"))
       (define-key map "\e[93;7u" (kbd "M-s-<right>"))
-      (define-key map "\e[94;7u" (kbd "s-q"))
-      (define-key map "\e[95;7u" (kbd "s-n"))
       (define-key map "\e[96;7u" (kbd "C-<backspace>"))
       (define-key map "\e[97;7u" (kbd "C-M-a"))
       (define-key map "\e[98;7u" (kbd "C-M-b"))
@@ -485,12 +495,8 @@ putting the matching lines in a buffer named *matching*"
       (define-key map "\e[101;7u" (kbd "C-M-e"))
       (define-key map "\e[102;7u" (kbd "C-M-f"))
       (define-key map "\e[103;7u" (kbd "C-s-z"))
-      (define-key map "\e[104;7u" (kbd "C-s-t"))
-      (define-key map "\e[105;7u" (kbd "C-s-f"))
-      (define-key map "\e[106;7u" (kbd "C-s-g"))
       (define-key map "\e[117;7u" (kbd "C-M-u"))
       (define-key map "\e[118;7u" (kbd "C-M-i"))
-      (define-key map "\e[119;7u" (kbd "C-'"))
       ;; (define-key map "\e[1;P12" (kbd "H-d"))
       ;; (define-key map "\e[1;P13" (kbd "H-e"))
       ;; (define-key map "\e[1;P14" (kbd "H-f"))
@@ -826,7 +832,7 @@ point reaches the beginning or end of the buffer, stop there."
 (global-set-key (kbd "C-c b") 'my/switch-other-buffer)
 (global-set-key (kbd "C-c C-b") 'my/switch-other-buffer)
 
-(global-set-key (kbd "<RET>") 'newline)
+(global-set-key (kbd "<RET>") 'newline-and-indent)
 
 ;; Automatically insert comment prefix and indent if inside comments.
 (global-set-key
@@ -1171,9 +1177,7 @@ Save the buffer of the current window and kill it"
 
 (use-package nerd-icons-dired
   :hook
-  (dired-mode . nerd-icons-dired-mode)
-  :config
-  (setq nerd-icons-font-family "Iosevka NF"))
+  (dired-mode . nerd-icons-dired-mode))
 
 (use-package diredfl
   :commands (diredfl-global-mode)
@@ -1347,9 +1351,7 @@ Save the buffer of the current window and kill it"
   ;; (show-paren-match-expression ((t (:inherit nil :background "#282c34" :weight bold))))
   )
 
-(use-package nerd-icons
-  :config
-  (setq nerd-icons-scale-factor 1))
+(use-package nerd-icons)
 
 (use-package solarized-theme
   :disabled
@@ -1509,10 +1511,13 @@ Save the buffer of the current window and kill it"
   (doom-modeline-modal-icon t)
   (doom-modeline-highlight-modified-buffer-name t)
   :custom-face
-  (doom-modeline-buffer-modified ((t (:background unspecified :inherit (bold)))))
+  (doom-modeline-buffer-modified ((t (:background unspecified :inherit (bold))))))
+
+(use-package doom-modeline
+  :if (eq window-system 'pgtk)
   :config
   ;; NOTE: This does not work.  We have to define our own segment.
-  ;; 
+  ;;
   ;; Override attributes of the face used for padding.
   ;; If the space character is very thin in the modeline, for example if a
   ;; variable pitch font is used there, then segments may appear unusually close.
@@ -1545,7 +1550,7 @@ Save the buffer of the current window and kill it"
           (concat
            (doom-modeline-display-icon icon)
            (my/doom-modeline-vspc))))))
-  
+
   (doom-modeline-def-segment my/buffer-info
     (concat
      (doom-modeline-spc)
@@ -3100,6 +3105,7 @@ session on it without disturbing the current window configuration."
   (my/increment-number-decimal (if arg (- arg) -1)))
 
 (use-package fzf
+  :load-path "site-lisp/fzf/"
   :bind
   ;; Don't forget to set keybinds!
   :config
@@ -3331,23 +3337,6 @@ initial input."
           ;; (c++-mode . c++-ts-mode)
           )))
 
-(use-package tree-sitter-langs
-  ;; Treesit support before emacs-29.
-  :disabled)
-
-(use-package tree-sitter
-  ;; Treesit support before emacs-29.
-  :disabled
-  :hook
-  (tree-sitter-after-on . tree-sitter-hl-mode)
-  :custom
-  (tree-sitter-hl-use-font-lock-keywords t)
-  :custom-face
-  (tree-sitter-hl-face:function.call ((t (:inherit (link font-lock-function-name-face) :underline nil :weight normal))))
-  (tree-sitter-hl-face:property ((t (:inherit font-lock-constant-face))))
-  :config
-  (add-to-list 'tree-sitter-major-mode-language-alist '(rust-ts-mode . rust)))
-
 (use-package treesitter-context
   :after posframe-plus
   :load-path "site-lisp/treesitter-context/"
@@ -3368,80 +3357,6 @@ initial input."
 ;;   (add-hook 'rust-mode-hook (defun my/rust-mode-hook ()
 ;;                               ;; TODO(zino): read `fill-column' from rustfmt.toml.
 ;;                               (setq-local fill-column 80))))
-
-;; (use-package rust-ts-mode
-;;   :disabled
-;;   :config
-;;   (add-hook 'rust-ts-mode-hook (defun treesit-font-lock-feature-list-for-rust-ts-mode ()
-;;                                  (setq-local treesit-font-lock-feature-list
-;;                                              '((comment definition)
-;;                                                (keyword string)
-;;                                                (assignment attribute builtin constant escape-sequence number
-;;                                                            type operator function identifier)
-;;                                                (bracket delimiter function error variable property))))))
-
-;; (use-package rustic
-;;   :custom
-;;   (rustic-lsp-client 'eglot)
-;;   (rustic-default-test-arguments nil)
-;;   ;; :config
-;;   ;; NOTE: These hooks are added in `rustic.el'. Remove them if intend to use
-;;   ;; `flymake'.
-;;   ;; (remove-hook 'rustic-mode-hook 'flymake-mode-off)
-;;   ;; (remove-hook 'rustic-mode-hook 'flycheck-mode)
-;;   :bind
-;;   (
-;;    :map rust-mode-map ("C-c C-p" . my/rustic-popup)
-;;    ;; :map rust-ts-mode-map ("C-c C-p" . my/rustic-popup)
-;;    :map rustic-compilation-mode-map
-;;    ("p" . previous-error-no-select)
-;;    ("M-p" . my/previous-k-lines)
-;;    ("M-n" . my/next-k-lines)
-;;    ("M-[" . compilation-previous-error)
-;;    ("M-]" . compilation-next-error)
-;;    ("g" . (lambda ()
-;;             (interactive)
-;;             (rustic-recompile)
-;;             ;; So that the window will auto scroll to the end of the buffer.
-;;             (end-of-buffer))))
-;;   :config
-;;   ;; Reverse the action of making `rustic-mode' default for rust files in
-;;   ;; `rustic.el'.
-;;   ;; (setq auto-mode-alist (delete '("\\.rs\\'" . rustic-mode) auto-mode-alist))
-;;   ;; (setf (alist-get "\\.rs\\'" auto-mode-alist nil nil 'string=) 'rust-mode)
-;;   (defun my/rustic-popup (&optional args)
-;;     "Setup popup.
-;; If directory is not in a rust project call `read-directory-name'."
-;;     (interactive "P")
-;;     (rustic--inheritenv
-;;      (setq rustic--popup-rust-src-name buffer-file-name)
-;;      (let ((func (lambda ()
-;;                    (let ((buf (get-buffer-create rustic-popup-buffer-name))
-;;                          (win (split-window-below))
-;;                          (inhibit-read-only t))
-;;                      (rustic-popup-insert-contents buf)
-;;                      (set-window-buffer win buf)
-;;                      (select-window win)
-;;                      ;; (fit-window-to-buffer nil nil nil nil nil t)
-;;                      ;; (set-window-text-height win (+ (window-height) 1))
-;;                      ))))
-;;        (if args
-;;            (let ((dir (read-directory-name "Rust project:")))
-;;              (let ((default-directory dir))
-;;                (funcall func)))
-;;          (funcall func)))))
-
-;;   (defun rustic-process-kill-p (proc &optional no-error)
-;;     "Override to not prompt.
-
-;; Don't allow two rust processes at once. If NO-ERROR is t, don't throw error if user chooses not to kill
-;; running process."
-;;     (condition-case ()
-;;         (progn
-;;           (interrupt-process proc)
-;;           (sit-for 0.5)
-;;           (delete-process proc))
-;;       (error nil))))
 
 (use-package rustic
   :load-path "site-lisp/rustic/"
@@ -3593,6 +3508,8 @@ initial input."
         ("M-n" . my/next-k-lines)
         ("M-p" . my/previous-k-lines)))
 
+;; eglot add `eglot--post-self-insert-hook' to `post-self-insert-hook', which calls `eglot-format' and will
+;; format the buffer acccording to the lsp servers' configuration. E.g. .clang-format for clangd.
 (use-package eglot
   :load-path "site-lisp/eglot/"
   ;;; Performance tweaking
@@ -3601,7 +3518,8 @@ initial input."
   ;; Tweak logging.
   (setf (plist-get eglot-events-buffer-config :size) 0)  
   ;; Inlay hints require `clangd-15' and is enabled by default, go get it!
-  (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
+  ;; Specify "--query-driver=/usr/bin/g++" to use stdlib.
+  (add-to-list 'eglot-server-programs '(c++-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu" )))
   (add-to-list 'eglot-server-programs '(c-mode . ("clangd" "--clang-tidy" "--header-insertion=iwyu")))
   (add-to-list 'eglot-server-programs '(cmake-mode . ("cmake-language-server")))
   (add-to-list 'eglot-server-programs '((js-mode typescript-mode typescript-ts-mode) . (eglot-deno "deno" "lsp")))
@@ -3707,8 +3625,6 @@ initial input."
                                            (setq-local eldoc-documentation-functions
                                                        (delete 'eglot-hover-eldoc-function
                                                                eldoc-documentation-functions)))))
-  (add-hook 'eglot-managed-mode-hook (defun my/format-buffer-with-eglot ()
-                                       (add-hook 'before-save-hook 'eglot-format nil t)))
   (defun my/display-local-help-eldoc-function (_cb)
     ;; Return the string as doc. Return t if we need to run the provided callback manually.
     (help-at-pt-kbd-string))
@@ -3716,9 +3632,9 @@ initial input."
   (add-hook
    'eglot-managed-mode-hook
    (defun my/configure-eldoc-documentation-functions ()
-     (setq eldoc-documentation-functions
-           (cl-substitute #'my/eglot-hover-eldoc-function #'eglot-hover-eldoc-function
-                          eldoc-documentation-functions))
+     ;; (setq eldoc-documentation-functions
+     ;;       (cl-substitute #'my/eglot-hover-eldoc-function #'eglot-hover-eldoc-function
+     ;;                      eldoc-documentation-functions))
      (add-hook 'eldoc-documentation-functions #'my/display-local-help-eldoc-function -90 t))))
 
 (use-package eglot
@@ -3945,7 +3861,10 @@ Returns a list as described in docstring of `imenu--index-alist'."
   :custom
   (help-at-pt-display-when-idle t)
   (next-error-function 'flymake-goto-next-error)
-  (flymake-no-changes-timeout 0.1))
+  (flymake-no-changes-timeout 0.1)
+  (flymake-fringe-indicator-position 'left-fringe)
+  (flymake-indicator-type 'fringes)
+  (sh-shellcheck-program ""))
 
 (use-package flymake-cursor
   :after flymake
@@ -4220,7 +4139,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
   (corfu-quit-no-match t)              ;; Quit if there is no match
   (corfu-preview-current 'insert)      ;; Disable current candidate preview
   (corfu-preselect 'first)             ;; Preselect the prompt
-  (corfu-on-exact-match 'insert)       ;; Configure handling of exact matches
+  (corfu-on-exact-match 'show)         ;; Configure handling of exact matches
   (corfu-scroll-margin 5)              ;; Use scroll margin
   (corfu-auto-delay 0)                 ;; Auto-suggestion delay
   (corfu-auto-prefix 2)                ;; Auto-suggestion minimum prefix
@@ -4444,8 +4363,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
   :ensure nil
   :bind
   (:map comint-mode-map
-        ([remap kill-whole-line] . comint-kill-input)
-        ("g" . recompile))
+        ([remap kill-whole-line] . comint-kill-input))
   :custom
   (comint-prompt-read-only t)
   ;; :config
@@ -4587,33 +4505,35 @@ Returns a list as described in docstring of `imenu--index-alist'."
 
   :config
   (better-jumper-mode 1)
-
-  (advice-add 'xref-find-definitions :around 'my/better-jumper-advice)
-  (advice-add 'my/switch-other-buffer :around 'my/better-jumper-advice)
-  (advice-add 'helm-imenu :around 'my/better-jumper-advice)
-  (advice-add 'widget-button-press :around 'my/better-jumper-advice)
-  (advice-add 'org-return :around 'my/better-jumper-advice)
-  (advice-add 'beginning-of-buffer :around 'my/better-jumper-advice)
-  (advice-add 'end-of-buffer :around 'my/better-jumper-advice)
-  (advice-add 'c-beginning-of-defun :around 'my/better-jumper-advice)
-  (advice-add 'c-end-of-defun :around 'my/better-jumper-advice)
-  (advice-add 'lua-beginning-of-proc :around 'my/better-jumper-advice)
-  (advice-add 'lua-end-of-proc :around 'my/better-jumper-advice)
-  (advice-add 'org-open-at-point :around 'my/better-jumper-advice)
-  (advice-add 'org-open-at-mouse :around 'my/better-jumper-advice)
-  (advice-add 'counsel-bookmark :around 'my/better-jumper-advice)
-  (advice-add 'mark-whole-buffer :around 'my/better-jumper-advice)
-  (advice-add 'beginning-of-defun :around 'my/better-jumper-advice)
-  (advice-add 'end-of-defun :around 'my/better-jumper-advice)
-  (advice-add 'org-roam-node-find :around 'my/better-jumper-advice)
-  (advice-add 'my/find-user-init-file :around 'my/better-jumper-advice)
-  (advice-add 'avy-goto-char-timer :around 'my/better-jumper-advice)
-  (advice-add 'helm-maybe-exit-minibuffer :around 'my/better-jumper-advice)
-  (advice-add 'consult-imenu :around 'my/better-jumper-advice)
-  (advice-add 'consult-line :around 'my/better-jumper-advice)
-  (advice-add 'symbols-outline-move-depth-up :around 'my/better-jumper-advice)
-  (advice-add 'flymake-goto-prev-error :around 'my/better-jumper-advice)
-  (advice-add 'flymake-goto-next-error :around 'my/better-jumper-advice))
+  (dolist (fn (list
+               'xref-find-definitions
+               'my/switch-other-buffer
+               'helm-imenu
+               'widget-button-press
+               'org-return
+               'beginning-of-buffer
+               'end-of-buffer
+               'c-beginning-of-defun
+               'c-end-of-defun
+               'lua-beginning-of-proc
+               'lua-end-of-proc
+               'org-open-at-point
+               'org-open-at-mouse
+               'counsel-bookmark
+               'mark-whole-buffer
+               'beginning-of-defun
+               'end-of-defun
+               'org-roam-node-find
+               'my/find-user-init-file
+               'avy-goto-char-timer
+               'helm-maybe-exit-minibuffer
+               'consult-imenu
+               'consult-line
+               'symbols-outline-move-depth-up
+               'flymake-goto-prev-error
+               'flymake-goto-next-error
+               'sp-up-sexp))
+    (advice-add fn :around 'my/better-jumper-advice)))
 
 (use-package dogears
   :init (dogears-mode 1)
@@ -4625,66 +4545,66 @@ Returns a list as described in docstring of `imenu--index-alist'."
         ("M-g M-d" . dogears-list)
         ("M-g M-D" . dogears-sidebar)))
 
-(use-package org-remark
-  ;; Previous version: 1.0.5
-  :init
-  ;; Turn on `org-remark' highlights on startup
-  (org-remark-global-tracking-mode +1)
+;; (use-package org-remark
+;;   ;; Previous version: 1.0.5
+;;   :init
+;;   ;; Turn on `org-remark' highlights on startup
+;;   (org-remark-global-tracking-mode +1)
 
-  (defun my/org-remark-notes-file-name-function ()
-    "Customize notes file."
-    (let ((notes-dir (concat "~/Documents/org-remark" (file-name-directory (buffer-file-name)))))
-      (make-directory notes-dir t)
-      (concat notes-dir (file-name-base (buffer-file-name)) "-notes.org")))
+;;   (defun my/org-remark-notes-file-name-function ()
+;;     "Customize notes file."
+;;     (let ((notes-dir (concat "~/Documents/org-remark" (file-name-directory (buffer-file-name)))))
+;;       (make-directory notes-dir t)
+;;       (concat notes-dir (file-name-base (buffer-file-name)) "-notes.org")))
 
-  :config
-  (defun my/org-remark-mark-and-open ()
-    "Helper function to mark region and open notes buffer.
-  I find myself often do this workflow."
-    (interactive)
-    (org-remark-mark (region-beginning) (region-end))
-    (org-remark-open (1- (point))))
+;;   :config
+;;   (defun my/org-remark-mark-and-open ()
+;;     "Helper function to mark region and open notes buffer.
+;;   I find myself often do this workflow."
+;;     (interactive)
+;;     (org-remark-mark (region-beginning) (region-end))
+;;     (org-remark-open (1- (point))))
 
-  (defun my/org-remark-open-advice (point &optional view-only)
-    "Display source code edit buffer in `other-window' cause a `side-window'
-  cannot be splitted."
-    (setq-local org-src-window-setup 'other-window))
+;;   (defun my/org-remark-open-advice (point &optional view-only)
+;;     "Display source code edit buffer in `other-window' cause a `side-window'
+;;   cannot be splitted."
+;;     (setq-local org-src-window-setup 'other-window))
 
-  (defun my/org-remark-eldoc-function (cb)
-    ;; Return the string. Return t if we need to run the provided callback manually.
-    (help-at-pt-kbd-string))
+;;   (defun my/org-remark-eldoc-function (cb)
+;;     ;; Return the string. Return t if we need to run the provided callback manually.
+;;     (help-at-pt-kbd-string))
 
-  :config
-  (advice-add 'org-remark-open :after 'my/org-remark-open-advice)
-  (advice-add 'org-remark-highlights-get :around 'my/silence-advice)
-  (add-hook 'org-remark-mode-hook (lambda ()
-                                    (define-key org-remark-mode-map [remap display-local-help] 'eldoc-print-current-symbol-info)))
+;;   :config
+;;   (advice-add 'org-remark-open :after 'my/org-remark-open-advice)
+;;   (advice-add 'org-remark-highlights-get :around 'my/silence-advice)
+;;   (add-hook 'org-remark-mode-hook (lambda ()
+;;                                     (define-key org-remark-mode-map [remap display-local-help] 'eldoc-print-current-symbol-info)))
 
-  :bind
-  ;; (keyboard-translate ?\C-m ?\H-m)
-  (("C-x C-n m" . org-remark-mark)
-   ("C-x C-n o" . org-remark-open)
-   ("C-x C-n v" . org-remark-view)
-   ("C-x C-n ]" . org-remark-view-next)
-   ("C-x C-n [" . org-remark-view-prev)
-   ("C-x C-n r" . org-remark-remove)
-   ("C-x C-n d" . org-remark-delete)
-   ("C-x C-n y" . org-remark-mark-yellow)
-   ("C-x C-n l" . org-remark-mark-red-line)
-   ("C-x C-n e" . my/org-remark-mark-and-open)
-   ("C-x C-n t" . org-remark-toggle))
-  (:repeat-map org-remark-repeat-map
-               ("[" . org-remark-view-prev)
-               ("]" . org-remark-view-next))
-  :custom
-  (org-remark-notes-display-buffer-action
-   '((display-buffer-in-side-window)
-     (side . left)
-     (slot . 1)
-     (window-width . 45)))
-  (org-remark-notes-file-name 'my/org-remark-notes-file-name-function)
-  (org-remark-icon-notes "")
-  (org-remark-icon-position-adjusted "(m)"))
+;;   :bind
+;;   ;; (keyboard-translate ?\C-m ?\H-m)
+;;   (("C-x C-n m" . org-remark-mark)
+;;    ("C-x C-n o" . org-remark-open)
+;;    ("C-x C-n v" . org-remark-view)
+;;    ("C-x C-n ]" . org-remark-view-next)
+;;    ("C-x C-n [" . org-remark-view-prev)
+;;    ("C-x C-n r" . org-remark-remove)
+;;    ("C-x C-n d" . org-remark-delete)
+;;    ("C-x C-n y" . org-remark-mark-yellow)
+;;    ("C-x C-n l" . org-remark-mark-red-line)
+;;    ("C-x C-n e" . my/org-remark-mark-and-open)
+;;    ("C-x C-n t" . org-remark-toggle))
+;;   (:repeat-map org-remark-repeat-map
+;;                ("[" . org-remark-view-prev)
+;;                ("]" . org-remark-view-next))
+;;   :custom
+;;   (org-remark-notes-display-buffer-action
+;;    '((display-buffer-in-side-window)
+;;      (side . left)
+;;      (slot . 1)
+;;      (window-width . 45)))
+;;   (org-remark-notes-file-name 'my/org-remark-notes-file-name-function)
+;;   (org-remark-icon-notes "")
+;;   (org-remark-icon-position-adjusted "(m)"))
 
 (use-package org-bulletproof
   :disabled
@@ -5018,7 +4938,8 @@ interactively, do a case sensitive search if CHAR is an upper-case character."
         ("s-<return>" . vterm-send-return)
         ("C-<return>" . vterm-send-return)
         ("C-s-t" . vterm-copy-mode)
-        ("C-/" . vterm-undo))
+        ("C-/" . vterm-undo)
+        ("M-j" . avy-goto-char-timer))
   (:map vterm-copy-mode-map
         ("q" . vterm-copy-mode)
         ("C-s-t" . vterm-copy-mode))
@@ -5170,7 +5091,9 @@ New vterm buffer."
   :custom
   (plantuml-executable-path "plantuml")
   (plantuml-default-exec-mode 'executable)
-  (org-plantuml-jar-path (car (directory-files-recursively "/usr/local/Cellar/plantuml" ".*\.jar")))
+  (org-plantuml-jar-path (let* ((executable (file-chase-links (executable-find "plantuml")))
+                                (dir (file-name-parent-directory (file-name-parent-directory executable))))
+                           (car (directory-files-recursively dir ".*\.jar"))))
   (plantuml-indent-level 2)
   :init
   (add-to-list 'auto-mode-alist '("\\.uml\\'" . plantuml-mode)))
@@ -5255,40 +5178,40 @@ New vterm buffer."
 (use-package org-modern
   :disabled)
 
-;; (use-package indent-bars
-;;   ;; Freezed Old version: commit #fb1a0d6
-;;   :hook
-;;   (hack-local-variables . (lambda ()
-;;                             ;; Read `indent-bars-space-override' from
-;;                             ;; `.dir-locals.el' first.
-;;                             (when (or (derived-mode-p 'rust-mode)
-;;                                       (derived-mode-p 'rust-ts-mode))
-;;                               (indent-bars-mode))))
-;;   (prog-mode . indent-bars-mode)
-;;   (salt-mode . indent-bars-mode)
-;;   (yaml-mode . indent-bars-mode)
-;;   ;; (emacs-lisp-mode . (lambda ()
-;;   ;;                      (indent-bars-mode -1)))
-;;   (git-timemachine-mode . indent-bars-mode)
-;;   :custom
-;;   (indent-bars-color-by-depth
-;;    '(:palette
-;;      (outline-1 outline-2 outline-3 outline-4 outline-5 outline-6 outline-7)
-;;      :blend 1))
-;;   (indent-bars-pattern ". . . . ")
-;;   (indent-bars-width-frac 0.2)
-;;   (indent-bars-treesit-support t)
-;;   (indent-bars-display-on-blank-lines t)
-;;   (indent-bars-depth-update-delay 0.1)
-;;   :hook
-;;   ;; HACK: deal with uncorrectly displayed indent-bars in org mode source block.
-;;   (org-mode . (lambda ()
-;;                 (let ((color (face-background 'org-block))
-;;                       (num 30))
-;;                   (cl-loop for i from 1 to num
-;;                            for face = (intern (format "indent-bars-%d" i))
-;;                            do
-;;                            (face-remap-add-relative face `(:foreground ,color)))))))
+(use-package indent-bars
+  ;; Freezed Old version: commit #fb1a0d6
+  :hook
+  (hack-local-variables . (lambda ()
+                            ;; Read `indent-bars-space-override' from
+                            ;; `.dir-locals.el' first.
+                            (when (or (derived-mode-p 'rust-mode)
+                                      (derived-mode-p 'rust-ts-mode))
+                              (indent-bars-mode))))
+  (prog-mode . indent-bars-mode)
+  (salt-mode . indent-bars-mode)
+  (yaml-mode . indent-bars-mode)
+  ;; (emacs-lisp-mode . (lambda ()
+  ;;                      (indent-bars-mode -1)))
+  (git-timemachine-mode . indent-bars-mode)
+  :custom
+  (indent-bars-color-by-depth
+   '(:palette
+     (outline-1 outline-2 outline-3 outline-4 outline-5 outline-6 outline-7)
+     :blend 1))
+  (indent-bars-pattern ". . . . ")
+  (indent-bars-width-frac 0.2)
+  (indent-bars-treesit-support t)
+  (indent-bars-display-on-blank-lines t)
+  (indent-bars-depth-update-delay 0.1)
+  :hook
+  ;; HACK: deal with uncorrectly displayed indent-bars in org mode source block.
+  (org-mode . (lambda ()
+                (let ((color (face-background 'org-block))
+                      (num 30))
+                  (cl-loop for i from 1 to num
+                           for face = (intern (format "indent-bars-%d" i))
+                           do
+                           (face-remap-add-relative face `(:foreground ,color)))))))
 
 (use-package embark
   :config
@@ -5574,8 +5497,10 @@ New vterm buffer."
   ("M-m" . goto-last-change)
   ("M-S-m" . goto-last-change-reverse))
 
-
-(use-package ledger-mode)
+(use-package ledger-mode
+  :mode ("\\.ledger\\'")
+  :custom
+  (ledger-post-account-alignment-column 2))
 
 (use-package persistent-scratch)
 
@@ -5616,13 +5541,8 @@ New vterm buffer."
   :bind
   ("C-, C-r" . rust-playground)
   :custom
-  (rust-playground-basedir "~/dev/rust-playground"))
-
-(use-package ledger-mode
-  :mode ("\\.ledger\\'")
-  :custom
-  (ledger-post-account-alignment-column 2))
-
+  (rust-playground-basedir "~/dev/rust-playground")
+  (rust-playground-main-rs-template "fn main() {\n    \n    println!(\"Results:\");\n}"))
 
 (use-package gptel
   :config
@@ -5639,8 +5559,46 @@ New vterm buffer."
 (use-package aidermacs
   :load-path "site-lisp/aidermacs/"
   :config
-  (global-set-key (kbd "C-c C-a") 'aidermacs-transient-menu)
-  (aidermacs-setup-minor-mode))
+  (global-set-key (kbd "C-c l") 'aidermacs-transient-menu)
+  (aidermacs-setup-minor-mode)
+  ;; slilicon
+  ;; (setq aidermacs-default-model "openai/Pro/deepseek-ai/DeepSeek-V3")
+  ;; aliyun idealab
+  (setq aidermacs-default-model "openai/qwen2.5-max")
+  ;; (setq aidermacs-default-model "openai/DeepSeek-R1-671B")
+  (setq aidermacs-default-model "openai/gpt-41-0414-global")
+  (add-hook 'aidermacs-before-run-backend-hook
+            (defun my/configure-aider ()
+              (let* (;; Place to store input and chat history.
+                     (chat-history-dir "~/.aider/chat-history")
+                     (input-history-file-name ".aider.input.history")
+                     (chat-history-file-name ".aider.chat.history.md")
+                     (current-file-name (buffer-file-name))
+                     (git-dir (vc-root-dir))
+                     ;; Determine the project root and concatenate it after `chat-history-dir'.
+                     (root-dir (or
+                                ;; If the directory is version controlled, use the vc root dir.
+                                (and git-dir (expand-file-name git-dir))
+                                ;; Otherwise look for the nearest dir named "src". This often happens when
+                                ;; visiting different vendors's source code located under /usr/local.
+                                (locate-dominating-file current-file-name "src")
+                                ;; The current directory is the default.
+                                (expand-file-name (file-name-directory current-file-name))))
+                     (des-dir (file-name-concat chat-history-dir root-dir))
+                     (chat-history-path (expand-file-name chat-history-file-name des-dir))
+                     (input-history-path (expand-file-name input-history-file-name des-dir)))
+                (unless (file-directory-p des-dir)
+                  (make-directory des-dir t))
+                (setq-local aidermacs-extra-args
+                            `("--restore-chat-history"
+                              "--no-show-model-warnings"
+                              "--chat-history-file" ,chat-history-path
+                              "--input-history-file" ,input-history-path)))))
+
+  (setq aidermacs-default-chat-mode 'architect)
+  (setq aidermacs-backend 'vterm)
+  (setq aidermacs-vterm-multiline-newline-key "S-<return>")
+  (setq aidermacs-show-diff-after-change nil))
 
 (use-package page-break-lines
   :init (global-page-break-lines-mode))
@@ -5660,6 +5618,22 @@ New vterm buffer."
 
 (use-package popper
   :load-path "site-lisp/popper/")
+
+(use-package minuet
+  :load-path "site-lisp/minuet-ai.el/"
+  :bind
+  (("M-m" . #'minuet-complete-with-minibuffer) ;; use minibuffer for completion
+   ;; ("M-" . #'minuet-show-suggestion) ;; use overlay for completion
+   ;; ("C-c m" . #'minuet-configure-provider)
+   :map minuet-active-mode-map
+   ;; These keymaps activate only when a minuet suggestion is displayed in the current buffer
+   ("M-p" . #'minuet-previous-suggestion) ;; invoke completion or cycle to next completion
+   ("M-n" . #'minuet-next-suggestion) ;; invoke completion or cycle to previous completion
+   ("M-A" . #'minuet-accept-suggestion) ;; accept whole completion
+   ;; Accept the first line of completion, or N lines with a numeric-prefix:
+   ;; e.g. C-u 2 M-a will accepts 2 lines of completion.
+   ("M-a" . #'minuet-accept-suggestion-line)
+   ("M-e" . #'minuet-dismiss-suggestion))
 
 ;; Try it some time.
 ;; (use-package sideline)
