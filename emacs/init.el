@@ -538,6 +538,9 @@ putting the matching lines in a buffer named *matching*"
       ;; (define-key map "\e[1;P56" (kbd "H-<f12>"))
       )))
 
+;; Need to use the one from elpa. The shipped version is too low for `magit'.
+(use-package transient :ensure t)
+
 (use-package pixel-scroll
   :disabled
   :ensure nil
@@ -2092,6 +2095,7 @@ Return TEMPLATE as a string."
   (magit-todos-insert-after '(bottom) nil nil "Changed by setter of obsolete option `magit-todos-insert-at'"))
 
 (use-package magit-delta
+  :after magit
   :if (eq 0 (shell-command "which delta"))
   :hook
   (magit-mode . magit-delta-mode)
@@ -5631,9 +5635,6 @@ New vterm buffer."
           :models '(Pro/deepseek-ai/DeepSeek-R1)))
   (global-set-key (kbd "C-c g") #'gptel)
   (global-set-key (kbd "C-c RET") #'gptel-send))
-
-(use-package aider
-  :vc (:url "git@github.com:tninja/aider.el.git"))
 
 (use-package aidermacs
   :load-path "site-lisp/aidermacs/"
