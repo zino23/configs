@@ -5633,7 +5633,7 @@ New vterm buffer."
    ;; Accept the first line of completion, or N lines with a numeric-prefix:
    ;; e.g. C-u 2 M-a will accepts 2 lines of completion.
    ("M-a" . #'minuet-accept-suggestion-line)
-   ("M-e" . #'minuet-dismiss-suggestion))
+   ("M-e" . #'minuet-dismiss-suggestion)))
 
 ;; Try it some time.
 ;; (use-package sideline)
