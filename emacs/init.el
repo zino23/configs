@@ -5619,8 +5619,12 @@ New vterm buffer."
 (use-package popper
   :load-path "site-lisp/popper/")
 
+(use-package plz
+  :load-path "site-lisp/plz")
+
 (use-package minuet
   :load-path "site-lisp/minuet-ai.el/"
+  :after plz
   :bind
   (("M-m" . #'minuet-complete-with-minibuffer) ;; use minibuffer for completion
    ;; ("M-" . #'minuet-show-suggestion) ;; use overlay for completion

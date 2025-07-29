@@ -83,3 +83,9 @@
 [submodule "emacs/site-lisp/fzf"]
 	path = emacs/site-lisp/fzf
 	url = git@github.com:bling/fzf.el.git
+[submodule "emacs/site-lisp/minuet-ai.el"]
+	path = emacs/site-lisp/minuet-ai.el
+	url = git@github.com:milanglacier/minuet-ai.el.git
+[submodule "emacs/site-lisp/plz"]
+	path = emacs/site-lisp/plz
+	url = git@github.com:alphapapa/plz.el.git
