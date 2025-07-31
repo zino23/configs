@@ -1925,7 +1925,14 @@ respectively."
 ;;   :custom
 ;;   (libgit-auto-rebuild t))
 
+;; From tarius: since 2020 Melpa distributes magit and magit-section as two separate packages, so that other
+;; packages can depend on the latter without pulling in all of the former. magit-section is specified as a
+;; dependency of magit and your package manager was supposed to install magit-section when you requested that
+;; it install magit. If it failed to do that, you can fix it by explicitly installing magit-section.
+(use-package magit-section)
+
 (use-package magit
+  :after magit-section
   :bind
   (("C-x g" . magit-status)
    ([remap vc-diff] . magit-diff-buffer-file)
