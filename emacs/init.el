@@ -1351,7 +1351,11 @@ Save the buffer of the current window and kill it"
   ;; (show-paren-match-expression ((t (:inherit nil :background "#282c34" :weight bold))))
   )
 
-(use-package nerd-icons)
+(use-package nerd-icons
+  ;; Install a Nerd font on https://www.nerdfonts.com/font-downloads, and set `nerd-icons-font-family' to
+  ;; match the font name
+  :config
+  (setq nerd-icons-font-family "Symbols Nerd Font Mono"))
 
 (use-package solarized-theme
   :disabled
