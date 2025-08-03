@@ -2174,23 +2174,6 @@ Return TEMPLATE as a string."
   ("M-s-[" . hl-todo-previous)
   ("M-s-]" . hl-todo-next))
 
-(use-package git-gutter
-  :bind
-  (("C-c C-u g" . git-gutter-mode)
-   ("C-c C-u [" . git-gutter:previous-hunk)
-   ("C-c C-u ]" . git-gutter:next-hunk)
-   ("C-c C-u p" . git-gutter:popup-hunk)
-   ("C-c C-u s" . git-gutter:stage-hunk)
-   ("C-c C-u r" . git-gutter:revert-hunk)
-   ("C-c C-u m" . git-gutter:mark-hunk)
-   :repeat-map
-   git-gutter-repeat-map
-   ("[" . git-gutter:previous-hunk)
-   ("]" . git-gutter:next-hunk))
-  :custom
-  (git-gutter:update-interval 0.1 "Automatically update diff in 0.1 seconds")
-  (git-gutter:window-width 1))
-
 ;; Dependency of `org-mode'.
 (use-package ob-async)
 
