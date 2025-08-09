@@ -5633,6 +5633,12 @@ New vterm buffer."
    ("M-a" . #'minuet-accept-suggestion-line)
    ("M-e" . #'minuet-dismiss-suggestion)))
 
+(use-package org-super-agenda
+  :load-path "site-lisp/org-super-agenda/")
+
+(use-package package-lint
+  :load-path "site-lisp/package-lint/")
+
 ;; Try it some time.
 ;; (use-package sideline)
 ;; (use-package imenu-everywhere)

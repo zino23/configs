@@ -89,3 +89,12 @@
 [submodule "emacs/site-lisp/plz"]
 	path = emacs/site-lisp/plz
 	url = git@github.com:alphapapa/plz.el.git
+[submodule "emacs/site-lisp/hledger-mode"]
+	path = emacs/site-lisp/hledger-mode
+	url = git@github.com:narendraj9/hledger-mode.git
+[submodule "emacs/site-lisp/org-super-agenda"]
+	path = emacs/site-lisp/org-super-agenda
+	url = git@github.com:alphapapa/org-super-agenda.git
+[submodule "emacs/site-lisp/package-lint"]
+	path = emacs/site-lisp/package-lint
+	url = git@github.com:purcell/package-lint.git
