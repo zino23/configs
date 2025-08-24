@@ -5507,9 +5507,19 @@ New vterm buffer."
   ("M-S-m" . goto-last-change-reverse))
 
 (use-package ledger-mode
-  :mode ("\\.ledger\\'")
-  :custom
-  (ledger-post-account-alignment-column 2))
+  :mode ("\\.ledger\\'" "\\.journal\\'")
+  :config
+  (setq ledger-post-account-alignment-column 2)
+  (setq ledger-binary-path "hledger.sh"
+        ledger-mode-should-check-version nil
+        ledger-report-auto-width nil
+        ledger-report-links-in-register nil
+        ledger-report-native-highlighting-arguments '("--color=always")
+        ledger-default-date-string "%Y-%m-%d")
+  (add-hook 'ledger-mode-hook (lambda ()
+                                (add-hook 'before-save-hook (lambda ()
+                                                              (ledger-post-align-dwim)
+                                                              (ledger-sort-buffer)) 90 t))))
 
 (use-package persistent-scratch)
 
