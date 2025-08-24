@@ -98,3 +98,6 @@
 [submodule "emacs/site-lisp/package-lint"]
 	path = emacs/site-lisp/package-lint
 	url = git@github.com:purcell/package-lint.git
+[submodule "emacs/site-lisp/consult-project-extra"]
+	path = emacs/site-lisp/consult-project-extra
+	url = git@github.com:Qkessler/consult-project-extra.git

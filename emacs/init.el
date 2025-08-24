@@ -1893,6 +1893,8 @@ respectively."
         ("b" . backward-char)))
 
 (use-package projectile
+  ;; Switch to `project'.
+  :disabled
   :config
   ;; NOTE: Set this to the folder where you keep your Git repos!
   (when (file-directory-p "~/dev")
@@ -1901,13 +1903,14 @@ respectively."
     (add-to-list 'projectile-project-search-path "~/gitlab/"))
   ;; [use] call `projectile-find-file' with prefix argument will invalidate cache first
   (setq projectile-switch-project-action #'projectile-find-file)
-  :custom
+  :config
   ;; `alien' indexing method ignores patterns listed in .gitignore, but does not
   ;; respect .projectile
-  (projectile-indexing-method 'alien)
-  (projectile-enable-caching t)
-  (projectile-globally-ignored-directories nil) ; quick fix for bbatsov/projectile#1777
-  (projectile-require-project-root t)
+  (setq projectile-indexing-method 'hybrid)
+  (setq projectile-sort-order 'recently-active)
+  (setq projectile-enable-caching t)
+  (setq projectile-require-project-root t)
+  (setq projectile-auto-cleanup-known-projects t)
   :bind-keymap
   ("s-p" . projectile-command-map)
   :config
@@ -1924,6 +1927,16 @@ respectively."
 ;;   :load-path "site-lisp/libegit2/"
 ;;   :custom
 ;;   (libgit-auto-rebuild t))
+(use-package project
+  :bind-keymap
+  ("s-p" . project-prefix-map))
+
+(use-package consult-project-extra
+  :load-path "site-lisp/consult-project-extra"
+  :bind
+  ([remap project-find-file] . consult-project-extra-find)
+  (:map project-prefix-map
+        ("4 f" . consult-project-extra-find-other-window)))
 
 ;; From tarius: since 2020 Melpa distributes magit and magit-section as two separate packages, so that other
 ;; packages can depend on the latter without pulling in all of the former. magit-section is specified as a
@@ -3239,6 +3252,7 @@ initial input."
   )
 
 (use-package consult-projectile
+  :disabled
   :bind
   ([remap projectile-find-file] . consult-projectile-find-file)
   ([remap projectile-find-file-other-window] . consult-projectile-find-file-other-window)
