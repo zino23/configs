@@ -875,6 +875,13 @@ Save the buffer of the current window and kill it"
 ;; A better way: add ((nil . ((buffer-read-only . t)))) in `.dir-locals.el' at
 ;; the directory whose files should be opened in read-only buffers.
 
+(use-package info
+  :ensure nil
+  :bind
+  (:map Info-mode-map
+        ("M-n" . my/next-k-lines)
+        ("M-p" . my/previous-k-lines)))
+
 (use-package edebug
   :after eros
   :ensure nil
