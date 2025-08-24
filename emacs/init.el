@@ -3795,6 +3795,7 @@ Returns a list as described in docstring of `imenu--index-alist'."
                                  :cancel-on-input non-essential)))))))
 
 (use-package eglot-booster
+  :disabled
   :load-path "site-lisp/eglot-booster/"
   :hook
   (eglot-managed-mode . eglot-booster-mode)
