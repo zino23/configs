@@ -1921,12 +1921,6 @@ respectively."
     (define-key map (kbd "l") 'projectile-replace)
     (define-key map (kbd "r") 'projectile-replace-regexp)))
 
-;; Boost performance of `magit'
-;; `libegit2' has stalled since 2023, need to confirm its usability.
-;; (use-package libgit
-;;   :load-path "site-lisp/libegit2/"
-;;   :custom
-;;   (libgit-auto-rebuild t))
 (use-package project
   :bind-keymap
   ("s-p" . project-prefix-map))
@@ -5664,7 +5658,6 @@ New vterm buffer."
 ;; (use-package org-ioslide) ;; presentation
 ;; (use-package popwin)
 ;; (use-package imenu-list)
-;; (use-package git-gutter+)
 ;; (use-package flycheck-inline)
 ;; (use-package forge)
 ;; (use-package lasgun)
